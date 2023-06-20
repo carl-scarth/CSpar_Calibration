@@ -5,6 +5,7 @@ import pandas as pd
 import sys
 import os
 
+   
 model_dir = "C:\\Users\\cs2361\\Documents\\Jean_Benezech\\CompositesFEMesh\\Csection_mesh" # directory of C Spar model
 gridMod_dir = "C:\\Users\\cs2361\\Documents\\Jean_Benezech\\CompositesFEMesh\\C++\\gridModification\\build" # directory of grid modification code
 # Add the model directory to the Python path
@@ -13,8 +14,19 @@ sys.path.append(model_dir)
 from write_parameters import write_parameters
 from write_mesh import *
 from write_inp import *
-from write_shell_inp import *
-from write_shell_parameters import *
+from write_shell_inp import write_inp as write_shell_inp
+from write_shell_parameters import write_parameters as write_shell_parameters
+
+
+def set_input(x_series, x_name, default_val):
+    # Checks if Pandas series "x_series" contains an entry indexed by string "x_name". If True sets the input x to this value,
+    # if not uses a default value
+    if x_name in x_series:
+        x = x_series[x_name]
+    else:
+        x = default_val
+    return x
+
 
 infile = "inputs\\LHSDesign75x7"
 # infile = "inputs\\LHSDesign30x3" # file in which DoE is stored
@@ -106,63 +118,84 @@ for i, x_i in iterable:
     #    t_ply = x_i[1] 
     #elif d >= 6 and d <= 8:
     #    t_ply = x_i[5]
-    if "t_ply" in x_i:
-        t_ply = x_i["t_ply"]
-    else:
-        t_ply = 0.196
 
-    print(t_ply)
-    dsadsad    
-    # Write parameters to a text file which will be used to generate mesh
-    write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
-    sdsadsa
+    # Extract inputs which govern the geometry, or othewise set to their default values
+    t_ply = set_input(x_i, "t_ply", 0.196)
+    LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
+    RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
+
+    # Pick different input file generating script depending on if the mesh is comprised of shells or not
+    # ideally I'd just use the same file taking a Boolean input, but keep for now in case of changes
+    if shell_mesh:
+        write_shell_parameters(t_ply=t_ply, Zlength=Zlength, height=height, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta,  model_name=model_name)
+    else:
+        # Write parameters to a text file which will be used to generate mesh
+        write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
+    
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar
     command = gridMod_dir + "\\gridMod"
     os.system(command)
-    sadasdasd
+    
     # Extract other material properties from the DoE
-    # Sort with Pandas later    
-    if d == 3:
-       E11 = x_i[0]
-       K = x_i[2]
+    # Is there a neater way of doing this in a loop using a dictionary?
+    # Maybe storing output using tuples?
+    E11 = set_input(x_i, "E11", 115.6)
+    E22 = set_input(x_i, "E22", 9.24)
+    nu12 = set_input(x_i, "nu12", 0.335)
+    nu23 = set_input(x_i, "nu23", 0.487)
+    G12 = set_input(x_i, "G12", 4.826)
+    K = set_input(x_i, "K", 1.0e10)
+    x_spring = set_input(x_i, "x_spring", 27.5)
+    
+    # write Abaqus input file using the appropriate function, depending on whether or not the mesh is 
+    # comprised of shells
+    if shell_mesh:
+        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    else:
+        write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    
+    # if d == 3:
+    #   E11 = x_i[0]
+    #   K = x_i[2]
        # Write input file for Abaqus
-       write_inp(E11 = E11, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    elif d == 4:
-        E11 = x_i[0]
-        K = x_i[2]
-        x_spring = x_i[3]
-        write_inp(E11 = E11, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    elif d == 6:
-        E11 = x_i[0]
-        E22 = x_i[1]
-        nu12 = x_i[2]
-        nu23 = x_i[3]
-        G12 = x_i[4]
-        write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    elif d == 7:
-        E11 = x_i[0]
-        E22 = x_i[1]
-        nu12 = x_i[2]
-        nu23 = x_i[3]
-        G12 = x_i[4]
-        K = x_i[6]
-        write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    elif d == 8:
-        E11 = x_i[0]
-        E22 = x_i[1]
-        nu12 = x_i[2]
-        nu23 = x_i[3]
-        G12 = x_i[4]
-        K = x_i[6]
-        x_spring = x_i[7]
-        write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+       # write_inp(E11 = E11, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    # elif d == 4:
+        # E11 = x_i[0]
+        # K = x_i[2]
+        # x_spring = x_i[3]
+        # write_inp(E11 = E11, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    #elif d == 6:
+    #    E11 = x_i[0]
+    #    E22 = x_i[1]
+    #    nu12 = x_i[2]
+    #    nu23 = x_i[3]
+    #    G12 = x_i[4]
+    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    # elif d == 7:
+    #    E11 = x_i[0]
+    #    E22 = x_i[1]
+    #    nu12 = x_i[2]
+    #    nu23 = x_i[3]
+    #    G12 = x_i[4]
+    #    K = x_i[6]
+    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+    #elif d == 8:
+    #    E11 = x_i[0]
+    #    E22 = x_i[1]
+    #    nu12 = x_i[2]
+    #    nu23 = x_i[3]
+    #    G12 = x_i[4]
+    #    K = x_i[6]
+    #    x_spring = x_i[7]
+    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)   
     
     # Run Abaqus from the command line
     command = "Abaqus Job=" + model_name + " input=\"Abaqus\\" + model_name + ".inp\" interactive ask_delete=OFF cpus=4"
     os.system(command)
-    
+    asdsad
+
     # Process the abaqus output to extract displacements and nodal coordinates
     if change_inc:
         # If multiple frames are requested, run the code which processes all frames
