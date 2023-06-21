@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import sys
 import os
+import json
 
    
 model_dir = "C:\\Users\\cs2361\\Documents\\Jean_Benezech\\CompositesFEMesh\\Csection_mesh" # directory of C Spar model
@@ -28,7 +29,7 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-infile = "inputs\\LHSDesign75x7"
+infile = "inputs\\LHSDesign40x4"
 # infile = "inputs\\LHSDesign30x3" # file in which DoE is stored
 # infile = "inputs\\LHSDesign60x6"
 # infile = "Problem_run"
@@ -37,7 +38,7 @@ infile = "inputs\\LHSDesign75x7"
 # infile = "inputs\\nominal_inputs" # file in which DoE is stored
 
 change_inc = True # Do I want to play with the increment size?
-write_buffer = False # Do I want to write a temporary file to store displacements as I go?
+write_buffer = True # Do I want to write a temporary file to store displacements as I go?
 restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of shells?
 
@@ -45,6 +46,7 @@ max_inc = 0.1  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -250.0 # Applied load
+
 
 # Numpy version
 # Load in the Design of Experiments
@@ -57,8 +59,7 @@ x_DoE = pd.read_csv(infile + ".csv", sep = ",")
 N, d = x_DoE.shape # Number of samples and number of inputs
 
 if shell_mesh:
-    # I think this is correct as the 5 reference nodes from Jean's mesh get omitted from the output - check this!
-    n_Nodes = 9353
+    n_Nodes = 9352
 else:
     # n_Nodes = 116876 # Number of nodes per simulation - Old version before adding new reference nodes
     n_Nodes = 116877 # Number of nodes per simulation (this increased with the additional BCs) 3D Mesh
@@ -97,6 +98,9 @@ else:
         displacements = np.empty([n_Nodes,0])
         incs = []
         RFs = np.empty([1,0])
+        # Also create a dictionary to experiment with json files
+        # (might work even even not changing increment, thus simplifying this code)
+        out_dict = {"Sample" : []}
     else:
         init_inc = 1.0
         min_inc = 1.0e-5
@@ -107,6 +111,7 @@ else:
 
 # nodes = np.empty([n_Nodes,3*N])
 # Loop over entries of the DoE and run the Abaqus model
+
 for i, x_i in iterable:
     print(i)
     print(x_i)
@@ -137,7 +142,7 @@ for i, x_i in iterable:
     # Run the gridModification code to create the ramp in the spar
     command = gridMod_dir + "\\gridMod"
     os.system(command)
-    
+        
     # Extract other material properties from the DoE
     # Is there a neater way of doing this in a loop using a dictionary?
     # Maybe storing output using tuples?
@@ -194,7 +199,6 @@ for i, x_i in iterable:
     # Run Abaqus from the command line
     command = "Abaqus Job=" + model_name + " input=\"Abaqus\\" + model_name + ".inp\" interactive ask_delete=OFF cpus=4"
     os.system(command)
-    asdsad
 
     # Process the abaqus output to extract displacements and nodal coordinates
     if change_inc:
@@ -206,7 +210,7 @@ for i, x_i in iterable:
     
     os.system(command)
 
-    # sense. The increment index outputted by the postprocessing file should help keep track of things.
+    # The increment index outputted by the postprocessing file should help keep track of things.
     # At some point consider looking at numpy options for 3d arrays, and json files. This is going to be an 
     # issue for the experimental data as well so worth getting a decent structure set downl
     disp_i = np.loadtxt(model_name + "_displacement.csv", delimiter = ",", skiprows = 0)
@@ -218,12 +222,24 @@ for i, x_i in iterable:
         incs.append(incs_i.tolist())
         RFs_i = np.loadtxt(model_name + "_RFs.csv", delimiter = ",", skiprows = 0)
         RFs = np.concatenate((RFs, RFs_i.reshape((1, -1))), axis=1)
+        # Load in json file if using
+        with open(model_name + "_output.json", "r") as f:
+            # Load in string from file
+            sample_dict = json.loads(f.readline())
+        
+        # Should follow the structure of the dictionary defined in the process outputs file
+        # If the below code works fine then it should be possible just to add this to another
+        # dictionary defined at this level. Then output this file. Could even output at each increment
+        # then overwrite to get rid of the complicated buffer code
+        print(sample_dict["Frame"][1]["Increment"])
+        out_dict["Sample"].append(sample_dict)
     else:
         displacements[:,3*i:3*(i+1)] = disp_i
 
     # nodes[:,3*i:3*(i+1)] = nodes_i
 
     if write_buffer:
+        # better to rewrite file after each step?
         with open('displacement_buffer.csv', 'a') as f:
             np.savetxt(f, disp_i.T, delimiter = ',')
         with open('increment_buffer.csv', 'a') as f:
@@ -235,6 +251,7 @@ for i, x_i in iterable:
 
 # Write model outputs from all simulations to csv files   
 # Create header for csv
+print(incs)
 if change_inc:      
     head_str = ', '.join(['u_' + str(i+1) + '_' + str(j+1) + ', v_' + str(i+1) + '_' + str(j+1) + ', w_' + str(i+1) + '_' + str(j+1) for i in range(N) for j in range(len(incs[i]))])
 else:
@@ -255,3 +272,7 @@ if write_buffer:
     for filename in ['displacement_buffer.csv','increment_buffer.csv','RF_buffer.csv']:
         if os.path.isfile(filename): # Check if file exists first to avoid errors
             os.remove(filename)
+
+# Write json file
+with open(infile + "_json_" + str(load) + "_max_inc=" + str(max_inc) + ".json",'w') as f:
+    f.write(json.dumps(out_dict))
