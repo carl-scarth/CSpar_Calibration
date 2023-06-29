@@ -29,9 +29,9 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-infile = "inputs\\LHSDesign40x4"
+# infile = "inputs\\LHSDesign40x4"
 # infile = "inputs\\LHSDesign30x3" # file in which DoE is stored
-# infile = "inputs\\LHSDesign60x6"
+infile = "inputs\\LHSDesign100x6"
 # infile = "Problem_run"
 # infile = "inputs\\LHSDesign100x7_1" # file in which DoE is stored
 # infile = "inputs\\LHSDesign50x4" # file in which DoE is stored
@@ -42,7 +42,7 @@ write_buffer = True # Do I want to write a temporary file to store displacements
 restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of shells?
 
-max_inc = 0.1  # maximum increment
+max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -250.0 # Applied load
@@ -136,13 +136,13 @@ for i, x_i in iterable:
     else:
         # Write parameters to a text file which will be used to generate mesh
         write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
-    
+
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar
     command = gridMod_dir + "\\gridMod"
     os.system(command)
-        
+
     # Extract other material properties from the DoE
     # Is there a neater way of doing this in a loop using a dictionary?
     # Maybe storing output using tuples?
@@ -197,7 +197,7 @@ for i, x_i in iterable:
     #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)   
     
     # Run Abaqus from the command line
-    command = "Abaqus Job=" + model_name + " input=\"Abaqus\\" + model_name + ".inp\" interactive ask_delete=OFF cpus=4"
+    command = "Abaqus Job=" + model_name + " input=\"Abaqus\\" + model_name + ".inp\" interactive ask_delete=OFF cpus=2"
     os.system(command)
 
     # Process the abaqus output to extract displacements and nodal coordinates
@@ -218,7 +218,7 @@ for i, x_i in iterable:
     if change_inc:
         displacements = np.concatenate((displacements,disp_i), axis=1)
         # Also load in increment indices and reaction forces
-        incs_i = np.loadtxt(model_name + "_increments.csv", delimiter = ",", skiprows = 0)
+        incs_i = np.loadtxt(model_name + "_increments.csv", delimiter = ",", skiprows = 0, ndmin = 1)
         incs.append(incs_i.tolist())
         RFs_i = np.loadtxt(model_name + "_RFs.csv", delimiter = ",", skiprows = 0)
         RFs = np.concatenate((RFs, RFs_i.reshape((1, -1))), axis=1)
@@ -251,8 +251,9 @@ for i, x_i in iterable:
 
 # Write model outputs from all simulations to csv files   
 # Create header for csv
-print(incs)
-if change_inc:      
+if change_inc:
+    # issue if some runs haven't started as then the stored increment list is a single float and not a list. I've added ndmin to the code which adds to this list
+    # in the hope that it fixes this issue
     head_str = ', '.join(['u_' + str(i+1) + '_' + str(j+1) + ', v_' + str(i+1) + '_' + str(j+1) + ', w_' + str(i+1) + '_' + str(j+1) for i in range(N) for j in range(len(incs[i]))])
 else:
     head_str = ', '.join(['u_' + str(i+1)+', v_'+str(i+1)+', w_'+str(i+1) for i in range(N)])
