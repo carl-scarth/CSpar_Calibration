@@ -2,7 +2,7 @@
 # Fit an emulator to the full-field output from a C-Spar Finite Element model
 # Input data are the Longitudinal Modulus E11, ply thickness, and the torsional
 # stiffness of a spring representing an uncertain boundary condition
-# Output data are the axial displacements of the nodes of the FE model.
+# Output data are the axial displacements of the nodes of the FE model at a fixed load.
 # Follows emulator aspect of D. Higdon et al, "Computer Model Calibration Using 
 # High-Dimensional Output",Journal of the American Statistical Association,2008.
 # This code handles pre and post processing.

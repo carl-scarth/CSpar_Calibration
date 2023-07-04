@@ -29,9 +29,9 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-# infile = "inputs\\LHSDesign40x4"
+infile = "inputs\\LHSDesign40x4_1"
 # infile = "inputs\\LHSDesign30x3" # file in which DoE is stored
-infile = "inputs\\LHSDesign100x6"
+# infile = "inputs\\LHSDesign100x6"
 # infile = "Problem_run"
 # infile = "inputs\\LHSDesign100x7_1" # file in which DoE is stored
 # infile = "inputs\\LHSDesign50x4" # file in which DoE is stored
@@ -42,7 +42,7 @@ write_buffer = True # Do I want to write a temporary file to store displacements
 restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of shells?
 
-max_inc = 0.05  # maximum increment
+max_inc = 0.01  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -250.0 # Applied load
@@ -142,7 +142,7 @@ for i, x_i in iterable:
     # Run the gridModification code to create the ramp in the spar
     command = gridMod_dir + "\\gridMod"
     os.system(command)
-
+    
     # Extract other material properties from the DoE
     # Is there a neater way of doing this in a loop using a dictionary?
     # Maybe storing output using tuples?
