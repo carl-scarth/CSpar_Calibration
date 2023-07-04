@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
 
-file_str = "LHSDesign60x6"
+file_str = "LHSDesign40x4"
 max_load = -250.0
 max_inc = 0.05
 displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
-
-#displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
+# displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
 RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
 with open ("inputs\\" + file_str + "_incs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
     increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
@@ -15,8 +15,9 @@ with open ("inputs\\" + file_str + "_incs_load=" + str(max_load) + "_max_inc=" +
 # Play around with different data structures: json or dataframe
 displacements_struct = {"Sample" : []}
 # Creates an empty dataframe with all the correct column names. Not sure how to add to these in the loop
-displacements_df = pd.DataFrame(columns=["Sample","Frame","Increment","RF1","RF2","RF3","Node","U","V","W"])
+displacements_df = pd.DataFrame(columns=["Sample","Frame","Increment","Node","RF1","RF2","RF3","U","V","W"])
 frame_cnt = 0
+# Dataframe seems slower...
 for i, sample in enumerate(increments):
     displacements_struct["Sample"].append({"Frame" : []})
     # displacements_df["Sample"].append(i) # Doesn't work. Can append a series though. Look at other ways of constructing pandas dataframes on the fly
@@ -25,17 +26,30 @@ for i, sample in enumerate(increments):
                                                            "RFs" : RFs[3*frame_cnt:3*(frame_cnt+1)].tolist(),
                                                            "Displacements" : displacements[:,3*frame_cnt:3*(frame_cnt+1)]})
         # Altermative format using Pandas dataframe
-        # Create numpy array using all of the data then create dataframe
         uvw_df = pd.DataFrame(displacements[:,3*frame_cnt:3*(frame_cnt+1)], columns=["U","V","W"])
         uvw_df["Sample"] = i
         uvw_df["Frame"] = j
-        # etc. concatenate. Hopefully the headings will sort themselves out...
+        uvw_df["Increment"] = frame
+        uvw_df = pd.concat([uvw_df, pd.DataFrame(np.broadcast_to(RFs[3*frame_cnt:3*(frame_cnt+1)],(uvw_df.shape[0],3)), columns=["RF1","RF2","RF3"])], axis=1)
+        uvw_df["Node"] = range(uvw_df.shape[0])
+        uvw_df[displacements_df.columns]
+        displacements_df = pd.concat([displacements_df,uvw_df])#[displacements_df.columns]])
+        
         frame_cnt += 1
 
 # Number of frames in each sample
 n_frames = [len(sample["Frame"]) for sample in displacements_struct["Sample"]]
 # Final increment for each sample (to check which runs didn't complete)
 end_incs = [sample["Frame"][-1]["Increment"] for sample in displacements_struct["Sample"]]
+
+# Alterative formatting using pandas
+n_samples = displacements_df["Sample"].max() + 1
+# This way is quite slow
+n_frames_df = [displacements_df.loc[displacements_df["Sample"]==i]["Frame"].max() + 1 for i in range(n_samples)]
+end_incs_df = [displacements_df.loc[displacements_df["Sample"]==i]["Increment"].max() for i in range(n_samples)]
+
+displacements_sam_0 = displacements_df.loc[displacements_df["Sample"]==0]
+# Continue the below with Pandas formatting - is it better?
 
 # Create a different structure with increments of 0.8 or lower
 # First create a copy of the dictionary to prevent modifying the original
@@ -86,7 +100,12 @@ ax3.set_ylabel("Force (kN)", fontdict = label_font)
 ax3.set_xlabel("Minimum vertical displacement (mm)", fontdict = label_font)
 
 plt.show()
-asddsdsdsad
+for sample in displacements_struct_subset["Sample"]:
+    for frame in sample["Frame"]:
+        frame["Displacements"] = frame["Displacements"].tolist()
 
-# Pandas
+with open("inputs\\" + file_str + "_structured.json",'w') as f:
+    f.write(json.dumps(displacements_struct_subset))
+
+
 # json?
