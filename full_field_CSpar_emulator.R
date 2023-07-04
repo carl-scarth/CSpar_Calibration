@@ -1,14 +1,18 @@
 
-# Fit an emulator to the full-field output from a C-Spar finite element model
+# Fit an emulator to the full-field output from a C-Spar Finite Element model
 # Input data are the Longitudinal Modulus E11, ply thickness, and the torsional
 # stiffness of a spring representing an uncertain boundary condition
+# Output data are the axial displacements of the nodes of the FE model.
+# Follows emulator aspect of D. Higdon et al, "Computer Model Calibration Using 
+# High-Dimensional Output",Journal of the American Statistical Association,2008.
+# This code handles pre and post processing.
 
 library(data.table)
 library(rstan)
 library(matrixStats)
 
 # Set current working directory. This should be modified to match the directory
-# at which the stan code and any data is stored
+# of the user
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
@@ -20,48 +24,44 @@ source("source/covariance_matrices.R")
 # Set up parameters which govern the formulation
 
 p_eta = 5 # Number of basis functions to be retained for the emulator from SVD
+disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 
 #-------------------------------------------------------------------------------
 
 # Set up simulation data
 
-# Load in emulator training data (input values) from Design of Experiments. 
-XT_sim = fread("inputs/LHSDesign50x3.csv")
+# Load in emulator training data input values from Design of Experiments. 
+in_file = "LHSDesign50x3" # File identifier string which is in both input and output csvs
+XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
-# take natural logarithm of spring stiffness
+# In this example I fit the emulator to the log of spring stiffness K, which is 
+# a more natural choice of values across which outputs are expected for
+# variations in this input
 XT_sim$K = log(XT_sim$K)
 colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
-# match the notation of Higdon et al.
+# match the notation of Higdon et al. 2008
 q = ncol(XT_sim)          # number of calibration inputs
 tc = as.matrix(XT_sim)    # Convert training data input points to a matrix for passing to stan
 m = nrow(XT_sim)          # sample size of computer simulation data
 
-# Load in emulator training data (outputs - Abaqus nodal displacement data).
-# Each row matches inputs for the corresponding row in XT_sim
-#displacement_data = fread("inputs/LHSDesign30x3_displacements.csv")#, header = FALSE, sep = ",")
-displacement_data = fread("inputs/LHSDesign50x3_displacements.csv")#, header = FALSE, sep = ",")
-#displacement_data = fread("inputs/LHSDesign100x3_displacements.csv")#, header = FALSE, sep = ",")
-n_eta = nrow(displacement_data) # number of output points per simulation
+# Load in  training data output displacement values from Abaqus. Here I've used
+# a similar naming convention to the inputs to automate changes. The file name 
+# can be changed manually if need be.
+# Each row of XT_sim corresponds to a block of three columns of displacement 
+# data, with a column for each component u,v,w 
+abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
-dt_all_simulation = matrix(NA,nrow = n_eta, ncol = m)
-# Extract the axial displacement, w
+# Extract the displacement for the component of interest and store in a matrix
+dt_simulation = matrix(NA,nrow = n_eta, ncol = m)
 for (i in 1:m){
-  #dt_all_simulation[,i] = displacement_data[[as.name(sprintf('w_%d', i))]]
-  dt_all_simulation[,i] = displacement_data[[as.name(sprintf('u_%d', i))]]
+  dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
 }
 
-#mins = matrix(colMins(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-# maxs = matrix(colMaxs(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-#dt_all_simulation = matrix(as.matrix(dt_all_simulation),nrow = n_eta*3,ncol = m)
-
-
-# For the time being just work with the axial (z) displacement
-# think a bit about how to process full displacement vector (might require
-# alterations to the statistical model)
-#coord_ind = 3 # Coordinate of interest
-#dt_all_simulation = dt_all_simulation[((coord_ind-1)*n_eta+1):(coord_ind*n_eta),]
+# GOOD UP TO HERE
+asds
 
 #-------------------------------------------------------------------------------
 
@@ -107,8 +107,8 @@ pairs(~E11 + t_ply + log_K, data = t_pred,col = "blue",pch=4)
 # calculating the sample mean of the transformed output, then specify this 
 # (constant) mean value to each Gaussian process. This is arguably easier and 
 # might reduce this possibility of errors being introduced.
-mu_dt = rowMeans(dt_all_simulation)
-dt_all_cen = sweep(dt_all_simulation,1,mu_dt,"-")
+mu_dt = rowMeans(dt_simulation)
+dt_all_cen = sweep(dt_simulation,1,mu_dt,"-")
 
 # Divide by the overall standard deviation of the simulation data to standardise
 # to unit variance
