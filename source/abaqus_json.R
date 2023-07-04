@@ -1,0 +1,42 @@
+# Function for extracting structured Abaqus displacement data from a json file
+# This function only works if the number of frames is constant across samples,
+# and the number of nodes is constant across frames, i.e. the data has 
+# consistent structure. Data is structured as:
+# in_struct["Sample"][[i]]["Frame"][[j]]["Displacements"]
+#                                       ["Increment"]
+#                                       ["RFs"]
+
+extract_const_frame <- function(in_struct, disp_str) {
+  # Assign a column index depending on which displacement component is of interest
+  col_ind = switch(disp_str, "u"=1, "v"=2, "w"=3)
+  # Assume number of frames is the same for each sample, and the number of nodes 
+  # the same for each frame. Add error terms to spot if this isn't the case
+  n_nodes = length(in_struct$Sample[[1]]$Frame[[1]]$Displacements) # Number of nodes
+  n_frames = length(in_struct$Sample[[1]]$Frame) # Number of frames
+  m = length(in_struct$Sample) # Number of samples
+  out_mat = matrix(NA,nrow = n_nodes*n_frames, ncol = m)
+  # Loop over output for all samples
+  for (i in 1:length(in_struct$Sample)){
+    # Extract a list of frames for each sample
+    sample_i = in_struct$Sample[[i]]$Frame
+    if (length(sample_i) != n_frames){
+      # Flag error if the number of frames is different in the current sample
+      stop("There are a different number of frames across samples")
+    } 
+    disp_i = matrix(data = NA, nrow=0, ncol=3)
+    # Loop over each frame and extract the displacement
+    for (j in 1:n_frames){
+      frame_j = do.call(rbind, sample_i[[j]]$Displacements)
+      if (nrow(frame_j) != n_nodes){
+        # Flag error if the number of nodes is different in the current frame
+        stop("There are a different number of nodes across samples")
+      } 
+      # the outputs of each frame are concatenated
+      disp_i = rbind(disp_i, frame_j)
+    }
+    # Store the component of interest to the matrix of model outputs
+    out_mat[,i] = disp_i[,col_ind]
+  }
+  
+  return(list(out_mat,n_nodes,n_frames))
+}
