@@ -104,7 +104,7 @@ for sample in displacements_struct_subset["Sample"]:
     for frame in sample["Frame"]:
         frame["Displacements"] = frame["Displacements"].tolist()
 
-with open("inputs\\" + file_str + "output_struct.json",'w') as f:
-    f.write(json.dumps(displacements_struct_subset))
+#with open("inputs\\" + file_str + "output_struct.json",'w') as f:
+#    f.write(json.dumps(displacements_struct_subset))
 
 # json?

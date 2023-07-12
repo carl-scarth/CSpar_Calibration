@@ -59,3 +59,10 @@ n_frames = sorted_data[[3]] # Number of frames
 n_eta = nrow(dt_simulation) # total number of output points per simulation
 
 #-------------------------------------------------------------------------------
+
+# Load in test points at which predictions are required
+XT_pred = fread("inputs/LHSDesign40x4_1.csv")
+t_pred = as.matrix(XT_pred)
+n_pred = nrow(t_pred) # number of predictions
+
+#-------------------------------------------------------------------------------

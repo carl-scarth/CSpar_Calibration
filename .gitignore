@@ -1,4 +1,5 @@
 # Ignore files created when running the CSpar model
 *.geo
 *.msh
+*.tmp
 parameters.txt

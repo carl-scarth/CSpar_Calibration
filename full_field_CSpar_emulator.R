@@ -31,14 +31,15 @@ disp_str = "w" # String which identifies the displacement component of interest 
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign50x3" # File identifier string which is in both input and output csvs
+# in_file = "LHSDesign50x3" # File identifier string which is in both input and output csvs
+in_file = "LHSDesign40x4" # File identifier string which is in both input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 
 # a more natural choice of values across which outputs are expected for
 # variations in this input
-XT_sim$K = log(XT_sim$K)
-colnames(XT_sim)[3] = "log_K"
+#XT_sim$K = log(XT_sim$K)
+#colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
 # match the notation of Higdon et al. 2008
@@ -51,7 +52,8 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # can be changed manually if need be.
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
-abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+# abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_100kN.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -60,19 +62,21 @@ for (i in 1:m){
   dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
 }
 
-# GOOD UP TO HERE
-asds
-
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-t_pred = fread("inputs/LHSDesign50x3_1.csv")
-t_pred$K = log(t_pred$K)
-colnames(t_pred)[3] = "log_K"
-t_pred = as.matrix(t_pred)
-n_pred = nrow(t_pred)
+# XT_pred = fread("inputs/LHSDesign50x3_1.csv")
+XT_pred = fread("inputs/LHSDesign40x4_1.csv")
+# Repeat the log transformation for the test data
+# XT_pred$K = log(XT_pred$K)
+# colnames(XT_pred)[3] = "log_K"
+t_pred = as.matrix(XT_pred)
+n_pred = nrow(t_pred) # number of predictions
   
 #-------------------------------------------------------------------------------
+
+# Good up to here!!
+ASDSADSAD
 
 # All training data points are normalised onto the unit hypercube [0,1]^q before
 # being passed to stan. This code transforms all of these points, also 
