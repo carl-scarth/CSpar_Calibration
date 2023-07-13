@@ -2,4 +2,10 @@
 *.geo
 *.msh
 *.tmp
+*.RData
+*.RDataTmp
+*.Rhistory
+*.dmp
+*.vtk
+Abaqus/
 parameters.txt
