@@ -26,8 +26,10 @@ source("source/abaqus_json.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 5 # Number of basis functions to be retained for the emulator from SVD
+p_eta = 11 # Number of basis functions to be retained for the emulator from SVD
+exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+print_output = TRUE # Print diagnostic output to the terminal?
 
 #-------------------------------------------------------------------------------
 
@@ -64,5 +66,91 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 XT_pred = fread("inputs/LHSDesign40x4_1.csv")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
+
+#-------------------------------------------------------------------------------
+
+# All training data points are normalised onto the unit hypercube [0,1]^q before
+# being passed to stan. The same transformation is applied to the test points
+
+# Determine the maximum and minimum value of each input within the training data
+t_min = t(as.matrix(colMins(tc)))
+t_max = t(as.matrix(colMaxs(tc)))
+# Normalise the inputs using these maximum and minimum values
+tc = (tc - t_min[rep(1,m),])/(t_max[rep(1,m),]-t_min[rep(1,m),])
+t_pred = (t_pred - t_min[rep(1,n_pred),])/(t_max[rep(1,n_pred),]-t_min[rep(1,n_pred),])
+
+# plot Design of Experiments and test points
+pairs(tc,col="blue", pch=4, 
+      main = "Normalised Training Data Input values",
+      cex=1.5,
+      cex.labels = 1.75,
+      cex.axis=1.5,
+      cex.lab=1.5)
+pairs(t_pred,col = "blue", pch=4, 
+      main = "Normalised Test Data Input Values",
+      cex=1.5,
+      cex.labels = 1.75,
+      cex.axis=1.5,
+      cex.lab=1.5)
+
+#-------------------------------------------------------------------------------
+
+# Performs SVD on the model outputs, and standardise so the coefficients of the 
+# expansion have zero mean and unit variance
+
+# Centre the simulation output for each node This guarantees that the
+# coefficients have zero (sample) mean. 
+mu_dt = rowMeans(dt_simulation)
+dt_all_cen = sweep(dt_simulation,1,mu_dt,"-")
+
+# Divide by the standard deviation of the outputs
+sd_dt = sd(as.matrix(dt_all_cen))
+dt_all_cen = dt_all_cen/sd_dt
+# Convert to matrix for stan
+eta = as.matrix(dt_all_cen)
+
+# Perform SVD on the centred data
+dt_svd = svd(dt_all_cen)
+
+# Extract the first p_eta basis functions from the svd, and standardise so the
+# coefficients (columns of sqrt(m-1)*v) have unit variance
+K_eta = dt_svd$u[,1:p_eta]*matrix(dt_svd$d[1:p_eta],nrow = n_eta, ncol = p_eta, byrow = TRUE)/sqrt(m-1)
+
+if (print_output){
+  # Sanity check that weights of SVD have zero mean and unit variance
+  print("mean of reduced dimension output w = ")
+  print(colMeans(dt_svd$v))
+  print("standard deviations of reduced dimension output w = ")
+  print(colSds(dt_svd$v*sqrt(m-1)))
+}
+
+
+# Write a JSON file with the output (still tempted to use DataFrame as the code
+# is a little convoluted) 
+out_json = basis_mean_to_json(n_frames, n_nodes, K_eta, mu_dt)
+write(out_json, paste("outputs/basis_nonlinear_",in_file,".json", sep=""))
+
+
+# Plot magnitude of singular value d with increasing number of basis functions
+# to indicate how much each base contributes to the output variance.
+dr_sqr = sum(dt_svd$d^2)
+d_r = dt_svd$d[1:p_eta]
+d_r_norm = d_r^2/dr_sqr
+par(mfrow = c(1,2))
+plot(1:p_eta,d_r_norm,"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
+# Omit first point for greater clarity on convergence
+plot(2:p_eta,d_r_norm[-1],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
+title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
+
+# How many functions are needed achieve a tolerance fraction of the variance?
+basis_tol = 1:p_eta
+basis_tol = basis_tol[cumsum(d_r_norm) > (1-exp_tol)]
+basis_tol = basis_tol[1]
+if (print_output){
+  print("Number of basis functions required to represent output within tolerance = ")
+  print(basis_tol)
+}
 
 #-------------------------------------------------------------------------------

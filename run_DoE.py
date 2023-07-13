@@ -29,8 +29,9 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-infile = "inputs\\LHSDesign40x4_1"
-# infile = "inputs\\LHSDesign30x3" # file in which DoE is stored
+# infile = "inputs\\LHSDesign40x4_1"
+infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
+
 # infile = "inputs\\LHSDesign100x6"
 # infile = "Problem_run"
 # infile = "inputs\\LHSDesign100x7_1" # file in which DoE is stored
@@ -40,9 +41,9 @@ infile = "inputs\\LHSDesign40x4_1"
 change_inc = True # Do I want to play with the increment size?
 write_buffer = True # Do I want to write a temporary file to store displacements as I go?
 restart = False # Am I restarting a previous analysis?
-shell_mesh = True # Is the mesh comprised of shells?
+shell_mesh = True # Is the mesh comprised of continuum shells?
 
-max_inc = 0.01  # maximum increment
+max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -250.0 # Applied load
@@ -115,15 +116,7 @@ else:
 for i, x_i in iterable:
     print(i)
     print(x_i)
-        
     
-    # t_ply = x_i[5] # Extract ply thickness from the DoE
-    # Use conditional for now to extract parameter values - this will be neater with Pandas
-    # if d == 3 or d == 4:
-    #    t_ply = x_i[1] 
-    #elif d >= 6 and d <= 8:
-    #    t_ply = x_i[5]
-
     # Extract inputs which govern the geometry, or othewise set to their default values
     t_ply = set_input(x_i, "t_ply", 0.196)
     LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
@@ -144,8 +137,6 @@ for i, x_i in iterable:
     os.system(command)
     
     # Extract other material properties from the DoE
-    # Is there a neater way of doing this in a loop using a dictionary?
-    # Maybe storing output using tuples?
     E11 = set_input(x_i, "E11", 115.6)
     E22 = set_input(x_i, "E22", 9.24)
     nu12 = set_input(x_i, "nu12", 0.335)
@@ -160,41 +151,6 @@ for i, x_i in iterable:
         write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    
-    # if d == 3:
-    #   E11 = x_i[0]
-    #   K = x_i[2]
-       # Write input file for Abaqus
-       # write_inp(E11 = E11, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    # elif d == 4:
-        # E11 = x_i[0]
-        # K = x_i[2]
-        # x_spring = x_i[3]
-        # write_inp(E11 = E11, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    #elif d == 6:
-    #    E11 = x_i[0]
-    #    E22 = x_i[1]
-    #    nu12 = x_i[2]
-    #    nu23 = x_i[3]
-    #    G12 = x_i[4]
-    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    # elif d == 7:
-    #    E11 = x_i[0]
-    #    E22 = x_i[1]
-    #    nu12 = x_i[2]
-    #    nu23 = x_i[3]
-    #    G12 = x_i[4]
-    #    K = x_i[6]
-    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-    #elif d == 8:
-    #    E11 = x_i[0]
-    #    E22 = x_i[1]
-    #    nu12 = x_i[2]
-    #    nu23 = x_i[3]
-    #    G12 = x_i[4]
-    #    K = x_i[6]
-    #    x_spring = x_i[7]
-    #    write_inp(E11 = E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)   
     
     # Run Abaqus from the command line
     command = "Abaqus Job=" + model_name + " input=\"Abaqus\\" + model_name + ".inp\" interactive ask_delete=OFF cpus=2"
