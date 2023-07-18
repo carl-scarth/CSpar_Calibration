@@ -20,6 +20,7 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 # include functions which are called in this code
 source("source/estimate_mode.R")
 source("source/covariance_matrices.R")
+source("source/dimension_reduction.R")
 source("source/abaqus_json.R")
 
 #-------------------------------------------------------------------------------
@@ -30,6 +31,10 @@ p_eta = 11 # Number of basis functions to be retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 print_output = TRUE # Print diagnostic output to the terminal?
+# Define parameters of the gamma prior on the error associated with truncating
+# the series expansion for the model output
+a_eta = 1.0     # Shape parameter for the lambda_eta prior
+b_eta = 0.0001  # Rate parameter for the lambda_eta prior
 
 #-------------------------------------------------------------------------------
 
@@ -152,5 +157,16 @@ if (print_output){
   print("Number of basis functions required to represent output within tolerance = ")
   print(basis_tol)
 }
+
+#-------------------------------------------------------------------------------
+
+# Reduce the dimension of the output data and determine associated quantities
+# for input to Stan
+processed_data = reduce_dimension(eta, K_eta, a_eta, b_eta)
+# Adjusted prior parameters for the basis expansion truncation error
+a_eta_dash = processed_data[[1]]
+b_eta_dash = processed_data[[2]]
+z_hat = processed_data[[3]] # Reduced-dimensional outputs
+KTK_inv = processed_data[[4]] # Inverse of the product of basis matrices
 
 #-------------------------------------------------------------------------------

@@ -18,6 +18,7 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 # include functions which are called in this code
 source("source/estimate_mode.R")
 source("source/covariance_matrices.R")
+source("source/dimension_reduction.R")
 
 #-------------------------------------------------------------------------------
 
@@ -27,6 +28,10 @@ p_eta = 7 # Number of basis functions to be retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 print_output = TRUE # Print diagnostic output to the terminal?
+# Define parameters of the gamma prior on the error associated with truncating
+# the series expansion for the model output
+a_eta = 1.0     # Shape parameter for the lambda_eta prior
+b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 
 #-------------------------------------------------------------------------------
 
@@ -160,89 +165,21 @@ if (print_output){
 
 #-------------------------------------------------------------------------------
 
-GOOD TO HERE!! MAYBE PUT IN A SEPARATE CODE?
-
-# This portion of the code deals with the matrix algebra from Section 2.2.4 of 
-# Higdon et al., calculating the necessary quantities for passing to stan, where
-# the sampling is undertaken
-
-
-# Calculate inverse of K'*K. This is used for multiple calculations and so it is
-# more efficient to store the inverse than to solve the equations via other means
-# Here K is the matrix of emulator basis functions evaluated for full model 
-# output, arranged as specified at the end of Section 2.2.2 of Higdon et al.
-# Note that this is a very large matrix (m x n_eta) by (m x p_eta), and as such
-# calculating K'*K is computationally expensive, and requires a prohibitively 
-# large amount of memory. To make this code possible I've calculated closed-form
-# expressions for this matrix product, and inputted K'*K directly.
-
-# Populate dense matrix of products of basis vectors, 
-# with KTK_dense[i,j] = k_i'*k_j
-# These product of individual basis vectors make up the entries of K'*K
-KTK_dense = t(K_eta)%*%K_eta
-# Note that the below code is the general expression for this matrix product if
-# basis vectors are not orthogonal. As the basis vectors obtained by SVD are 
-# orthogonal such that k_i'*k_j = 0 if i not equal to j, the code for populating
-# off-diagonal terms has been commented out. This may be adapted to non-
-# orthogonal bases by un-commenting the nested for loop.
-KTK = matrix(0,m*p_eta,m*p_eta)
-for (i in 1:p_eta){
-  # Populate diagonal terms
-  KTK[((i-1)*m+1):(i*m),((i-1)*m+1):(i*m)] = diag(m)*KTK_dense[i,i]
-  # Note, Need to use seq_len as colon operator in R does not assume the list of 
-  # indices must always increase, and j in 1:(i+1) throws an error when i = p_eta
-  # for (j in (i + seq_len(p_eta-i))){
-  #  # Populate off-diagonal terms. Note that these will be zero if the ks are orthogonal
-  #  KTK[((i-1)*m+1):(i*m),((j-1)*m+1):(j*m)] = diag(m)*KTK_dense[i,j]
-  #  KTK[((j-1)*m+1):(j*m),((i-1)*m+1):(i*m)] = diag(m)*KTK_dense[i,j]
-  #}
-}
-# Determine inverse of K'*K. Note that as this matrix is diagonal for
-# orthogonal basis functions in such cases it would be more efficient to 
-# directly input the inverse, by inputting the reciprocal of the entries in the 
-# above loop.
-KTKinv = solve(KTK)
-
-# Calculate K'*eta, which is used to calculate OLS solution w_hat. This 
-# calculation has also been implemented by directly inputting the closed-form
-# expression for this product, due to the large size of K.
-# Note that in Higdon et al, eta is reshaped from a n_eta x m matrix into a 
-# (m x n_eta) x 1 vector, as eta = [eta_1',eta_2',...,eta_m']'.
-# K'*eta therefore results in a stack of
-# [k_1'*eta_1;...;k_1'*eta_m;k_2'*eta_1;k_2'*eta_m;...;k_p_eta'*eta_m]
-# It is more efficient to do this product by keeping K_eta stored as a matrix
-# and likewise retaining eta as a matrix (for the purposes of this comment let's
-# call this matrix eta_mat), then calculating K'*eta by obtaining eta_mat'*K_eta
-# reshaped column-wise into a vector, as below
-KTeta = t(eta)%*%(K_eta)
-KTeta = as.vector(KTeta)
-
-# Determine pseudo-inverses of basis matrices to get reduced-dimensional 
-# representation of model output and experimental data
-z_hat = as.vector(KTKinv%*%KTeta) # reduced-dimensional representation of emulator training data
-
-# Define parameters for (gamma) prior distributions on the emulator error and 
-# observation error terms
-a_eta = 1.0     # Shape parameter for the lambda_eta prior
-b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
-
-a_eta_dash = a_eta+(0.5*(m*(n_eta-p_eta))) # Adjusted shape parameter for the lambda_eta prior (Eq. 11 Higdon et al.)
-
-# Stack reshaped model output eta into a single vector. This is the format used 
-# in Higdon et al., although it wasn't necessary for the above calculations it
-# is used to adjust the prior parameters.
-eta_vec = as.vector(eta)
-# Re-arraged version of b_eta_dash from that in Eq. (11) for the sake of 
-# computational efficiency, using the fact that:
-# eta'*(I - K*(K'*K)^-1*K')*eta = eta'*eta - (K'*eta)'*w_hat
-b_eta_dash = as.numeric(b_eta + (0.5*(t(eta_vec)%*%eta_vec - t(KTeta) %*% z_hat)))
+# Reduce the dimension of the output data and calculate associated quantities 
+# for input to Stan
+processed_data = reduce_dimension(eta, K_eta, a_eta, b_eta)
+# Adjusted prior parameters for the basis expansion truncation error
+a_eta_dash = processed_data[[1]]
+b_eta_dash = processed_data[[2]]
+z_hat = processed_data[[3]] # Reduced-dimensional outputs
+KTK_inv = processed_data[[4]] # Inverse of the product of basis matrices
 
 #-------------------------------------------------------------------------------
 
+# TO HERE!!!
 
 # This segment of code deals with setting up the environment for stan, passing 
-# data to stan, and running the correct stan code depending upon which method is
-# required for sampling
+# data to stan,
 
 # Set up the environment for the Stan model to run in parallel. Taken from:
 # https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
