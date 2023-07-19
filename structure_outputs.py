@@ -3,9 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "LHSDesign40x4"
+file_str = "LHSDesign40x4_1"
 max_load = -250.0
-max_inc = 0.05
+max_inc = 0.01
 displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 # displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
 RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
@@ -104,7 +104,5 @@ for sample in displacements_struct_subset["Sample"]:
     for frame in sample["Frame"]:
         frame["Displacements"] = frame["Displacements"].tolist()
 
-#with open("inputs\\" + file_str + "output_struct.json",'w') as f:
-#    f.write(json.dumps(displacements_struct_subset))
-
-# json?
+with open("inputs\\" + file_str + "_output_struct.json",'w') as f:
+    f.write(json.dumps(displacements_struct_subset))
