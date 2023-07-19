@@ -8,6 +8,7 @@
 *.dmp
 *.vtk
 Abaqus/
+Dune/
 parameters.txt
 CSpar_sam_displacement.csv
 CSpar_sam_nodes.csv
