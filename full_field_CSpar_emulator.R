@@ -10,6 +10,7 @@
 library(data.table)
 library(rstan)
 library(matrixStats)
+library(MASS)
 
 # Set current working directory. This should be modified to match the directory
 # of the user
@@ -114,6 +115,8 @@ pairs(t_pred,col = "blue", pch=4,
 # Centre the simulation output for each node This guarantees that the
 # coefficients have zero (sample) mean. 
 mu_dt = rowMeans(dt_simulation)
+# Write model mean to csv file
+write.csv(mu_dt, paste("outputs/model_mean_",in_file,".csv"), row.names = FALSE) 
 dt_all_cen = sweep(dt_simulation,1,mu_dt,"-")
 
 # Divide by the standard deviation of the outputs
@@ -122,46 +125,12 @@ dt_all_cen = dt_all_cen/sd_dt
 # Convert to matrix for stan
 eta = as.matrix(dt_all_cen)
 
-# Perform SVD on the centred data
-dt_svd = svd(dt_all_cen)
-
-# Extract the first p_eta basis functions from the svd, and standardise so the
-# coefficients (columns of sqrt(m-1)*v) have unit variance
-K_eta = dt_svd$u[,1:p_eta]*matrix(dt_svd$d[1:p_eta],nrow = n_eta, ncol = p_eta, byrow = TRUE)/sqrt(m-1)
-
-if (print_output){
-  # Sanity check that weights of SVD have zero mean and unit variance
-  print("mean of reduced dimension output w = ")
-  print(colMeans(dt_svd$v))
-  print("standard deviations of reduced dimension output w = ")
-  print(colSds(dt_svd$v*sqrt(m-1)))
-}
-
-# write basis functions and mean vector to file for external plotting
-write.csv(K_eta, paste("outputs/basis_",in_file,".csv", sep=""), row.names = FALSE)
-write.csv(mu_dt, paste("outputs/model_mean_",in_file,".csv"), row.names = FALSE) 
-
-# Plot magnitude of singular value d with increasing number of basis functions
-# to indicate how much each base contributes to the output variance.
-dr_sqr = sum(dt_svd$d^2)
-d_r = dt_svd$d[1:p_eta]
-d_r_norm = d_r^2/dr_sqr
-par(mfrow = c(1,2))
-plot(1:p_eta,d_r_norm,"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
-     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
-# Omit first point for greater clarity on convergence
-plot(2:p_eta,d_r_norm[-1],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
-     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
-title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
-
-# How many functions are needed achieve a tolerance fraction of the variance?
-basis_tol = 1:p_eta
-basis_tol = basis_tol[cumsum(d_r_norm) > (1-exp_tol)]
-basis_tol = basis_tol[1]
-if (print_output){
-  print("Number of basis functions required to represent output within tolerance = ")
-  print(basis_tol)
-}
+# Check that this works with a range of input values. Note that I've changed this 
+# to act on eta rather than dt_all_cen. Check this still works
+K_eta = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, print_output = TRUE, 
+                  csv_label = in_file)
+K_eta = K_eta[[1]]
+# Copy to nonlinear version and check for this as well
 
 #-------------------------------------------------------------------------------
 
@@ -172,11 +141,11 @@ processed_data = reduce_dimension(eta, K_eta, a_eta, b_eta)
 a_eta_dash = processed_data[[1]]
 b_eta_dash = processed_data[[2]]
 z_hat = processed_data[[3]] # Reduced-dimensional outputs
-KTK_inv = processed_data[[4]] # Inverse of the product of basis matrices
+KTKinv = processed_data[[4]] # Inverse of the product of basis matrices
 
 #-------------------------------------------------------------------------------
 
-# TO HERE!!!
+# TO HERE!!! Also package up svf code into the dimension_reduction header
 
 # This segment of code deals with setting up the environment for stan, passing 
 # data to stan,
@@ -228,7 +197,7 @@ for (i in 1:p_eta){
 modes[(p_eta*(q+1))+1] = estimate_mode(samples$lambda_eta)
 
 # write modes to csv for use in subsequent modelling
-write.csv(modes, "outputs/emulator_modes_50x3_multi.csv", row.names = FALSE)
+write.csv(modes, "outputs/emulator_modes_40x4.csv", row.names = FALSE)
 
 # Produce plots of posterior and prior distributions of correlation parameters
 # (rho) for emulator. Here the rows corresponding to the different principal
@@ -287,11 +256,11 @@ hist(samples$lambda_eta,
      col = "firebrick1",
      breaks = 25,
      freq = FALSE,
-     xlim = c(0,5e7),
+     xlim = c(0,5e6),
      cex.axis=1.5,
      cex.lab=1,5)
 # plot prior
-lambda_plot = seq(0,5E7, length.out = 1000)
+lambda_plot = seq(0,5E6, length.out = 1000)
 prior_plot = dgamma(lambda_plot,shape=a_eta,rate=b_eta)
 lines(lambda_plot,prior_plot,lwd=3,col="blue")
 adj_prior_plot = dgamma(lambda_plot,shape=a_eta_dash,rate=b_eta_dash)
@@ -299,8 +268,7 @@ lines(lambda_plot,adj_prior_plot,lwd=3,col="green")
 
 #-------------------------------------------------------------------------------
 
-# Code for making predictions - here I'm assuming we're using the transformed 
-# version for matrices which are not full rank
+# Code for making predictions
 
 N_sam_plot = 10
 # N_sam_plot = 1
@@ -315,7 +283,6 @@ eta_sam = array(0, c(n_eta, N_sam_plot, n_pred))
 eta_mu = array(0, c(n_eta, N_sam_plot, n_pred))
 eta_sigma = array(0, c(n_eta, N_sam_plot, n_pred))
 
-# Sort out predictions for full-rank code from here!!
 for (i in 1:N_sam_plot){
   print(i)
   sam_ind = rand_ind[i]
@@ -391,7 +358,8 @@ eta_sam_matrix = apply(eta_sam, 3, rowMeans)
 eta_mu_matrix = apply(eta_mu, 3, rowMeans)
 eta_sigma_matrix = apply(eta_sigma, 3, rowMeans)
 # Compare against known output
-cross_val_disp = fread("inputs/LHSDesign50x3_1_displacements.csv")
+
+cross_val_disp = fread("inputs/LHSDesign40x4_1_fixed_100kN.csv")
 cross_val = matrix(0,n_eta,n_pred)
 for (i in 1:n_pred){
   cross_val[,i] = cross_val_disp[[as.name(sprintf('w_%d', i))]]
@@ -400,7 +368,7 @@ for (i in 1:n_pred){
 # Quick cross-validation exercise - the second node is the reference point at 
 # which the load is applied. Look at this to check predictions are approximately
 # the right magintude, which seems to be the case
-View(rbind(eta_sam_matrix[3,],eta_mu_matrix[3,],cross_val[2,],eta_sigma_matrix[3,]))
+View(rbind(eta_sam_matrix[2,],eta_mu_matrix[2,],cross_val[2,],eta_sigma_matrix[2,]))
 
 # Plot histogram of reduced coefficients
 dev.new(noRStudioGD = TRUE) # plot in new window

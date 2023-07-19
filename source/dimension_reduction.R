@@ -3,10 +3,98 @@
 # D. Higdon et al, "Computer Model Calibration Using High-Dimensional Output",
 # Journal of the American Statistical Association, 2008.
 
+svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, export_basis = TRUE, csv_label = NULL){
+  
+  # Perform an SVD upon eta to generate a basis of principal components for 
+  # reducing the dimension of eta, and return the first p_eta basis functions.
+  # If p_eta is not specified this is instead computed by determining how many
+  # basis functions are required to capture exp_tol fraction of the variance
+  # in the training data.
+  
+  # eta = n_eta x m matrix of simulation outputs, where n_eta is the number of
+  #     output values per simulation, and m is the number of training data runs
+  # p_eta = integer value of number of basis functions to be returned
+  # exp_tol = desired fraction of the variance which is to be returned
+  # print_output = Boolean indicating whether or not to print output to the 
+  #     console, and produce convergence plots
+  # export_basis = Boolean indicating whether or not to export basis functions
+  #     to a csv for plotting externally
+  # csv_label = String for labelling exported csv file if this is produced
+
+  m = ncol(eta) # number of training samples
+  n_eta = nrow(eta) # Number of output values per simulation
+  
+  # Perform SVD on the centred data
+  dt_svd = svd(eta)
+  
+  # Calculate the fraction of total variance captured by each singular value if 
+  # this is required to assess convergence
+  if ((!is.null(exp_tol)) | print_output) {
+    dr_sqr = sum(dt_svd$d^2)
+    d_r = dt_svd$d[1:p_eta]
+    # Fraction of the total variance captured by each singular value
+    d_r_norm = d_r^2/dr_sqr
+    # Determine the number of basis functions required to capture a specified
+    # fraction of the variance if basis_tol has been specified
+    if (! is.null(exp_tol)){
+      # How many functions are needed achieve a tolerance fraction of the variance?
+      basis_tol = 1:m
+      basis_tol = basis_tol[cumsum(d_r_norm) > (1-exp_tol)]
+      basis_tol = basis_tol[1]
+      p_eta = basis_tol
+      if (print_output){
+        print("Number of basis functions required to represent output within tolerance = ")
+        print(basis_tol)
+      }
+    }
+    if (print_output){
+      # Sanity check that weights of SVD have zero mean and unit variance
+      print("mean of reduced dimension output w = ")
+      print(colMeans(dt_svd$v))
+      print("standard deviations of reduced dimension output w = ")
+      print(colSds(dt_svd$v*sqrt(m-1)))
+    }
+  }
+  
+  # If neither p_eta nor exp_tol has been provided, retain all basis functions
+  if (is.null(p_eta)){
+    print("WARNING: Neither p_eta nor exp_tol has been specified, and so all bases are retained")
+    p_eta = m
+  }
+  
+  # If needed plot magnitude of singular value with increasing number of bases
+  # to indicate how much each base contributes to the output variance.
+  if (print_output){
+    par(mfrow = c(1,2))
+    plot(1:p_eta,d_r_norm,"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+       'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
+    # Omit first point for greater clarity on convergence
+    plot(2:p_eta,d_r_norm[-1],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+       'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
+    title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
+  }
+    
+  # Extract the first p_eta basis functions from the svd, and standardise so the
+  # coefficients (columns of sqrt(m-1)*v) have unit variance
+  K = dt_svd$u[,1:p_eta]*matrix(dt_svd$d[1:p_eta],nrow = n_eta, ncol = p_eta, byrow = TRUE)/sqrt(m-1)
+
+  # write basis functions and mean vector to file for external plotting if needed
+  if (export_basis){
+    if (is.null(csv_label)){
+      
+    } else {
+      write.csv(K, paste("outputs/basis_",csv_label,".csv", sep=""), row.names = FALSE)    
+    }
+  }
+  
+  # Return relevent quantities
+  return(list(K, p_eta))
+}
+
 reduce_dimension <- function(eta, K, a_eta, b_eta, orthog_K = TRUE) {
   
-  # This portion of the code deals with the matrix algebra from Section 2.2.4 of 
-  # Higdon et al., calculating the necessary quantities for passing to Stan
+  # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
+  # the necessary quantities for passing to Stan
   
   # eta = n_eta x m matrix of simulation outputs, where n_eta is the number of
   #     output values per simulation, and m is the number of training data runs
