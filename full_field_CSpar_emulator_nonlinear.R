@@ -35,6 +35,8 @@ print_output = TRUE # Print diagnostic output to the terminal?
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
 b_eta = 0.0001  # Rate parameter for the lambda_eta prior
+iter = 4000 # Number of samples per chain
+chains = 3 # Number of chains for simulation
 
 #-------------------------------------------------------------------------------
 
@@ -114,49 +116,10 @@ dt_all_cen = dt_all_cen/sd_dt
 # Convert to matrix for stan
 eta = as.matrix(dt_all_cen)
 
-# Perform SVD on the centred data
-dt_svd = svd(dt_all_cen)
-
-# Extract the first p_eta basis functions from the svd, and standardise so the
-# coefficients (columns of sqrt(m-1)*v) have unit variance
-K_eta = dt_svd$u[,1:p_eta]*matrix(dt_svd$d[1:p_eta],nrow = n_eta, ncol = p_eta, byrow = TRUE)/sqrt(m-1)
-
-if (print_output){
-  # Sanity check that weights of SVD have zero mean and unit variance
-  print("mean of reduced dimension output w = ")
-  print(colMeans(dt_svd$v))
-  print("standard deviations of reduced dimension output w = ")
-  print(colSds(dt_svd$v*sqrt(m-1)))
-}
-
-
-# Write a JSON file with the output (still tempted to use DataFrame as the code
-# is a little convoluted) 
-out_json = basis_mean_to_json(n_frames, n_nodes, K_eta, mu_dt)
-write(out_json, paste("outputs/basis_nonlinear_",in_file,".json", sep=""))
-
-
-# Plot magnitude of singular value d with increasing number of basis functions
-# to indicate how much each base contributes to the output variance.
-dr_sqr = sum(dt_svd$d^2)
-d_r = dt_svd$d[1:p_eta]
-d_r_norm = d_r^2/dr_sqr
-par(mfrow = c(1,2))
-plot(1:p_eta,d_r_norm,"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
-     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
-# Omit first point for greater clarity on convergence
-plot(2:p_eta,d_r_norm[-1],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
-     'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
-title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
-
-# How many functions are needed achieve a tolerance fraction of the variance?
-basis_tol = 1:p_eta
-basis_tol = basis_tol[cumsum(d_r_norm) > (1-exp_tol)]
-basis_tol = basis_tol[1]
-if (print_output){
-  print("Number of basis functions required to represent output within tolerance = ")
-  print(basis_tol)
-}
+out_basis = svd_basis(eta, p_eta=p_eta, exp_tol = exp_tol, print_output = TRUE, 
+                      csv_label = in_file)
+K_eta = out_basis[[1]]
+p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
 #-------------------------------------------------------------------------------
 
@@ -168,5 +131,24 @@ a_eta_dash = processed_data[[1]]
 b_eta_dash = processed_data[[2]]
 z_hat = processed_data[[3]] # Reduced-dimensional outputs
 KTK_inv = processed_data[[4]] # Inverse of the product of basis matrices
+
+#-------------------------------------------------------------------------------
+
+# Set up the environment for Stan, pass arguments, and run stan model
+# Settings taken from: https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
+util = new.env()
+
+# List of arguments to pass to stan
+stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, 
+                 b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTKinv)
+# Run stan
+fit = stan(file = "source/full_field_emulator.stan",
+           data = stan_data,
+           iter = iter,
+           chains = chains,
+           model_name = "full_field_emulator")
 
 #-------------------------------------------------------------------------------

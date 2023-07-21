@@ -33,6 +33,8 @@ print_output = TRUE # Print diagnostic output to the terminal?
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
 b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
+iter = 4000 # Number of samples per chain
+chains = 3 # Number of chains for simulation
 
 #-------------------------------------------------------------------------------
 
@@ -124,13 +126,10 @@ sd_dt = sd(as.matrix(dt_all_cen))
 dt_all_cen = dt_all_cen/sd_dt
 # Convert to matrix for stan
 eta = as.matrix(dt_all_cen)
-
-# Check that this works with a range of input values. Note that I've changed this 
-# to act on eta rather than dt_all_cen. Check this still works
-K_eta = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, print_output = TRUE, 
+out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, print_output = TRUE, 
                   csv_label = in_file)
-K_eta = K_eta[[1]]
-# Copy to nonlinear version and check for this as well
+K_eta = out_basis[[1]]
+p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
 #-------------------------------------------------------------------------------
 
@@ -145,26 +144,21 @@ KTKinv = processed_data[[4]] # Inverse of the product of basis matrices
 
 #-------------------------------------------------------------------------------
 
-# TO HERE!!! Also package up svf code into the dimension_reduction header
-
-# This segment of code deals with setting up the environment for stan, passing 
-# data to stan,
-
-# Set up the environment for the Stan model to run in parallel. Taken from:
-# https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
+# Set up the environment for Stan, pass arguments, and run stan model
+# Settings taken from: https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
-par(family="CMU Serif", las=1, bty="l", cex.axis=1, cex.lab=1, cex.main=1,
-    xaxs="i", yaxs="i", mar = c(5, 5, 3, 5))
 
-# Set up stan code
-stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTKinv)
-fit = stan(file = "source/Full_Field_Emulator_Higdon.stan",
+# List of arguments to pass to stan
+stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, 
+                 b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTKinv)
+# Run stan
+fit = stan(file = "source/full_field_emulator.stan",
            data = stan_data,
-           iter = 4000,
-           chains = 3,
+           iter = iter,
+           chains = chains,
            model_name = "full_field_emulator")
 
 #-------------------------------------------------------------------------------
