@@ -10,6 +10,7 @@
 Abaqus/
 Dune/
 parameters.txt
+input.txt
 CSpar_sam_displacement.csv
 CSpar_sam_nodes.csv
 CSpar_sam_output.json
