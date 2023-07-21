@@ -82,12 +82,12 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
 
   # write basis functions and mean vector to file for external plotting if needed
   if (export_basis){
-    K = as.data.frame(K)
-    for (i in 1:p_eta){colnames(K)[i] <- sprintf("K_basis_%d",i)}
+    out_frame = as.data.frame(K)
+    for (i in 1:p_eta){colnames(out_frame)[i] <- sprintf("K_basis_%d",i)}
     if (is.null(csv_label)){
-      write.csv(K, "outputs/basis.csv", row.names = FALSE)    
+      write.csv(out_frame, "outputs/basis.csv", row.names = FALSE)    
     } else {
-      write.csv(K, paste("outputs/basis_",csv_label,".csv", sep=""), row.names = FALSE)    
+      write.csv(out_frame, paste("outputs/basis_",csv_label,".csv", sep=""), row.names = FALSE)    
     }
   }
   
