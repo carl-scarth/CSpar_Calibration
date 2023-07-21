@@ -20,7 +20,7 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
   # export_basis = Boolean indicating whether or not to export basis functions
   #     to a csv for plotting externally
   # csv_label = String for labelling exported csv file if this is produced
-
+  
   m = ncol(eta) # number of training samples
   n_eta = nrow(eta) # Number of output values per simulation
   
@@ -31,7 +31,7 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
   # this is required to assess convergence
   if ((!is.null(exp_tol)) | print_output) {
     dr_sqr = sum(dt_svd$d^2)
-    d_r = dt_svd$d[1:p_eta]
+    d_r = dt_svd$d
     # Fraction of the total variance captured by each singular value
     d_r_norm = d_r^2/dr_sqr
     # Determine the number of basis functions required to capture a specified
@@ -41,7 +41,9 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
       basis_tol = 1:m
       basis_tol = basis_tol[cumsum(d_r_norm) > (1-exp_tol)]
       basis_tol = basis_tol[1]
-      p_eta = basis_tol
+      if (is.null(p_eta)){
+        p_eta = basis_tol
+      }
       if (print_output){
         print("Number of basis functions required to represent output within tolerance = ")
         print(basis_tol)
@@ -66,10 +68,10 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
   # to indicate how much each base contributes to the output variance.
   if (print_output){
     par(mfrow = c(1,2))
-    plot(1:p_eta,d_r_norm,"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+    plot(1:p_eta,d_r_norm[1:p_eta],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
        'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
     # Omit first point for greater clarity on convergence
-    plot(2:p_eta,d_r_norm[-1],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
+    plot(2:p_eta,d_r_norm[2:p_eta],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
        'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
     title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
   }
@@ -80,8 +82,10 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
 
   # write basis functions and mean vector to file for external plotting if needed
   if (export_basis){
+    K = as.data.frame(K)
+    for (i in 1:p_eta){colnames(K)[i] <- sprintf("K_basis_%d",i)}
     if (is.null(csv_label)){
-      
+      write.csv(K, "outputs/basis.csv", row.names = FALSE)    
     } else {
       write.csv(K, paste("outputs/basis_",csv_label,".csv", sep=""), row.names = FALSE)    
     }
