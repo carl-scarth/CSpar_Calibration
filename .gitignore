@@ -1,10 +1,18 @@
 # Ignore files created when running the CSpar model
+*.csv
+!inputs/LHSDesign40x4.csv
+!inputs/LHSDesign40x4_1.csv
+!inputs/LHSDesign50x3.csv
+!inputs/LHSDesign50x3_1.csv
+!inputs/LHSDesign60x6.csv
+!outputs/CSpar_sam_shell_mesh_elements.csv
+!outputs/CSpar_sam_shell_mesh_nodes.csv
 *.geo
 *.msh
-*.tmp
 *.RData
 *.RDataTmp
 *.Rhistory
+*.tmp
 *.dmp
 *.vtk
 Abaqus/
