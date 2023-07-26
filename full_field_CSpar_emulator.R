@@ -20,6 +20,7 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 source("source/estimate_mode.R")
 source("source/covariance_matrices.R")
 source("source/dimension_reduction.R")
+source("source/prior_posterior_plots.R")
 
 #-------------------------------------------------------------------------------
 
@@ -28,13 +29,14 @@ source("source/dimension_reduction.R")
 p_eta = 7 # Number of basis functions to be retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
-print_output = TRUE # Print diagnostic output to the terminal?
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
 b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
+print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
+export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 
 #-------------------------------------------------------------------------------
 
@@ -126,8 +128,8 @@ sd_dt = sd(as.matrix(dt_all_cen))
 dt_all_cen = dt_all_cen/sd_dt
 # Convert to matrix for stan
 eta = as.matrix(dt_all_cen)
-out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, print_output = TRUE, 
-                  csv_label = in_file)
+out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
+                      print_output = print_svd_output, csv_label = in_file)
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
@@ -163,102 +165,35 @@ fit = stan(file = "source/full_field_emulator.stan",
 
 #-------------------------------------------------------------------------------
 
-# This section of code deals with post-processing of the data coming out of the 
-# simulations
+# Post-process and plot the simulation data
 
-# plot trace plots of simulation samples
+# Produce trace plots
 stan_trace(fit, pars = c("rho_w", "lambda_w","lambda_eta"))
-
-# Summarise results to check convergence
+# Print summary of results
 print(fit, pars = c("rho_w", "lambda_w", "lambda_eta"))
 
 # extract samples from stan output
-
 samples <- extract(fit)
-N_samples = dim(samples$rho_w)[1] # get total number of samples
+rho_w <- samples$rho_w           # Correlation lengths
+lambda_w <- samples$lambda_w     # Emulator precisions
+lambda_eta <- samples$lambda_eta # Expansion truncation error 
+N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
 
 # Extract label of inputs for plots
 labels = colnames(XT_sim) # don't think I need this but keeping just in case
 
-# estimate mode of the posterior distribution
-modes = rep(0,(p_eta*(q+1))+1)
-for (i in 1:(p_eta*q)){
-  modes[i] = estimate_mode(samples$rho_w[,i])
-}
-for (i in 1:p_eta){
-  modes[p_eta*q + i] = estimate_mode(samples$lambda_w[,i])
-}
-modes[(p_eta*(q+1))+1] = estimate_mode(samples$lambda_eta)
-
-# write modes to csv for use in subsequent modelling
-write.csv(modes, "outputs/emulator_modes_40x4.csv", row.names = FALSE)
-
-# Produce plots of posterior and prior distributions of correlation parameters
-# (rho) for emulator. Here the rows corresponding to the different principal
-# components, whereas the columns correspond to the different calibration inputs
-# A values of rho close to 1 implies that an input does strongly affect the 
-# model output
-dev.new(noRStudioGD = TRUE)
-par(mfrow = c(p_eta,q))
-rho_plot = seq(0,1, length.out = 100)
-for (i in 1:p_eta){
-  for (j in 1:q){
-    # Plot histogram of posterior distribution
-    hist(samples$rho_w[,(i-1)*q+j],
-         main = labels[j],
-         #main = paste("rho_w,",as.character(i),",",as.character(j)),
-         xlab = paste("rho_w,",as.character(i),",",as.character(j)),
-         col = "firebrick1",
-         breaks = 25,
-         freq = FALSE,
-         xlim = c(0,1), 
-         cex.lab=1.5,
-         cex.axis=1.5)
-    # Plot prior distribution
-    prior_plot = dbeta(rho_plot,shape1=1,shape2=0.1)
-    lines(rho_plot,prior_plot,lwd=3,col="blue")
-  }
+# If required, estimate the modes of emulator hyperparameters and write to a csv
+if (export_modes){
+  modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
+  write.csv(modes, paste("outputs/emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
 }
 
-# Plot precision parameters for emulator. Each plot corresponds to a different
-# principal component
-dev.new(noRStudioGD = TRUE)
-par(mfrow = c(1,p_eta))
-lambda_plot = seq(0,2.5, length.out = 100)
-for (i in 1:p_eta) {
-  # plot posterior
-  hist(samples$lambda_w[,i],
-       main = paste("lambda_w",as.character(i)),
-       xlab = paste("lambda_w",as.character(i)),
-       col = "firebrick1",
-       breaks = 25,
-       freq = FALSE,
-       xlim = c(0,2.5),
-       cex.axis=1.5,
-       cex.lab=1.5)
-  # plot prior
-  prior_plot = dgamma(lambda_plot,shape=5,rate=5)
-  lines(lambda_plot,prior_plot,lwd=3,col="blue")
-}
-
-# Plot precision of the observation error and PCA truncation error
-dev.new(noRStudioGD = TRUE)
-#plot posterior
-hist(samples$lambda_eta,
-     main = "lambda_eta",
-     xlab = "lambda_eta",
-     col = "firebrick1",
-     breaks = 25,
-     freq = FALSE,
-     xlim = c(0,5e6),
-     cex.axis=1.5,
-     cex.lab=1,5)
-# plot prior
-lambda_plot = seq(0,5E6, length.out = 1000)
-prior_plot = dgamma(lambda_plot,shape=a_eta,rate=b_eta)
-lines(lambda_plot,prior_plot,lwd=3,col="blue")
-adj_prior_plot = dgamma(lambda_plot,shape=a_eta_dash,rate=b_eta_dash)
-lines(lambda_plot,adj_prior_plot,lwd=3,col="green")
+# Plot correlation parameter histograms
+full_field_rho_hist(rho_w, p_eta, inp_labels = labels)
+# Plot emulator precision parameters for emulator
+full_field_lambda_hist(lambda_w, p_eta)
+# Plot emulator trunction error precision
+lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
 
 #-------------------------------------------------------------------------------
 
