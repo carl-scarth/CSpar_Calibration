@@ -10,7 +10,6 @@
 library(data.table)
 library(rstan)
 library(matrixStats)
-library(MASS)
 
 # Set current working directory. This should be modified to match the directory
 # of the user
@@ -18,9 +17,9 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
 source("source/estimate_mode.R")
-source("source/covariance_matrices.R")
 source("source/dimension_reduction.R")
 source("source/prior_posterior_plots.R")
+source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
@@ -175,6 +174,7 @@ print(fit, pars = c("rho_w", "lambda_w", "lambda_eta"))
 # extract samples from stan output
 samples <- extract(fit)
 rho_w <- samples$rho_w           # Correlation lengths
+beta_w <- samples$beta_w         # Transformed Correlation lengths
 lambda_w <- samples$lambda_w     # Emulator precisions
 lambda_eta <- samples$lambda_eta # Expansion truncation error 
 N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
@@ -197,96 +197,18 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape
 
 #-------------------------------------------------------------------------------
 
-# Code for making predictions
+# Make predictions from fitted Gaussian process emulator
+N_sam_pred = 10 # Required number of prediction samples
+full_field_emulator_predict(N_sam_pred)
+full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, lambda_w, lambda_eta, K ,KTKinv, sam_gp = FALSE, output_coeff_sam = TRUE, output_ff_sam = TRUE, output_coeff_mean = TRUE, output_ff_mean = TRUE){
+  # HERE!! TEST FULL FIELD EMULATOR PREDICTION CODE FOR ALL SETTINGS. MAYBE 
+  # DO A QUICK CHECK OF THE AVERAGE CODE AS WELL AS THAT'S NEW
+# Taken outside of emulator for consistency with other code - make sure variables
+# are named correctly
+emulator output = emulator_output*sd_dt + mu_dt
+emulator_std = emulator_std*sd_dt
 
-N_sam_plot = 10
-# N_sam_plot = 1
-# Pick N_sam_plot random samples without repetition
-rand_ind = sample.int(N_samples,N_sam_plot)
-#N_sam_plot = N_samples
-
-w_star_mu = array(0, c(p_eta, N_sam_plot, n_pred))
-w_star_sigma = array(0, c(p_eta, p_eta, N_sam_plot, n_pred))
-w_star = array(0, c(p_eta, N_sam_plot, n_pred))
-eta_sam = array(0, c(n_eta, N_sam_plot, n_pred))
-eta_mu = array(0, c(n_eta, N_sam_plot, n_pred))
-eta_sigma = array(0, c(n_eta, N_sam_plot, n_pred))
-
-for (i in 1:N_sam_plot){
-  print(i)
-  sam_ind = rand_ind[i]
-  # Construct covariance matrix for the current sample
-  # I could probably package the below code into an external function
-  
-  # Extract the inferred parameters for the current sample
-  beta_w_i = samples$beta_w[sam_ind,]
-  lambda_w_i = samples$lambda_w[sam_ind,]
-  lambda_eta_i = samples$lambda_eta[sam_ind]
-  
-  # Define the covariance matrix for the emulator weights, evaluated at the
-  # training data points.
-  sigma_z = matrix(0, m*p_eta, m*p_eta)
-  for (j in 1:p_eta) {
-    # Calculate the covariance matrix for the ith emulator weight
-    sigma_z[((j-1)*m+1):(j*m), ((j-1)*m+1):(j*m)] = ARD_SE_cov(tc, lambda_w_i[j], beta_w_i[((j-1)*q+1):(j*q)], 0)
-  }
-  
-  # Adjust the covariance matrix sigma_z to include transformed emulator and 
-  # experimental error terms
-  sigma_z_hat = matrix(0,m*p_eta, m*p_eta)
-  sigma_z_hat = sigma_z + KTKinv/lambda_eta_i
-  
-  sigma_z_w_star = array(0, c(m*p_eta, p_eta, n_pred))
-  # Determine covariance of training data with predictions
-  for (j in 1:n_pred) {
-    for (k in 1:p_eta) {
-      sigma_z_w_star[((k-1)*m+1):(k*m),k,j] = ARD_SE_cov_non_sym(tc, t(as.matrix(t_pred[j,])), lambda_w_i[k], beta_w_i[((k-1)*q+1):(k*q)])
-    }
-  }
-  
-  # Define correlation of emulator predictions with themselves. In an ideal world
-  # I'd also look at cross-correlations but I've chosen not to do that for the 
-  # sake of efficiency. The same covariance matrix can therefore be used for all
-  # predictions as the autocorrelation is 1 irrespective of the prediction 
-  sigma_w_star = diag(1/lambda_w_i)
-  
-  # Two different methods for making predictions. The first method is quicker, but 
-  # I think the second is more numerically stable, which seems to make a different
-  # when the variance is small. Consider using this if the simulation is taking 
-  # too long
-  
-  # Explicitly calculating inverse, then reusing for all predictions. 
-  # Ainv = solve(sigma_z_hat)
-  # w_mu = t(Lsigma_z_w_star) %*% Ainv %*% z_hat
-  # w_sigma = sigma_w_star - (t(Lsigma_z_w_star) %*% Ainv %*% Lsigma_z_w_star)
-
-  # Solving using solve
-  Ainv_z_hat = solve(sigma_z_hat,z_hat)
-  # Store mean and covariance matrices of discrepancy and adjusted prediction Gaussian processes
-  for (j in 1:n_pred){
-    w_star_mu[,i,j] = t(sigma_z_w_star[,,j]) %*% Ainv_z_hat
-    w_star_sigma[,,i,j] = sigma_w_star - (t(sigma_z_w_star[,,j]) %*% solve(sigma_z_hat,sigma_z_w_star[,,j]))
-    # Sample from the Gaussian process
-    w_star[,i,j] = mvrnorm(n = 1, w_star_mu[,i,j], w_star_sigma[,,i,j])
-    # Generate individual Samples
-    eta_sam[,i,j] = (K_eta %*% w_star[,i,j])*sd_dt + mu_dt
-    # Also look at samples of the mean for output
-    eta_mu[,i,j] = (K_eta %*% w_star_mu[,i,j])*sd_dt + mu_dt
-    # Calculate the diagonal terms of the covariance matrix. Take the standard 
-    # deviation as this is more meaningful
-    eta_sigma[,i,j] = sqrt(as.matrix(rowSums((K_eta %*% w_star_sigma[,,i,j]) * K_eta)))*sd_dt
-  }
-}
-
-# Get average full-field displacement across all samples
-#eta_sam_matrix = matrix(0, nrow = n_eta, ncol = n_pred)
-#for (i in 1:n_pred){
-#  eta_sam_matrix[,i] = rowMeans(eta_sam[,i,])
-#}
-eta_sam_matrix = apply(eta_sam, 3, rowMeans)
-eta_mu_matrix = apply(eta_mu, 3, rowMeans)
-eta_sigma_matrix = apply(eta_sigma, 3, rowMeans)
-# Compare against known output
+# Compare against known output 
 
 cross_val_disp = fread("inputs/LHSDesign40x4_1_fixed_100kN.csv")
 cross_val = matrix(0,n_eta,n_pred)
