@@ -45,16 +45,11 @@ full_field_cov = function(x, lambda, beta) {
   # beta is a vector of p*q correlation lengths, where q is the dimension of x,
   # with each q consecutive entries corresponding to a base
   
-  print(lambda)
-  print(beta)
-  p = len(lambda) # Determine number of bases
-  print(p)
+  p = length(lambda) # Determine number of bases
   N = nrow(x) # Determine number of samples
   d = ncol(x) # Determine number of dimensions of x
-  print(N)
-  print(q)
-  
   K = matrix(0, N*p, N*p)
+  
   for (i in 1:p) {
     # Calculate the covariance matrix for the ith base
     K[((i-1)*N+1):(i*N), ((i-1)*N+1):(i*N)] = ARD_SE_cov(x, lambda[i], beta[((i-1)*d+1):(i*d)], 0)
@@ -69,20 +64,12 @@ full_field_cov_non_sym = function(x1, x2, lambda, beta) {
   # diagonal matrix with the ith diagonal being an N1 x N2 cross covariance
   # matrix for the ith base.
   
-  print(lambda)
-  print(beta)
-  print(x1)
-  print(x2)
-  p = len(lambda)
-  print(p)
+  p = length(lambda)
   N1 = nrow(x1)
   N2 = nrow(x2)
   d = ncol(x1)
-  print(N1)
-  print(N2)
-  print(d)
-  
   K = matrix(0, N1*p, N2*p)
+  
   for (i in 1:p) {
     K[((i-1)*N1+1):(i*N1),((i-1)*N2+1):(i*N2)] = ARD_SE_cov_non_sym(x1, x2, lambda[i], beta[((i-1)*d+1):(i*d)])
   }

@@ -199,8 +199,10 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape
 
 # Make predictions from fitted Gaussian process emulator
 N_sam_pred = 10 # Required number of prediction samples
-full_field_emulator_predict(N_sam_pred)
-full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, lambda_w, lambda_eta, K ,KTKinv, sam_gp = FALSE, output_coeff_sam = TRUE, output_ff_sam = TRUE, output_coeff_mean = TRUE, output_ff_mean = TRUE){
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = TRUE, output_ff_sam = TRUE, output_coeff_mean = TRUE, output_ff_mean = TRUE)
+# It works. Next figure out how to extract from list automatically. Will need to 
+# do more checks when get as far as plotting/writing output to file
+
   # HERE!! TEST FULL FIELD EMULATOR PREDICTION CODE FOR ALL SETTINGS. MAYBE 
   # DO A QUICK CHECK OF THE AVERAGE CODE AS WELL AS THAT'S NEW
 # Taken outside of emulator for consistency with other code - make sure variables

@@ -2,7 +2,7 @@
 # calibrated models
 
 library(MASS) # Needed for mvrnorm
-source("covariance_matrices.R")
+source("source/covariance_matrices.R")
 
 zero_mean_gp_pred <- function(y, K_x, k_x_xstar, k_xstar, sam_gp = FALSE, N_sam = 1, inv_K = FALSE){
   # Make predictions of a zero-mean Gaussian process, where y is the training
@@ -24,6 +24,7 @@ zero_mean_gp_pred <- function(y, K_x, k_x_xstar, k_xstar, sam_gp = FALSE, N_sam 
     f_mu = t(k_x_xstar) %*% K_x_inv %*% y
     f_sigma = k_x_xstar - (t(k_x_xstar) %*% K_x_inv %*% k_x_xstar)
   }
+
   # Sample from the Gaussian process if required
   if (sam_gp) {
     f_star = mvrnorm(n = N_sam, f_mu, f_sigma)
@@ -49,21 +50,17 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
   # output_coeff_mean = Boolean on whether to average across posterior predictions for the basis coefficients
   # output_ff_mean = Boolean on whether to average across posterior predictions for the full-field
   
-  N_sam_post = nrow(beta_W) # Determine overall number of posterior samples
+  N_sam_post = nrow(beta_w) # Determine overall number of posterior samples
   N_pred = nrow(x_pred) # Determine number of points at which predictions are needed
   N_eta = nrow(K) # Determine number of output values per simulation
   p = ncol(lambda_w) # Determine number of bases
   
-  # Sub-sample from the posterior distrubtion
+  
+  # Sub-sample from the posterior distribution
   subsam_ind = sample.int(N_sam_post, N_post_pred) # Determine index of posterior samples
   beta_w = beta_w[subsam_ind,]
   lambda_w = lambda_w[subsam_ind,]
   lambda_eta = lambda_eta[subsam_ind]
-  
-  # Check if this worked..
-  View(beta_w)
-  
-  # Add some booleans to determine which of the below are needed
   
   # Initialise output arrays
   # Do I want to output posterior samples for basis coefficients?
@@ -105,12 +102,11 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
 
   # Loop over all GP samples
   for (i in 1:N_post_pred){
-    print(i) # keep for now
-    
+    print(i) # Print count of loop
     # Construct covariance matrices for making predictions
     Sigma_z = full_field_cov(x_train, lambda_w[i,], beta_w[i,])
     # Adjust sigma_z to account for the dimension reduction
-    Sigma_z_hat = sigma_z + KTKinv/lambda_eta[i]
+    Sigma_z_hat = Sigma_z + KTKinv/lambda_eta[i]
     # Determine covariance of emulator prediction with itself
     sigma_w_star = diag(1/lambda_w[i,])
   
@@ -118,15 +114,13 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
     # covariance matrices. Generate samples if required
     for (j in 1:N_pred){
       # Determine cross covariance of training data with the jth prediction
-      print(x_pred[j,])
-      print(t(as.matrix(x_pred[j,])))
       Sigma_z_w_star = full_field_cov_non_sym(x_train, t(as.matrix(x_pred[j,])), lambda_w[i,], beta_w[i,])
       # Make predictions in reduced dimensional space
       pred = zero_mean_gp_pred(z_train, Sigma_z, Sigma_z_w_star, sigma_w_star, sam_gp = sam_gp)
       w_star_mu = pred[[1]]
       w_star_sigma = pred[[2]]
       w_star = pred[[3]]
-      
+
       # Store emulator posterior samples of basis coefficients if requested
       if (output_coeff_sam){
         w_star_mu_out[,i,j] = w_star_mu
@@ -154,33 +148,23 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
     
       # If averages are required across posterior samples, keep a running total
       # to reduce memory requirements, compared with calculating mean at the end
-      # (a neater way might be to take an average across w samples, then 
-      # transform) back onto eta, which is correct and wouldn't require as much
-      # memory as averaging across eta, but still more than keeping a running sum
-      # Add to average across coeffient posterior samples if required
       if (output_coeff_mean) {
-        w_star_mu_mu_out = w_star_mu_mu_out + w_star_mu/N_post_pred
-        w_star_sigma_mu_out = w_star_sigma_mu_out + w_star_sigma/N_post_pred # Might be a problem addding arrays, may need to use apply?
+        w_star_mu_mu_out[,j] = w_star_mu_mu_out[,j] + w_star_mu/N_post_pred
+        w_star_sigma_mu_out[,,j] = w_star_sigma_mu_out[,,j] + w_star_sigma/N_post_pred # Might be a problem addding arrays, may need to use apply?
         if (sam_gp) {
-          w_sam_mu_out = w_sam_mu_out + w_star/N_post_pred
+          w_star_sam_mu_out[,j] = w_star_sam_mu_out[,j] + w_star/N_post_pred
         }
       }
       # Add to average across full-field posterior samples if required
       if (output_ff_mean){
-        eta_mu_mu_out = eta_mu_mu_out + eta_mu/N_post_pred
-        eta_sigma_mu_out = eta_sigma_mu_out + eta_sigma/N_post_pred
+        eta_mu_mu_out[,j] = eta_mu_mu_out[,j] + eta_mu/N_post_pred
+        eta_sigma_mu_out[,j] = eta_sigma_mu_out[,j] + eta_sigma/N_post_pred
         if (sam_gp) {
-          eta_sam_mu_out = eta_sam_mu_out + eta_sam/N_post_pred
+          eta_sam_mu_out[,j] = eta_sam_mu_out[,j] + eta_sam/N_post_pred
         }
       }
     }
   }
-  
-  # Legacy code for computing averages outside of posterior sample loop
-  # Delete if I'm happy with what I have
-  # eta_sam_matrix = apply(eta_sam, 3, rowMeans)
-  # eta_mu_matrix = apply(eta_mu, 3, rowMeans)
-  # eta_sigma_matrix = apply(eta_sigma, 3, rowMeans)
 
   # create list of the requested outputs
   out_list = list()
@@ -203,7 +187,7 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
     out_list[["w_star_mu_mu"]] = w_star_mu_mu_out
     out_list[["w_star_sigma_mu"]] = w_star_sigma_mu_out
     if (sam_gp){
-      out_list[["w_sam_mu_out"]] = w_sam_mu_out
+      out_list[["w_star_sam_mu_out"]] = w_star_sam_mu_out
     }
   }
   if (output_ff_mean){
