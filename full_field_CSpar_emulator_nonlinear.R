@@ -18,7 +18,7 @@ library(rjson)
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
-source("source/estimate_mode.R")
+source("source/utils.R")
 source("source/covariance_matrices.R")
 source("source/dimension_reduction.R")
 source("source/abaqus_json.R")

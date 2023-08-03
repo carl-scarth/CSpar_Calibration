@@ -16,7 +16,7 @@ library(matrixStats)
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
-source("source/estimate_mode.R")
+source("source/utils.R")
 source("source/dimension_reduction.R")
 source("source/prior_posterior_plots.R")
 source("source/gp_predictions.R")
@@ -199,54 +199,55 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape
 
 # Make predictions from fitted Gaussian process emulator
 N_sam_pred = 10 # Required number of prediction samples
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = TRUE, output_ff_sam = TRUE, output_coeff_mean = TRUE, output_ff_mean = TRUE)
-# It works. Next figure out how to extract from list automatically. Will need to 
-# do more checks when get as far as plotting/writing output to file
+# Make predictions. Request only averages of the full-field across the posterior
+# uncertainty
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = TRUE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
-  # HERE!! TEST FULL FIELD EMULATOR PREDICTION CODE FOR ALL SETTINGS. MAYBE 
-  # DO A QUICK CHECK OF THE AVERAGE CODE AS WELL AS THAT'S NEW
-# Taken outside of emulator for consistency with other code - make sure variables
-# are named correctly
-emulator output = emulator_output*sd_dt + mu_dt
-emulator_std = emulator_std*sd_dt
+# extract quantities of interst from output, transform back onto the original
+# (un-standardised) scale, then write to csv
+if ("eta_mu_mu" %in% names(out_list)){
+  eta_mu_mu = out_list$eta_mu_mu
+  eta_sigma_mu = out_list$eta_sigma_mu
+  
+  # Convert back on true scale
+  eta_mu_mu = eta_mu_mu*sd_dt
+  eta_sigma_mu = eta_sigma_mu*sd_dt
+  
+  write_output(eta_mu_mu, "eta_mu_mu", in_file)
+  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
+}
+if ("eta_sam_mu" %in% names(out_list)){
+  eta_sam_mu = out_list$eta_sam_mu
+  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
+  write_output(eta_sam_mu, "eta_sam_mu", in_file)
+}
+# Are there individual samples to be written to file?
+if ("eta_mu" %in% names(out_list)){
+  eta_mu = out_list$eta_mu
+  eta_mu = eta_mu*sd_dt + mu_dt
+  eta_sigma = out_list$eta_sigma
+  eta_sigma = eta_sigma*sd_dt
+  write_output_samples(eta_mu, "eta_mu", in_file)
+  write_output_samples(eta_sigma, "eta_sigma", in_file)
+}
+if ("eta_sam" %in% names(out_list)){
+  eta_sam = out_list$eta_sam
+  eta_sam = eta_sam*sd_dt + mu_dt
+  write_output_samples(eta_sam, "eta_sam", in_file)
+}
 
-# Compare against known output 
+#-------------------------------------------------------------------------------
 
+# Example cross validation exercise, where comparison is made with another set 
+# of samples with known output
+
+# Compare against known output for separate set of samples
 cross_val_disp = fread("inputs/LHSDesign40x4_1_fixed_100kN.csv")
 cross_val = matrix(0,n_eta,n_pred)
 for (i in 1:n_pred){
   cross_val[,i] = cross_val_disp[[as.name(sprintf('w_%d', i))]]
 }
-
-# Quick cross-validation exercise - the second node is the reference point at 
-# which the load is applied. Look at this to check predictions are approximately
-# the right magintude, which seems to be the case
-View(rbind(eta_sam_matrix[2,],eta_mu_matrix[2,],cross_val[2,],eta_sigma_matrix[2,]))
-
-# Plot histogram of reduced coefficients
-dev.new(noRStudioGD = TRUE) # plot in new window
-par(mfrow = c(1, p_eta))
-pred_ind = 2
-for (i in 1:p_eta){
-  hist(w_star[i,,pred_ind], 
-       main =  paste("Feature",as.character(i)),
-       xlab = paste("w_star", as.character(i)),
-       col = "brown1",
-       breaks = 5,
-       freq = FALSE,
-       xlim = c(-3,3),
-       cex.lab = 1.25,
-       cex.axis = 1.25)
-  # overlay plot of prior distribution
-  w_plot = seq(-3,3, length.out = 100)
-  prior_plot = dnorm(w_plot,mean = 0, sd = 1)
-  lines(w_plot,prior_plot,lwd=3,"col"="blue")
-}
-
-
-# Write all output to text files for plotting
-# Too big - consider just outputting samples for a single prediction
-# write.csv(eta_sam, "outputs/eta_sam.csv", row.names = FALSE)
-# write.csv(eta_sam_matrix, "outputs/eta_sam_mu.csv", row.names = FALSE)
-write.csv(eta_mu_matrix, "outputs/eta_mu_mu.csv", row.names = FALSE)
-write.csv(eta_sigma_matrix, "outputs/eta_sigma_mu.csv", row.names = FALSE)
+  
+# Quick cross-validation exercise, which compares the displacement of a 
+# reference point at the spar tip in the model with emulator predictions
+View(rbind(eta_sam_mu[2,],eta_mu_mu[2,],cross_val[2,],eta_sigma_mu[2,]))
