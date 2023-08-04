@@ -33,8 +33,12 @@ write_output <- function(data, out_string, label_string){
   # Formats data and writes to a csv file with name, and column headings given 
   # in out_string, and label label_string
   data = as.data.frame(data)
-  for (i in 1:ncol(data)){
-    colnames(data)[i] = sprintf("%s_%d",out_string, i)
+  if (ncol(data) == 1){
+    colnames(data) = c(out_string)
+  } else {
+    for (i in 1:ncol(data)){
+      colnames(data)[i] = sprintf("%s_%d",out_string, i)
+    }
   }
   write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)
 }
