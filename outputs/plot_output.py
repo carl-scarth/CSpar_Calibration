@@ -1,32 +1,33 @@
 # Plots outputs from analysis as a vtk file
-# Try to set up for any output
-
-
 
 import numpy as np
+import pandas as pd
 import meshio
 
 shell_mesh = True
 label = "LHSDesign40x4"
-plot_basis = False
-plot_GP_Mean = True
-
+plot_basis = False # Plot of basis functions
+plot_training_data_mean = False # Plot mean of training data
+plot_GP_Mean = True # Plot average across posterior samples of Gaussian process predictions
+plot_GP_Post_Sam = False # Plot Gaussian process predictions across a set of posterior samples of hyperparameters
+plot_GP_Sam = True # Plot samples from Gaussian process?
+ 
 file_list = []
 if plot_basis:
     file_list.append("basis")
+if plot_training_data_mean:
+    file_list.append("training_data_mean")
 if plot_GP_Mean:
-    # Sort format after done with R
     file_list.extend(["eta_mu_mu","eta_sigma_mu"])
-
-# GOOD PRACTICE WOULD BE TO USE PANDAS, AND WRITE HEADER. THEN I COULD USE FOR INPUT AND OUTPUT
-# SEE PLOT DOE IN INPUTS FOR EXAMPLE
+    if plot_GP_Sam:
+        file_list.append("eta_sam_mu")
+if plot_GP_Post_Sam:
+    file_list.extend(["eta_mu", "eta_sigma"])
+    if plot_GP_Sam:
+        file_list.append("eta_sam")
 
 # Files containing output samples
 # sample_file_list = ['eta_mu','delta_mu','delta_sam','eta_sam','delta_sigma','eta_sigma']
-# sample_file_list = ['eta_mu','eta_sam','eta_sigma']
-# sample_file_list = []
-# Files containing average output
-# mean_file_list = ['eta_mu_mu', 'eta_sigma_mu','eta_sam_mu']
 
 # Open the output files
 if shell_mesh:
@@ -61,6 +62,7 @@ for face in face_nodes:
 faces = faces - 1
 
 # Loop over different csv files containing output data, and create a dictionary
+# No longer used. Delete if I find it definitely isn't necessary
 #for file_name in sample_file_list:
 #    output_dict = {}
 #    output = np.loadtxt(file_name + '.csv', delimiter = ',', skiprows = 1)
@@ -76,12 +78,18 @@ output_dict = {}
 # Loop over all files for which output is required and populate the output dictionary
 for filestr in file_list:
     # load in output from current filename
-    output = np.loadtxt(filestr + "_" + label + ".csv", delimiter = ",", skiprows = 1)
+    # output = np.loadtxt(filestr + "_" + label + ".csv", delimiter = ",", skiprows = 1) # legacy code
+    # output = output[2:,:]
+    # for i in range(output.shape[1]):
+    #    output_dict[filestr + "_" + str(i+1)] = output[:,i]
+
+    output = pd.read_csv(filestr + "_" + label + ".csv")
+
     # Discard the first two points from the output as these are reference points
-    output = output[2:,:]
+    output = output.loc[2:]
     # Loop over entries of the output file and store in the output dictionary
-    for i in range(output.shape[1]):
-        output_dict[filestr + "_" + str(i+1)] = output[:,i]
+    for col in output.columns:
+        output_dict[col] = output[col]
 
 # Get data in the correct format for meshio
 meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write("output_vtk.vtk", file_format="vtk")
