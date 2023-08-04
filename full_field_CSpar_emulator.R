@@ -211,7 +211,7 @@ if ("eta_mu_mu" %in% names(out_list)){
   eta_sigma_mu = out_list$eta_sigma_mu
   
   # Convert back on true scale
-  eta_mu_mu = eta_mu_mu*sd_dt
+  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
   eta_sigma_mu = eta_sigma_mu*sd_dt
   
   write_output(eta_mu_mu, "eta_mu_mu", in_file)
