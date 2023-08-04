@@ -119,8 +119,9 @@ pairs(t_pred,col = "blue", pch=4,
 # coefficients have zero (sample) mean. 
 mu_dt = rowMeans(dt_simulation)
 # Write model mean to csv file
-write.csv(mu_dt, paste("outputs/model_mean_",in_file,".csv"), row.names = FALSE) 
+write.csv(as.data.frame(as.matrix(mu_dt,n_row = n_eta),col.names = c("Training_Data_Mean")), paste("outputs/model_mean_",in_file,".csv",sep=""), row.names = FALSE) 
 dt_all_cen = sweep(dt_simulation,1,mu_dt,"-")
+write_output(as.matrix(mu_dt,n_row = n_eta),"training_data_mean",in_file)
 
 # Divide by the standard deviation of the outputs
 sd_dt = sd(as.matrix(dt_all_cen))
@@ -198,10 +199,10 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape
 #-------------------------------------------------------------------------------
 
 # Make predictions from fitted Gaussian process emulator
-N_sam_pred = 10 # Required number of prediction samples
+N_sam_pred = 1000 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = TRUE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # extract quantities of interst from output, transform back onto the original
 # (un-standardised) scale, then write to csv
