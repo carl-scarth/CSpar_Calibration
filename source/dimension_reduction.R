@@ -73,7 +73,7 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
     # Omit first point for greater clarity on convergence
     plot(2:p_eta,d_r_norm[2:p_eta],"type"="p","col"="red","pch"=4,"lwd"=3,cex=1.5,
        'xlab' = "Feature",'ylab'="normalised d_i",cex.axis=1.75,cex.lab=1.75)
-    title("Convergence with Number of Basis Functions", line = -2, outer = TRUE, cex.main=1.75)
+    title("Convergence with Number of Basis Functions", line = 0, outer = TRUE, cex.main=1.75)
   }
     
   # Extract the first p_eta basis functions from the svd, and standardise so the
