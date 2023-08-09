@@ -121,7 +121,7 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, adj_prior_s
      col = "firebrick1",
      breaks = 25,
      freq = FALSE,
-     xlim = c(0,max_x),
+     xlim = c(0,2^ceiling(log(max_x,2))), # round up upper limit
      cex.axis=1.5,
      cex.lab=1,5)
   lambda_plot <- seq(min_x_prior, max_x_prior, length.out = 1000) # set of x values for prior plot
