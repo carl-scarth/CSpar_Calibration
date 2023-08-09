@@ -5,6 +5,7 @@ import numpy as np
 import meshio
 import json
 import matplotlib.pyplot as plt
+import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
 infile = "LHSDesign40x4"
@@ -26,10 +27,11 @@ nodes = np.loadtxt(node_file, delimiter = ',')
 with open(basis_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())
-    
+  
 # Convert Basis data to numpy
 for frame in in_dict["Frame"]:
     frame["Bases"] = np.array(frame["Bases"])
+    frame["Training_Data_Mean"] = np.array(frame["Training_Data_Mean"], dtype="float")
 
 # Extract number of frames and number of bases
 n_frames = len(in_dict["Frame"])
@@ -45,10 +47,13 @@ nodes = nodes[2:,:]
 # Extract the second row from each basis, which gives corresponds to 
 # displacement at the reference point
 basis_RP = np.empty((n_frames,n_bases))
+mean_RP = np.empty(n_frames)
 for i, frame in enumerate(in_dict["Frame"]):
     basis_RP[i,:] = frame["Bases"][1,:]
+    mean_RP[i] = frame["Training_Data_Mean"][1]
     # Now delete the reference points
     frame["Bases"] = frame["Bases"][2:,:]
+    frame["Training_Data_Mean"] = frame["Training_Data_Mean"][2:]
 
 # Define list of indice of the nodes which define each face of the brick (i.e. which column of the connectivity)
 # Look at Jean's code - figure out how to write as solid rather than faces
@@ -58,9 +63,14 @@ for face in face_nodes:
     elements_face = elements[:,face]
     faces = np.concatenate((faces,elements_face))
 
+
 # Convert connectivity from abaqus to python indexing
 faces = faces - 1
 
+# Create a new directory for the vtk files, if one does not exist already
+if not(os.path.isdir("basis_nonlinear_" + infile)):
+    os.mkdir("basis_nonlinear_" + infile)
+    
 # Loop over each frame, then write a separate frame which paraview can 
 # interpret as a file series
 for i, frame in enumerate(in_dict["Frame"]):
@@ -69,7 +79,9 @@ for i, frame in enumerate(in_dict["Frame"]):
     for j in range(n_bases):
         basis_dict["basis_" + str(j+1)] = frame["Bases"][:,j]
         # Get data in the correct format for meshio
-        meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = basis_dict).write("basis_nonlinear" + infile + "_" + str(i) + ".vtk", file_format="vtk")
+    
+    basis_dict["Training_Data_Mean"] = frame["Training_Data_Mean"]
+    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = basis_dict).write("basis_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
 
 # Finally, plot the basis function at the reference point
 fig = plt.figure(figsize=(10,8))
@@ -80,4 +92,11 @@ for base in basis_RP.T:
 label_font = {'family': 'serif', 'size': 16,}
 ax.set_ylabel("Increment", fontdict = label_font)
 ax.set_xlabel("K_i", fontdict = label_font)
+
+fig2 = plt.figure(figsize=(10,8))
+ax2 = fig2.add_subplot(1, 1, 1)
+ax2.plot(range(n_frames), mean_RP)
+ax2.set_ylabel("Increment", fontdict = label_font)
+ax2.set_xlabel("Training Data Mean", fontdict = label_font)
+
 plt.show()
