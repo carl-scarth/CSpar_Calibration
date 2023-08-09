@@ -19,9 +19,10 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
 source("source/utils.R")
-source("source/covariance_matrices.R")
 source("source/dimension_reduction.R")
+source("source/prior_posterior_plots.R")
 source("source/abaqus_json.R")
+source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
@@ -30,7 +31,8 @@ source("source/abaqus_json.R")
 p_eta = 11 # Number of basis functions to be retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
-print_output = TRUE # Print diagnostic output to the terminal?
+print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
+export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -116,8 +118,9 @@ dt_all_cen = dt_all_cen/sd_dt
 # Convert to matrix for stan
 eta = as.matrix(dt_all_cen)
 
-out_basis = svd_basis(eta, p_eta=p_eta, exp_tol = exp_tol, print_output = TRUE, 
-                      csv_label = in_file)
+out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
+                      print_output = print_svd_output, csv_label = in_file)
+
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
@@ -152,3 +155,75 @@ fit = stan(file = "source/full_field_emulator.stan",
            model_name = "full_field_emulator")
 
 #-------------------------------------------------------------------------------
+
+# Post-process and plot the simulation data
+
+# Produce trace plots
+stan_trace(fit, pars = c("rho_w", "lambda_w","lambda_eta"))
+# Print summary of results
+print(fit, pars = c("rho_w", "lambda_w", "lambda_eta"))
+
+# extract samples from stan output
+samples <- extract(fit)
+rho_w <- samples$rho_w           # Correlation lengths
+beta_w <- samples$beta_w         # Transformed Correlation lengths
+lambda_w <- samples$lambda_w     # Emulator precisions
+lambda_eta <- samples$lambda_eta # Expansion truncation error 
+N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
+
+# Extract label of inputs for plots
+labels = colnames(XT_sim) # don't think I need this but keeping just in case
+
+# If required, estimate the modes of emulator hyperparameters and write to a csv
+if (export_modes){
+  modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
+  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
+}
+
+# Plot correlation parameter histograms
+full_field_rho_hist(rho_w, p_eta, inp_labels = labels)
+# Plot emulator precision parameters for emulator
+full_field_lambda_hist(lambda_w, p_eta)
+# Plot emulator trunction error precision
+lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
+
+#-------------------------------------------------------------------------------
+
+# Make predictions from fitted Gaussian process emulator
+N_sam_pred = 5 # Required number of prediction samples
+# Make predictions. Request only averages of the full-field across the posterior
+# uncertainty
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = FALSE)
+
+# extract quantities of interst from output, transform back onto the original
+# (un-standardised) scale, then write to csv
+if ("eta_mu_mu" %in% names(out_list)){
+  eta_mu_mu = out_list$eta_mu_mu
+  eta_sigma_mu = out_list$eta_sigma_mu
+  
+  # Convert back on true scale
+  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
+  eta_sigma_mu = eta_sigma_mu*sd_dt
+  
+  write_output(eta_mu_mu, "eta_mu_mu", in_file)
+  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
+}
+if ("eta_sam_mu" %in% names(out_list)){
+  eta_sam_mu = out_list$eta_sam_mu
+  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
+  write_output(eta_sam_mu, "eta_sam_mu", in_file)
+}
+# Are there individual samples to be written to file?
+if ("eta_mu" %in% names(out_list)){
+  eta_mu = out_list$eta_mu
+  eta_mu = eta_mu*sd_dt + mu_dt
+  eta_sigma = out_list$eta_sigma
+  eta_sigma = eta_sigma*sd_dt
+  write_output_samples(eta_mu, "eta_mu", in_file)
+  write_output_samples(eta_sigma, "eta_sigma", in_file)
+}
+if ("eta_sam" %in% names(out_list)){
+  eta_sam = out_list$eta_sam
+  eta_sam = eta_sam*sd_dt + mu_dt
+  write_output_samples(eta_sam, "eta_sam", in_file)
+}
