@@ -8,7 +8,6 @@
 !outputs/CSpar_sam_shell_mesh_nodes.csv
 !outputs/emulator_modes_LHSDesign40x4.csv
 *.json
-!inputs/LHSDesign40x4_1_output_struct.json
 *.geo
 *.msh
 *.RData
@@ -25,3 +24,4 @@ input.txt
 CSpar_sam_displacement.csv
 CSpar_sam_nodes.csv
 CSpar_sam_output.json
+inputs/plot_spring_study.py
