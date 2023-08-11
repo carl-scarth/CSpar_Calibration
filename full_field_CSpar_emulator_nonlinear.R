@@ -11,7 +11,6 @@
 library(data.table)
 library(rstan)
 library(matrixStats)
-library(rjson)
 
 # Set current working directory. This should be modified to match the directory
 # of the user
@@ -23,6 +22,7 @@ source("source/dimension_reduction.R")
 source("source/prior_posterior_plots.R")
 source("source/abaqus_json.R")
 source("source/gp_predictions.R")
+source("source/transform_input_output.R")
 
 #-------------------------------------------------------------------------------
 
@@ -119,10 +119,14 @@ dt_all_cen = dt_all_cen/sd_dt
 eta = as.matrix(dt_all_cen)
 
 out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
-                      print_output = print_svd_output, csv_label = in_file)
+                      print_output = print_svd_output, export_basis = FALSE)
 
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
+
+# Write basis to .json file
+out_json = basis_mean_to_json(n_frames, n_nodes, K_eta, mu_dt)
+write(out_json, paste("outputs/basis_nonlinear_",in_file,".json",sep=""))
 
 #-------------------------------------------------------------------------------
 
@@ -189,41 +193,38 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape
 
 #-------------------------------------------------------------------------------
 
-# Make predictions from fitted Gaussian process emulator
-N_sam_pred = 5 # Required number of prediction samples
+# Make predictions from fitted Gaussian process emulator, and write these
+# predictions to a .json file
+
+N_sam_pred = 1000 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = FALSE)
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
-# extract quantities of interst from output, transform back onto the original
-# (un-standardised) scale, then write to csv
-if ("eta_mu_mu" %in% names(out_list)){
-  eta_mu_mu = out_list$eta_mu_mu
-  eta_sigma_mu = out_list$eta_sigma_mu
-  
-  # Convert back on true scale
-  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
-  eta_sigma_mu = eta_sigma_mu*sd_dt
-  
-  write_output(eta_mu_mu, "eta_mu_mu", in_file)
-  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
+# extract quantities of interest from output, transform back onto the original
+# (un-standardised) scale, then write to json
+# List of full-field outputs which may be in out_list
+out_strings = c("eta_mu_mu", "eta_sigma_mu", "eta_sam_mu", "eta_mu", "eta_sigma", "eta_sam")
+# Loop over each output, check if it has been requested, then append to the list
+# to be written to json
+json_list <- list()
+for (i in 1:length(out_strings)){
+  if (out_strings[i] %in% names(out_list)){
+    out_i = out_list[[out_strings[i]]]
+    # Transform outputs back onto their individual scale
+    # If the output is a standard deviation a different transformation is required
+    if (grepl("sigma", out_strings[i], fixed=TRUE)){
+      out_i = rescale_vector_output(out_i, mu_dt, sd_dt, sd=TRUE)
+    } else {
+      out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
+    }
+    # Append transformed values to list
+    out_i = list(out_i)
+    names(out_i) = out_strings[i]
+    json_list = append(json_list, out_i)
+  }
 }
-if ("eta_sam_mu" %in% names(out_list)){
-  eta_sam_mu = out_list$eta_sam_mu
-  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
-  write_output(eta_sam_mu, "eta_sam_mu", in_file)
-}
-# Are there individual samples to be written to file?
-if ("eta_mu" %in% names(out_list)){
-  eta_mu = out_list$eta_mu
-  eta_mu = eta_mu*sd_dt + mu_dt
-  eta_sigma = out_list$eta_sigma
-  eta_sigma = eta_sigma*sd_dt
-  write_output_samples(eta_mu, "eta_mu", in_file)
-  write_output_samples(eta_sigma, "eta_sigma", in_file)
-}
-if ("eta_sam" %in% names(out_list)){
-  eta_sam = out_list$eta_sam
-  eta_sam = eta_sam*sd_dt + mu_dt
-  write_output_samples(eta_sam, "eta_sam", in_file)
-}
+
+# Write json to file
+out_json = gp_pred_to_json(n_frames, n_nodes, n_pred, N_sam_pred, json_list)
+write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))
