@@ -25,7 +25,7 @@ source("source/gp_predictions.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 7 # Number of basis functions to be retained for the emulator from SVD
+p_eta = 7 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 # Define parameters of the gamma prior on the error associated with truncating
@@ -42,8 +42,8 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-# in_file = "LHSDesign50x3" # File identifier string which is in both input and output csvs
-in_file = "LHSDesign40x4" # File identifier string which is in both input and output csvs
+# in_file = "LHSDesign50x3" # File identifier for input and output csvs
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 
@@ -55,12 +55,11 @@ XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 # Determine useful quantities from model inputs and outputs. Variable names 
 # match the notation of Higdon et al. 2008
 q = ncol(XT_sim)          # number of calibration inputs
-tc = as.matrix(XT_sim)    # Convert training data input points to a matrix for passing to stan
+tc = as.matrix(XT_sim)    # Convert to a matrix for passing to stan
 m = nrow(XT_sim)          # sample size of computer simulation data
 
-# Load in  training data output displacement values from Abaqus. Here I've used
-# a similar naming convention to the inputs to automate changes. The file name 
-# can be changed manually if need be.
+# Load in training data output displacement values from Abaqus. I've used
+# a similar naming convention to the inputs to automate changes. 
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
