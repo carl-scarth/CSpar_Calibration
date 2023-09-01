@@ -1,108 +1,110 @@
 
 # This code is an application of the multivariate calibration formulation 
 # proposed in 'Computer Model Calibration using High-dimensional Output', by
-# Higdon et al, JASA, to linear finite element model of a composite stiffened
-# panel, using experimental compression test data from 26 strain gauges at 
-# locations on the panel. Data is taken from only one experiment, and so a 
-# simplified version of Higdon et al. with n = 1 is implemented here. Sampling
-# is undertaken in stan using the accompanying code.
-
-# Set up R
+# Higdon et al, JASA, to a CSpar finite element model with uncertain inputs 
+# using DIC data from one experiment. A simplified version of Higdon et al. 
+# with n = 1 is implemented here. Sampling is undertaken in stan. This code 
+# handles pre and post processing.
 
 library(data.table)
 library(rstan)
-#library(maximin)
 library(matrixStats)
-#library(colormap)
-library(MASS)
+# library(MASS)
+# library(colormap)
 
 # Set current working directory. This should be modified to match the directory
-# at which the stan code and any data is stored
+# of the user
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
-source("source/estimate_mode.R")
-source("source/covariance_matrices.R")
+# source("source/utils.R")
+# source("source/dimension_reduction.R")
+# source("source/prior_posterior_plots.R")
+# source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
 # Set up parameters which govern the formulation
+# Might be able to delete some of these later
+p_eta = 7 # Number of basis functions retained for the emulator from SVD
+# exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
+disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+# Define parameters of the gamma prior on the error associated with truncating
+# the series expansion for the model output
+# a_eta = 1.0     # Shape parameter for the lambda_eta prior
+# b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
+iter = 4000 # Number of samples per chain
+chains = 3 # Number of chains for simulation
+# print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 
 p_eta = 5 # Number of basis functions to be retained for the emulator from SVD
-p_delta = 5 # Number of basis functions to be used to model discrepancy
-
-# define vector of prior means for the calibration inputs
-E11_mu = 115.6
-# E22_mu = 9.24
-# nu12_mu = 0.335
-# nu23_mu = 0.487
-# G12_mu = 4.826
-t_ply_mu = 0.196
-
-# define prior coefficients of variation for the calibration parameters
-E11_cov = 6.0 
-# E22_cov = 6.0 
-# nu12_cov = 12.123 
-# nu23_cov = 12.0
-# G12_cov = 6.0
-t_ply_cov = 5.0
-
-# Rotational spring stiffness is defined by bounds
-K_lb = 100.0
-K_ub = 1.0e9
-  
-# Combine prior means and coefficients of variation into a single vector.
-# tf_mu = c(E11_mu,E22_mu,nu12_mu,nu23_mu,G12_mu,t_ply_mu)
-# tf_cov = c(E11_cov,E22_cov,nu12_cov,nu23_cov,G12_cov,t_ply_cov)
-# Calculate prior standard deviations from mean and COV
-#tf_sigma = tf_mu*tf_cov/100
-
-# Combine prior distribution parameters into a single vector
-# take natural logarithm of spring stiffness, as this is unformly-distributed
-tf_param_1 = c(E11_mu, t_ply_mu, log(K_lb))
-tf_param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, log(K_ub))
-  
 
 #-------------------------------------------------------------------------------
 
-# Set up simulation data
+# Define prior distribution parameters for passing to stan
 
-# Load in emulator training data (input values) from Design of Experiments. 
-# This input includes different values across uncontrolled calibration inputs.
-XT_sim = fread("inputs/LHSDesign30x3.csv")
-# take natural logarithm of spring stiffness
-XT_sim$K = log(XT_sim$K)
-colnames(XT_sim)[3] = "log_K"
+# Pre-processing for BC example (Mean and coefficients of variation for Gaussian
+# inputs)
+E11_mu = 115.6
+t_ply_mu = 0.196
+E11_cov = 6.0 
+t_ply_cov = 5.0
+# Bounds for log-uniform inputs
+# K_lb = 100.0
+# K_ub = 1.0e9
+
+# Define data_frame of prior parameters (this could be done via csv?)
+#tf_param = data.frame(E11 = c("Gaussian",E11_mu, E11_mu*E11_cov/100),
+#                      t_ply = c("Gaussian",t_ply_mu,t_ply_mu*t_ply_cov/100),
+#                      K = c("Loguniform",log(K_lb),log(K_ub)))
+
+# Additional pre-processing for flange-rotation example
+flange_theta_mu = 0.0
+flange_theta_sigma = 4.0
+# Define data_frame of prior parameters
+tf_param = data.frame(E11 = c("Gaussian",E11_mu, E11_mu*E11_cov/100),
+                      t_ply = c("Gaussian",t_ply_mu,t_ply_mu*t_ply_cov/100),
+                      LFlange_theta = c("Gaussian",flange_theta_mu,flange_theta_sigma),
+                      RFlange_theta = c("Gaussian",flange_theta_mu,flange_theta_sigma))
+
+#-------------------------------------------------------------------------------
+
+# Set up simulation data (need to retain this for normalisation of inputs)
+
+# Load in emulator training data input values from Design of Experiments. 
+# in_file = "LHSDesign50x3" # File identifier string for input and output csvs
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs
+XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
+
+# In this example I fit the emulator to the log of spring stiffness K, which is 
+# a more natural choice of values across which outputs are expected for
+# variations in this input
+#XT_sim$K = log(XT_sim$K)
+#colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
-# match the notation of Higdon et al.
+# match the notation of Higdon et al. 2008
 q = ncol(XT_sim)          # number of calibration inputs
-tc = as.matrix(XT_sim)    # Convert training data input points to a matrix for passing to stan
+tc = as.matrix(XT_sim)    # Convert to a matrix for passing to stan
 m = nrow(XT_sim)          # sample size of computer simulation data
 
-# Load in emulator training data (outputs - Abaqus nodal displacement data).
-# Each row matches inputs for the corresponding row in XT_sim
-displacement_data = fread("inputs/LHSDesign30x3_displacements.csv")#, header = FALSE, sep = ",")
-n_eta = nrow(displacement_data) # number of output points per simulation
+# Each row of XT_sim corresponds to a block of three columns of displacement 
+# data, with a column for each component u,v,w 
+# abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_100kN.csv", sep=""))
+n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
-dt_all_simulation = matrix(NA,nrow = n_eta, ncol = m)
-# Extract the axial displacement, w
+# Extract the displacement for the component of interest and store in a matrix
+dt_simulation = matrix(NA,nrow = n_eta, ncol = m)
 for (i in 1:m){
-  dt_all_simulation[,i] = displacement_data[[as.name(sprintf('w_%d', i))]]
+  dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
 }
 
-#mins = matrix(colMins(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-# maxs = matrix(colMaxs(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-#dt_all_simulation = matrix(as.matrix(dt_all_simulation),nrow = n_eta*3,ncol = m)
-
-
-# For the time being just work with the axial (z) displacement
-# think a bit about how to process full displacement vector (might require
-# alterations to the statistical model)
-#coord_ind = 3 # Coordinate of interest
-#dt_all_simulation = dt_all_simulation[((coord_ind-1)*n_eta+1):(coord_ind*n_eta),]
-
 #-------------------------------------------------------------------------------
+
+# WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
+# QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
+# DUPLICATION
 
 # All training data points are normalised onto the unit hypercube [0,1]^q before
 # being passed to stan. This code transforms all of these points, also 
