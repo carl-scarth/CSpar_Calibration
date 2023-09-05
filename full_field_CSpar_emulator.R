@@ -112,22 +112,19 @@ pairs(t_pred,col = "blue", pch=4,
 
 #-------------------------------------------------------------------------------
 
-# Performs SVD on the model outputs, and standardise so the coefficients of the 
-# expansion have zero mean and unit variance
+# Outputs at the training data points are standardised to have zero mean vector
+# (i.e. zero mean at each node), and overall standard deviation of 1, then 
+# decomposed according to basis vectors K_eta
 
-# Centre the simulation output for each node This guarantees that the
-# coefficients have zero (sample) mean. 
-mu_dt = rowMeans(dt_simulation)
+outlist = standardise_vector_output(dt_simulation)
+eta = as.matrix(outlist[[1]]) # Convert to matrix for stan
+mu_dt = outlist[[2]]
+sd_dt = outlist[[3]]
+
 # Write model mean to csv file
-write.csv(as.data.frame(as.matrix(mu_dt,n_row = n_eta),col.names = c("Training_Data_Mean")), paste("outputs/model_mean_",in_file,".csv",sep=""), row.names = FALSE) 
-dt_all_cen = sweep(dt_simulation,1,mu_dt,"-")
 write_output(as.matrix(mu_dt,n_row = n_eta),"training_data_mean",in_file)
 
-# Divide by the standard deviation of the outputs
-sd_dt = sd(as.matrix(dt_all_cen))
-dt_all_cen = dt_all_cen/sd_dt
-# Convert to matrix for stan
-eta = as.matrix(dt_all_cen)
+# Calculate reduced-dimensional basis of training data
 out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
                       print_output = print_svd_output, csv_label = in_file)
 K_eta = out_basis[[1]]
