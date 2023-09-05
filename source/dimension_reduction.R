@@ -91,7 +91,7 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
     }
   }
   
-  # Return relevent quantities
+  # Return relevant quantities
   return(list(K, p_eta))
 }
 
