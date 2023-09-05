@@ -17,6 +17,13 @@
 *.tmp
 *.dmp
 *.vtk
+*.com
+*.dat
+*.msg
+*.odb
+*.prt
+*.sim
+*.sta
 Abaqus/
 Dune/
 parameters.txt
