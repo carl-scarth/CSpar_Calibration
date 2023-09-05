@@ -16,6 +16,7 @@ library(matrixStats)
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
+source("source/transform_input_output.R")
 source("source/utils.R")
 source("source/dimension_reduction.R")
 source("source/prior_posterior_plots.R")
@@ -89,11 +90,11 @@ n_pred = nrow(t_pred) # number of predictions
 # being passed to stan. The same transformation is applied to the test points
 
 # Determine the maximum and minimum value of each input within the training data
-t_min = t(as.matrix(colMins(tc)))
-t_max = t(as.matrix(colMaxs(tc)))
+t_min = colMins(tc)
+t_max = colMaxs(tc)
 # Normalise the inputs using these maximum and minimum values
-tc = (tc - t_min[rep(1,m),])/(t_max[rep(1,m),]-t_min[rep(1,m),])
-t_pred = (t_pred - t_min[rep(1,n_pred),])/(t_max[rep(1,n_pred),]-t_min[rep(1,n_pred),])
+tc = normalise_inputs(tc, t_min, t_max)
+t_pred = normalise_inputs(t_pred, t_min, t_max)
 
 # plot Design of Experiments and test points
 pairs(tc,col="blue", pch=4, 
