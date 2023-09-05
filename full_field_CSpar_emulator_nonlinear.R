@@ -117,7 +117,7 @@ dt_all_cen = dt_all_cen/sd_dt
 eta = as.matrix(dt_all_cen)
 
 out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
-                      print_output = print_svd_output, export_basis = FALSE)
+                      print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
 
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
