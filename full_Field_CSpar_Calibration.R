@@ -17,6 +17,7 @@ library(matrixStats)
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
+source("source/transform_input_output.R")
 # source("source/utils.R")
 # source("source/dimension_reduction.R")
 # source("source/prior_posterior_plots.R")
@@ -50,22 +51,23 @@ t_ply_mu = 0.196
 E11_cov = 6.0 
 t_ply_cov = 5.0
 # Bounds for log-uniform inputs
-# K_lb = 100.0
-# K_ub = 1.0e9
+#K_lb = 100.0
+#K_ub = 1.0e9
 
 # Define data_frame of prior parameters (this could be done via csv?)
-#tf_param = data.frame(E11 = c("Gaussian",E11_mu, E11_mu*E11_cov/100),
-#                      t_ply = c("Gaussian",t_ply_mu,t_ply_mu*t_ply_cov/100),
-#                      K = c("Loguniform",log(K_lb),log(K_ub)))
+# tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Loguniform"),
+#                       param_1 = c(E11_mu, t_ply_mu, log(K_lb)),
+#                       param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, log(K_ub)))
+# row.names(tf_param) <- c("E11","t_ply","log_K")
 
 # Additional pre-processing for flange-rotation example
 flange_theta_mu = 0.0
 flange_theta_sigma = 4.0
 # Define data_frame of prior parameters
-tf_param = data.frame(E11 = c("Gaussian",E11_mu, E11_mu*E11_cov/100),
-                      t_ply = c("Gaussian",t_ply_mu,t_ply_mu*t_ply_cov/100),
-                      LFlange_theta = c("Gaussian",flange_theta_mu,flange_theta_sigma),
-                      RFlange_theta = c("Gaussian",flange_theta_mu,flange_theta_sigma))
+tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
+                      param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu ),
+                      param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
+row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
 
 #-------------------------------------------------------------------------------
 
@@ -79,8 +81,8 @@ XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 # In this example I fit the emulator to the log of spring stiffness K, which is 
 # a more natural choice of values across which outputs are expected for
 # variations in this input
-#XT_sim$K = log(XT_sim$K)
-#colnames(XT_sim)[3] = "log_K"
+# XT_sim$K = log(XT_sim$K)
+# colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
 # match the notation of Higdon et al. 2008
@@ -102,32 +104,43 @@ for (i in 1:m){
 
 #-------------------------------------------------------------------------------
 
-# WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
-# QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
-# DUPLICATION
-
 # All training data points are normalised onto the unit hypercube [0,1]^q before
-# being passed to stan. This code transforms all of these points, also 
-# transforming the prior mean and standard deviation of the calibration 
-# parameters for the sake of consistency
+# being passed to stan. The same transformation is applied to the test points
 
 # Determine the maximum and minimum value of each input within the training data
-t_min = t(as.matrix(colMins(tc)))
-t_max = t(as.matrix(colMaxs(tc)))
-# Normalise the training data points using these maximum and minimum values
-tc = (tc - t_min[rep(1,m),])/(t_max[rep(1,m),]-t_min[rep(1,m),])
-# also transform the prior mean and standard deviations using the same values for consistency
-tf_param_1 = as.vector((tf_param_1 - t_min)/(t_max-t_min))
-tf_param_2[3] = tf_param_2[3] - t_min[3]
-tf_param_2 = as.vector(tf_param_2/(t_max-t_min))
+t_min = colMins(tc)
+t_max = colMaxs(tc)
+# Normalise the inputs using these maximum and minimum values
+tc = normalise_inputs(tc, t_min, t_max)
+
+# For all implemented distributions the transformation of the 1st parameter is the same
+tf_param$p1_trans = normalise_inputs(tf_param$param_1, t_min, t_max)
+# The transformation of the 2nd parameter is different if this is a standard deviation
+tf_param$p2_trans = NA
+for (i in 1:q){
+  # Second parameter of a Gaussian is a standard deviation
+  if (tf_param$distribution[i] == "Gaussian"){
+    tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i], sd = TRUE)
+  } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+    tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i])
+  } else {
+    stop("Error: Non-implemented distribution")
+  }
+}
+
+# plot Design of Experiments and test points
+pairs(tc,col="blue", pch=4, 
+      main = "Normalised Training Data Input values",
+      cex=1.5,
+      cex.labels = 1.75,
+      cex.axis=1.5,
+      cex.lab=1.5)
 
 #-------------------------------------------------------------------------------
 
-# plot Design of Experiments used to generate training data
-# pairs(~E11 + E22 + nu12 + nu23 + G12 + t_ply, data = tc,col = "blue",pch=4)
-pairs(~E11 + t_ply + log_K, data = tc,col = "blue",pch=4)
-
-#-------------------------------------------------------------------------------
+# WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
+# QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
+# DUPLICATION - REPEAT ABOVE FOR NONLINEAR CODE AND IN EXISTING EMULATOR CODE
 
 # This portion of code performs SVD on the model data, which is standardised 
 # such that the weight coefficients of the resulting expansion will have zero 
