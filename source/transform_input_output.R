@@ -1,7 +1,10 @@
 # Code for scaling input and output samples before and after fitting the model
 
-# Function for normalising inputs onto the unit hypercube
-normalise_inputs <- function(x, x_min, x_max, sd = FALSE){
+# Function for normalising inputs onto the unit hypercube, using (scalar or 
+# vector) minimum and maximum values x_min and x_max
+# std indicates whether the x is a standard deviation, in which case it isn't
+# necessary to subtract the minimum
+normalise_inputs <- function(x, x_min, x_max, std = FALSE){
   # Put maximum and minimum values into correct format
   x_min = t(as.matrix(x_min))
   x_max = t(as.matrix(x_max))
@@ -10,22 +13,45 @@ normalise_inputs <- function(x, x_min, x_max, sd = FALSE){
   } else {
     N = 1
   }
-  if (!sd){
+  if (!std){
     x = x - x_min[rep(1,N),]
   }
-  x = x/(x_max[rep(1,N),]-x_min[rep(1,N),])
-  return(x)
+  x_norm = x/(x_max[rep(1,N),]-x_min[rep(1,N),])
+  return(x_norm)
+}
+
+# Function for standardising vector output by the mean vector mu_y and scalar 
+# standard deviation sigma_y to have unit mean and zero standard deviation
+# std indicates whether y is a standard deviation, in which case it isn't
+# necessary to centre before scaling
+# There is an option to provide the mean vector and standard deviation, 
+# otherwise these are calculated internally
+standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALSE){
+  if (!std) {
+    if (is.null(mu_y)){
+      mu_y = rowMeans(y)
+    }
+    y = sweep(y,1,mu_y,"-")
+  }
+  if (is.null(sigma_y)){
+    # Note, it's better to calculate this after centring the data, as this 
+    # affects the standard deviation (given the mean vector is used, rather than
+    # the overall mean)
+    sigma_y = sd(y)
+  }
+  y_scale = y/sigma_y
+  return(list(y_scale, mu_y, sigma_y))
 }
 
 # Function for the inverse standardisation of vector output by the mean vector
 # mu_y, and scalar standard deviation sigma_y
-# sd indicates whether the y is a standard deviation, in which case it isn't
+# std indicates whether the y is a standard deviation, in which case it isn't
 # necessary to add the mean
 # I think this would actually also work for scalar valued mu_y etc, and vector 
 # sigma_y
-rescale_vector_output <- function(y_scale, mu_y, sigma_y, sd = FALSE){
+rescale_vector_output <- function(y_scale, mu_y, sigma_y, std = FALSE){
   y = y_scale*sigma_y
-  if (!sd) {
+  if (!std) {
     y = y + mu_y
   }
   return(y)
