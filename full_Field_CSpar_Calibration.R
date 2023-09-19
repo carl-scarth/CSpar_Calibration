@@ -37,6 +37,10 @@ disp_str = "w" # String which identifies the displacement component of interest 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 # print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
+exp_data_file = "Image_0074" # File identifier string for experimental data
+surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+
 
 #-------------------------------------------------------------------------------
 
@@ -73,7 +77,6 @@ row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
 
 # Load in emulator training data input values from Design of Experiments. 
 # in_file = "LHSDesign50x3" # File identifier string for input and output csvs
-in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 
@@ -152,59 +155,40 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 
 #-------------------------------------------------------------------------------
 
-# Load in the experimental data, and stanardise using the same method as used  
+# Load in the experimental data, and standardise using the same method as used  
 # for the model output. This requires interpolation of the mean model output to 
 # the DIC point cloud coordinates
 
 # Read in processed DIC data. Alongside the measured displacements each row has 
 # entries for the element to which the measurement has been matched, and its 
 # natural coordinates within the element
-# Need to process the DIC to get output for 100kN next
-use fread
-experimental_data = read.table("inputs/Ext_LCorner_Image_0115_0.tiff_nat_coord_rad_trim.csv", sep = ',', header = TRUE)
+experimental_data = fread(paste("inputs/", exp_data_file, ".csv", sep = ""))
 n_y = nrow(experimental_data)# Number of observations
-y_element = experimental_data$Element
-hr = as.matrix(experimental_data[,c("h","r")])
-exp_displacement = experimental_data$W
+y_element = experimental_data$Element # Matched element indices
+hr = as.matrix(experimental_data[,c("h","r")]) # Matched natural coordinates
+exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
+# Load mesh connectivity information about the spar outer surface. This must be 
+# consistent across all of the training data. 
+elements = fread(paste("inputs/", surface_elements, ".csv", sep = ''))
+# Interpolate the mean nodal displacements to the DIC coordinates
+# Skip the first two nodes in the output data, as these are reference points
+# which are not referenced by the connectivity file.
+# KEEP DEBUGGING THIS!!! - STILL ISN'T WORKING
+mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), connectivity = elements, skip_nodes=2)
 
-# I also need to load mesh connectivity information about the outer surface of
-# the spar. This must be consistent across all of the training data for this 
-# method to work.
-connectivity = read.table("inputs/outer_surface_elements.csv", sep = ',', header = TRUE)
-
-# Define the position of the nodes in natural coordinates (this is 4,1,5,8) as
-# this is what I used to determine the coordinates.
-# It would probably make more sense to use standard ordering for a quad element,
-# but I would need to re-do the mapping
-HR = matrix(c(1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0),nrow=2,ncol=4,byrow = TRUE)
-
-# For consistency with simulation output, the DIC data must be centred
-# using with the mean model output at their locations. As this is  unknown 
-# precisely, this must be approximated through interpolation. Here I use the
-# same linear interpolation functions of the isoparametric elements used by
-# Abaqus
-mu_y = rep(NA,n_y)
-for (i in 1:n_y) {
-  # Might be clearer just to write out basis equations in full... 
-  bases = 1.0 + matrix(hr[i,],2,4)*HR
-  # The complete basis functions for the quad element are given by the product
-  # of those in h and r, contained in the rows of "bases"
-  # Note that the element index is in Python indexing convention, but connectivities are in the Abaqus convention
-  # plus 2 as the first two nodes are the reference points, which are numbered
-  # according to a different system as they are defined directly on the assembly
-  mu_y[i] = sum(bases[1,]*bases[2,]*mu_dt[as.numeric(connectivity[y_element[i]+1,])+2])/4.0
-}
+# FROM HERE - CREATE FIND RESIDUALS SCRIPT, MAYBE PUT IT UNDER UTILS HEADER? OR OUTPUT?
 
 # Centre the experimental data using the interpolated mean model output
 # output mean at data point, residual and relative error (with mean) across data points (consider other full-field metrics)
 residual = abs(exp_displacement - mu_y)
 rel_error = (residual/abs(mu_y))*100
-out_data = cbind(experimental_data[c("X","Y","Z")],mu_y,residual,rel_error)
-colnames(out_data)[-(1:3)] = c("Mean_W","Mean_U","Residual_W","Residual_U","Relative_Error_W","Relative_Error_U")
-write.csv(out_data, "outputs/mean_error.csv", row.names = FALSE)
+write.csv(cbind(experimental_data[c("X","Y","Z")],mu_y,residual,rel_error), "outputs/mean_error.csv", row.names = FALSE)
 exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
 # Store experimental data as y and convert to vector to pass to stan
 y = as.vector(exp_displacement_cen)
+
+# Plot residuals externally out of curiosity,,,
+# upload experimental data to github????
 
 #-------------------------------------------------------------------------------
 
@@ -281,71 +265,6 @@ for (i in 1:p_eta) {
 }
 # output interpolated bases for plotting
 write.csv(output_frame, "outputs/interpolated_basis.csv", row.names = FALSE)
-
-
-# Next specify the basis vectors for the discrepancy D.
-# In the formulation proposed by Higdon et al. it is possible to used different
-# bases to model discrepancy as opposed to model output. This is an opportunity
-# to express prior belief about model accuracy, for instance, a linear model 
-# will have higher discrepancy at higher applied loads.
-
-# Define set of orthogonal polynomials for model discrepancy bases
-z_norm = (experimental_data$Z/420)
-D_y = matrix(0,n_y,10)
-# Could possible automate Gram-Schmidt to do this in a loop...
-D_y[,1] = sqrt(3)*z_norm
-D_y[,2] = sqrt(80)*(z_norm^2 - 3*z_norm/4)
-D_y[,3] = 15*sqrt(7)*(z_norm^3 - 4*z_norm^2/3 + 2*z_norm/5)
-D_y[,4] = 168*z_norm^4 - 315*z_norm^3 + 180*z_norm^2 - 30*z_norm
-D_y[,5] = 210*sqrt(11)*(z_norm^5 - 12*z_norm^4/5 + 2*z_norm^3 - 2*z_norm^2/3 + z_norm/14)
-D_y[,6] = 792*sqrt(13)*(z_norm^6 - 35*z_norm^5/12 + 35*z_norm^4/11 - 35*z_norm^3/22 + 35*z_norm^2/99  - 7*z_norm/264)
-D_y[,7] = 3003*sqrt(15)*(z_norm^7 - 24*z_norm^6/7 + 60*z_norm^5/13 - 40*z_norm^4/13 + 150*z_norm^3/143 - 24*z_norm^2/143 + 4*z_norm/429)
-D_y[,8] = 11440*sqrt(17)*(z_norm^8 - 63*z_norm^7/16 + 63*z_norm^6/10 - 21*z_norm^5/4 + 63*z_norm^4/26 -63*z_norm^3/104 + 21*z_norm^2/286 - 9*z_norm/2860)
-D_y[,9] = 43758*sqrt(19)*(z_norm^9 - 40*z_norm^8/9 + 140*z_norm^7/17 - 140*z_norm^6/17 + 245*z_norm^5/51 - 28*z_norm^4/17 + 70*z_norm^3/221 - 20*z_norm^2/663 + 5*z_norm/4862)
-D_y[,10] = 167960*sqrt(21)*(z_norm^10 - 99*z_norm^9/20 + 198*z_norm^8/19 - 231*z_norm^7/19 + 2772*z_norm^6/323 - 4851*z_norm^5/1292 + 1617*z_norm^4/1615 - 99*z_norm^3/646 + 99*z_norm^2/8398 - 11*z_norm/33592)
-
-# Read in nominal value of node coordinates for determining basis functions for
-# predictions
-D_eta = matrix(0,n_eta,10)
-node_coords = as.matrix(fread("inputs/CSpar_sam_mesh_nodes.csv"))
-z_norm = node_coords[,4]/420
-D_eta[,1] = sqrt(3)*z_norm
-D_eta[,2] = sqrt(80)*(z_norm^2 - 3*z_norm/4)
-D_eta[,3] = 15*sqrt(7)*(z_norm^3 - 4*z_norm^2/3 + 2*z_norm/5)
-D_eta[,4] = 168*z_norm^4 - 315*z_norm^3 + 180*z_norm^2 - 30*z_norm
-D_eta[,5] = 210*sqrt(11)*(z_norm^5 - 12*z_norm^4/5 + 2*z_norm^3 - 2*z_norm^2/3 + z_norm/14)
-D_eta[,6] = 792*sqrt(13)*(z_norm^6 - 35*z_norm^5/12 + 35*z_norm^4/11 - 35*z_norm^3/22 + 35*z_norm^2/99  - 7*z_norm/264)
-D_eta[,7] = 3003*sqrt(15)*(z_norm^7 - 24*z_norm^6/7 + 60*z_norm^5/13 - 40*z_norm^4/13 + 150*z_norm^3/143 - 24*z_norm^2/143 + 4*z_norm/429)
-D_eta[,8] = 11440*sqrt(17)*(z_norm^8 - 63*z_norm^7/16 + 63*z_norm^6/10 - 21*z_norm^5/4 + 63*z_norm^4/26 -63*z_norm^3/104 + 21*z_norm^2/286 - 9*z_norm/2860)
-D_eta[,9] = 43758*sqrt(19)*(z_norm^9 - 40*z_norm^8/9 + 140*z_norm^7/17 - 140*z_norm^6/17 + 245*z_norm^5/51 - 28*z_norm^4/17 + 70*z_norm^3/221 - 20*z_norm^2/663 + 5*z_norm/4862)
-D_eta[,10] = 167960*sqrt(21)*(z_norm^10 - 99*z_norm^9/20 + 198*z_norm^8/19 - 231*z_norm^7/19 + 2772*z_norm^6/323 - 4851*z_norm^5/1292 + 1617*z_norm^4/1615 - 99*z_norm^3/646 + 99*z_norm^2/8398 - 11*z_norm/33592)
-
-D_y = D_y[,1:p_delta]
-D_eta = D_eta[,1:p_delta]
-
-# Add in extra terms to account for change in slope at ends, and a mis-located
-# pivot. Increase p_delta accordingly
-#####D_y = D_y[,1:(p_delta-3)]
-# D_y = D_y[,1:(p_delta-2)]
-##### D_y = cbind(D_y, 4*(experimental_data$X/55 - 0.5)*(experimental_data$Z/420 - 0.5))
-# D_y = cbind(D_y, 2*experimental_data$X/55*(experimental_data$Z/420 - 0.5))
-# D_y = cbind(D_y, 2*(experimental_data$X/55-1)*(experimental_data$Z/420 - 0.5))
-# qr(D_y)$rank # calculate the rank of B
-####D_eta = D_eta[,1:(p_delta-3)]
-# D_eta = D_eta[,1:(p_delta-2)]
-####D_eta = cbind(D_eta, 4*(node_coords[,2]/55 - 0.5)*(node_coords[,4]/420 - 0.5))
-# D_eta = cbind(D_eta, 2*node_coords[,2]/55*(node_coords[,4]/420 - 0.5))
-# D_eta = cbind(D_eta, 2*(node_coords[,2]/55-1)*(node_coords[,4]/420 - 0.5))
-
-
-
-# Write functions to csv files for plotting
-write.csv(D_eta, "outputs/discrepancy_basis.csv", row.names = FALSE)
-output_frame = cbind(experimental_data[c("X","Y","Z")],D_y)
-for (i in 1:p_delta) {
-  colnames(output_frame)[3+i] = sprintf("D_y,%d",i)
-}
-write.csv(output_frame, "outputs/discrepancy_basis_interp.csv", row.names = FALSE)
 
 # The formulation proposed by Higdon et al combines matrices K_y and D_y into a
 # single matrix B, which is subsequently used to calculate some pseudo-inverses
