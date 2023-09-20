@@ -153,3 +153,29 @@ K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,".csv", sep = "
 p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from SVD
 
 #-------------------------------------------------------------------------------
+
+# Load in the experimental data, and standardise using the same method as used  
+# for the model output. This requires interpolation of the mean model output to 
+# the DIC point cloud coordinates.
+
+# Read in processed DIC data. Alongside the measured displacements each row has 
+# entries for the element to which the measurement has been matched, and its 
+# natural coordinates within the element
+
+# How to input data in time - interpolation? # Need an index i in time. This can
+# be used alongside n_eta to get the a set of rows. Then, best bet is to put below interpolation 
+# into a loop.
+
+# Do interpolation in Python.
+# Extract the load from the input json
+# Then create an interpolated input json?
+# Or just truncate in the python script?
+# Best to be consistent
+
+asdsad
+
+experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
+n_y = nrow(experimental_data)# Number of observations
+y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
+hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
+exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
