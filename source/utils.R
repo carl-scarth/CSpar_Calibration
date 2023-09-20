@@ -29,6 +29,12 @@ full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta) {
   return(modes)
 }
 
+# Convert a list of indices from the python convention to R
+ py_to_R <- function(py_ind){
+   R_ind = py_ind + 1
+   return(R_ind)
+}
+
 write_output <- function(data, out_string, label_string){
   # Formats data and writes to a csv file with name, and column headings given 
   # in out_string, and label label_string
