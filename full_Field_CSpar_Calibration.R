@@ -18,7 +18,8 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
 source("source/transform_input_output.R")
-# source("source/utils.R")
+source("source/interpolate_data.R")
+source("source/utils.R")
 # source("source/dimension_reduction.R")
 # source("source/prior_posterior_plots.R")
 # source("source/gp_predictions.R")
@@ -30,6 +31,7 @@ source("source/transform_input_output.R")
 # p_eta = 7 # Number of basis functions retained for the emulator from SVD
 # exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -162,33 +164,25 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 # Read in processed DIC data. Alongside the measured displacements each row has 
 # entries for the element to which the measurement has been matched, and its 
 # natural coordinates within the element
-experimental_data = fread(paste("inputs/", exp_data_file, ".csv", sep = ""))
+experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
 n_y = nrow(experimental_data)# Number of observations
-y_element = experimental_data$Element # Matched element indices
-hr = as.matrix(experimental_data[,c("h","r")]) # Matched natural coordinates
+y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
+hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
 exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
-# Load mesh connectivity information about the spar outer surface. This must be 
-# consistent across all of the training data. 
-elements = fread(paste("inputs/", surface_elements, ".csv", sep = ''))
-# Interpolate the mean nodal displacements to the DIC coordinates
-# Skip the first two nodes in the output data, as these are reference points
-# which are not referenced by the connectivity file.
-# KEEP DEBUGGING THIS!!! - STILL ISN'T WORKING
-mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), connectivity = elements, skip_nodes=2)
+# Load connectivity information about the spar outer surface and interpolate the
+# training data mean. Skip the first two nodes in the output as these are 
+# reference points which are not referenced by the connectivity file.
+mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 
-# FROM HERE - CREATE FIND RESIDUALS SCRIPT, MAYBE PUT IT UNDER UTILS HEADER? OR OUTPUT?
+# Calculate residuals of experimental error
+residual = exp_displacement - mu_y
+rel_error = (abs(residual)/abs(mu_y))*100
+# Write to CSV
+write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error), "outputs/mean_error.csv", row.names = FALSE)
 
-# Centre the experimental data using the interpolated mean model output
-# output mean at data point, residual and relative error (with mean) across data points (consider other full-field metrics)
-residual = abs(exp_displacement - mu_y)
-rel_error = (residual/abs(mu_y))*100
-write.csv(cbind(experimental_data[c("X","Y","Z")],mu_y,residual,rel_error), "outputs/mean_error.csv", row.names = FALSE)
+# Centre the experimental data and convert to vector to pass to stan
 exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
-# Store experimental data as y and convert to vector to pass to stan
 y = as.vector(exp_displacement_cen)
-
-# Plot residuals externally out of curiosity,,,
-# upload experimental data to github????
 
 #-------------------------------------------------------------------------------
 
