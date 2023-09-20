@@ -5,6 +5,7 @@
 !inputs/LHSDesign50x3_1.csv
 !inputs/LHSDesign60x6.csv
 !inputs/Image_0074.csv
+!inputs/nominal_shell_mesh_outer_surface_elements.csv
 !outputs/CSpar_sam_shell_mesh_elements.csv
 !outputs/CSpar_sam_shell_mesh_nodes.csv
 !outputs/emulator_modes_LHSDesign40x4.csv
