@@ -20,7 +20,8 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 # include functions which are called in this code
 source("source/abaqus_json.R")
 source("source/transform_input_output.R")
-# source("source/utils.R")
+source("source/utils.R")
+source("source/interpolate_data.R")
 # source("source/dimension_reduction.R")
 # source("source/prior_posterior_plots.R")
 # source("source/gp_predictions.R")
@@ -32,13 +33,16 @@ source("source/transform_input_output.R")
 # p_eta = 7 # Number of basis functions retained for the emulator from SVD
 # exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
+
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-# print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
+exp_data_file = "interpolated_DIC" # Identifier of file containing DIC data
+surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
 
@@ -157,25 +161,27 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 # Load in the experimental data, and standardise using the same method as used  
 # for the model output. This requires interpolation of the mean model output to 
 # the DIC point cloud coordinates.
-
-# Read in processed DIC data. Alongside the measured displacements each row has 
-# entries for the element to which the measurement has been matched, and its 
-# natural coordinates within the element
-
-# How to input data in time - interpolation? # Need an index i in time. This can
-# be used alongside n_eta to get the a set of rows. Then, best bet is to put below interpolation 
-# into a loop.
-
-# Do interpolation in Python.
-# Extract the load from the input json
-# Then create an interpolated input json?
-# Or just truncate in the python script?
-# Best to be consistent
-
-asdsad
-
+# Alongside displacements each row has entries for the element to which the 
+# measurement has been matched, its natural coordinates within the element, and 
+# applied load increment, which matches those of the model.
 experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
-n_y = nrow(experimental_data)# Number of observations
+n_y = nrow(experimental_data) # Total of observations
 y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
 hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
-exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
+exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
+frame_ind = experimental_data$Increment # Index of which frame each point belongs to
+# Interpolate the model output across all increments
+mu_y = intp_nodes_to_cloud_inc(y_element, hr, as.matrix(mu_dt), frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+
+# Calculate residuals of experimental error
+residual = exp_displacement - mu_y
+rel_error = (abs(residual)/abs(mu_y))*100
+
+# Write to CSV
+write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), "outputs/mean_error.csv", row.names = FALSE)
+
+# Centre the experimental data and convert to vector to pass to stan
+exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
+y = as.vector(exp_displacement_cen)
+
+#-------------------------------------------------------------------------------
