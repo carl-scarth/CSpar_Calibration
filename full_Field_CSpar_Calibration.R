@@ -175,97 +175,46 @@ mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("i
 residual = exp_displacement - mu_y
 rel_error = (abs(residual)/abs(mu_y))*100
 # Write to CSV
-write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error), "outputs/mean_error.csv", row.names = FALSE)
+write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error), paste("outputs/",in_file,"_mean_error.csv", sep = ""), row.names = FALSE)
 
 # Centre the experimental data and convert to vector to pass to stan
 exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
 y = as.vector(exp_displacement_cen)
+
+# We also need to interpolate the basis fuctions, K, (determined above using 
+# SVD) to the DIC point cloud locations.
+K_y = intp_nodes_to_cloud(y_element, hr, K_eta, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+out_frame = cbind(experimental_data[DIC_coord_labels],K_y)
+for (i in 1:p_eta) {
+  colnames(out_frame)[3+i] = sprintf("K_y,%d",i)
+}
+# output interpolated bases for plotting
+write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = ""), row.names = FALSE)
+
+#-------------------------------------------------------------------------------
+
+# specify W_y, the (prior) precision of the observation error.
+
+# The commented code below deals with specifying both an iid noise error, and 
+# one due to an isotropic shift applied to every point
+# For now I pass the identity matrix, and place a weaker prior on the observation
+# error in Stan
+# sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
+# sigma_shift = 0
+# Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
+# Standardise using the model output variance 
+# Sigma_y = Sigma_y/(sd_dt^2)
+# Convert covariance matrix to a precision 
+# W_y = solve(Sigma_y)
+
+# Directly pass the identity matrix
+W_y = diag(rep(1.0,n_y))
 
 #-------------------------------------------------------------------------------
 
 # WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
 # QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
 # DUPLICATION - REPEAT ABOVE FOR NONLINEAR CODE AND IN EXISTING EMULATOR CODE
-
-#-------------------------------------------------------------------------------
-
-# In this Section, W_y, the (prior) precision of the observation error is specified
-# Here we give a value to the expected standard deviation of the observation error,
-# which will later be weighted by parameter lambda_y, which will be given a 
-# strong prior centred roughly around a value of 1. Here I assumed that error at
-# each of the DIC observations is iid with standard deviation sigma_error. A 
-# value of 0.01 has been chosen considering samples loaded at 0kN.
-
-# In practice there will also be an error correlated across all observations due 
-# to the fact that I had to define a zero datum for the DIC data. This can be
-# added to every entry of the covariance matrix as sigma_shift, but if not
-# careful this will dominate. I'm unsure of a precise value, but I suggest
-# investigating differing values of 0, 0.0033, 0.01, and 0.025
-
-# From the data, the DIC error appears correlated, with regions of higher noise
-# appearing in clusters rather than as white noise. Ultimately, it would be good
-# to represent these as random fields about which we infer the amplitude and
-# correlation length parameters, but this requires a different statistical model
-
-# Finally, there is an error which I do not account for, due to misalignment of
-# the DIC data and model. This error would obviously be correlated, applying to
-# all data points, but would not take the form of a uniform value. In some places
-# such a shift would result in higher values than the "truth", in some cases
-# lower. I'm unsure of how to account for this in practice.
-
-# There will also be a "time" correlated error in-line with Higdon et al, but 
-# there is no need to account for this here for one load value
-
-# sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
-# sigma_shift = 0.0033 # standard deviation due to a shift in the zero value of the DIC data
-# sigma_shift = 0
-# Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
-
-# Because the experimental data has been standardised by dividing through by the 
-# standard deviation of the model output, the covariance of the measurement error
-# must also be divided through by the variance of the model output for consistency
-# Sigma_y = Sigma_y/(sd_dt^2)
-# Convert covariance matrix to a precision by taking the inverse, as this is what
-# is specified to stan as in Higdon et al.
-# W_y = solve(Sigma_y) # There are almost certainly more efficient ways of implementing this...
-W_y = diag(rep(1,n_y))
-
-#-------------------------------------------------------------------------------
-
-# The statistical model for the experimental data is y = Kw(theta) + Dv + e. For this 
-# model it is necessary to evaluate the basis fuctions, K (as determined above 
-# using SVD) at the physical locations of the experimental measurements in y. 
-# To do this is is necessary do interpolate the basis functions, as was the case
-# with the mean model output.
-
-# Firstly interpolate emulator basis vectors, K.
-K_y = matrix(NA,n_y,p_eta)
-for (i in 1:n_y) {
-  # Might be clearer just to write out basis equations in full... 
-  bases = 1.0 + matrix(hr[i,],2,4)*HR
-  # The complete basis functions for the quad element are given by the product
-  # of those in h and r, contained in the rows of "bases"
-  # Note that the element index is in Python indexing convention, but connectivities are in the Abaqus convention
-  K_y[i,] = colSums(matrix(bases[1,]*bases[2,],4,p_eta)*K_eta[as.numeric(connectivity[y_element[i]+1,])+2,])/4.0
-  connectivity[y_element[i]+1,]
-}
-
-output_frame = cbind(experimental_data[c("X","Y","Z")],K_y)
-for (i in 1:p_eta) {
-  colnames(output_frame)[3+i] = sprintf("K_y,%d",i)
-}
-# output interpolated bases for plotting
-write.csv(output_frame, "outputs/interpolated_basis.csv", row.names = FALSE)
-
-# The formulation proposed by Higdon et al combines matrices K_y and D_y into a
-# single matrix B, which is subsequently used to calculate some pseudo-inverses
-# to calculate combined reduced-dimensional variable z_hat. If there are
-# duplicated columns in B, as will be the case when using identical bases for 
-# the emulator and discrepancy, this will result in these pseudo-inverses not 
-# being possible due to B not being full-rank. An solution was proposed by
-# specifying B = B_tilde * L, where B_tilde is full rank such that B * z can be 
-# substituted with B_tilde * z_tilde, where z_tilde = L*z. The pseudo-inverses
-# are then carried out for z_tilde.
 
 #-------------------------------------------------------------------------------
 
