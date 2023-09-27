@@ -185,3 +185,24 @@ exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
 y = as.vector(exp_displacement_cen)
 
 #-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+
+# specify W_y, the (prior) precision of the observation.
+
+# The commented code below deals with specifying both an iid noise error, and 
+# one due to an isotropic shift applied to every point
+# For now I pass the identity matrix, and place a weaker prior on the observation
+# error in Stan
+# In the long run it might be worth considering an error term which can change
+# in magnitude across increments. Consider adding this later.
+# sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
+# sigma_shift = 0
+# Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
+# Standardise using the model output variance 
+# Sigma_y = Sigma_y/(sd_dt^2)
+# Convert covariance matrix to a precision 
+# W_y = solve(Sigma_y)
+
+# Directly pass the identity matrix
+W_y = diag(rep(1.0,n_y))
