@@ -160,18 +160,15 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 # Load in the experimental data, and standardise using the same method as used  
 # for the model output. This requires interpolation of the mean model output to 
 # the DIC point cloud coordinates
-
-# Read in processed DIC data. Alongside the measured displacements each row has 
-# entries for the element to which the measurement has been matched, and its 
-# natural coordinates within the element
+# Alongside displacements each row has entries for the element to which the 
+# measurement has been matched, and its natural coordinates within the element
 experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
 n_y = nrow(experimental_data)# Number of observations
 y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
 hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
 exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
-# Load connectivity information about the spar outer surface and interpolate the
-# training data mean. Skip the first two nodes in the output as these are 
-# reference points which are not referenced by the connectivity file.
+# Interpolate the training data mean. Skip the first two nodes in the output as 
+# these are reference points which are not referenced by the connectivity file.
 mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 
 # Calculate residuals of experimental error
