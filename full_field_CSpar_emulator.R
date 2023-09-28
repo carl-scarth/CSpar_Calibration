@@ -134,7 +134,7 @@ p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided a
 
 # Reduce the dimension of the output data and calculate associated quantities 
 # for input to Stan
-processed_data = reduce_dimension(eta, K_eta, a_eta, b_eta)
+processed_data = reduce_dimension_emulator(eta, K_eta, a_eta=a_eta, b_eta=b_eta)
 # Adjusted prior parameters for the basis expansion truncation error
 a_eta_dash = processed_data[[1]]
 b_eta_dash = processed_data[[2]]

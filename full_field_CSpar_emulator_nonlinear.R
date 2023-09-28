@@ -125,7 +125,7 @@ write(out_json, paste("outputs/basis_nonlinear_",in_file,".json",sep=""))
 
 # Reduce the dimension of the output data and determine associated quantities
 # for input to Stan
-processed_data = reduce_dimension(eta, K_eta, a_eta, b_eta)
+processed_data = reduce_dimension_emulator(eta, K_eta, a_eta=a_eta, b_eta=b_eta)
 # Adjusted prior parameters for the basis expansion truncation error
 a_eta_dash = processed_data[[1]]
 b_eta_dash = processed_data[[2]]
