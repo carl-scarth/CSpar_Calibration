@@ -178,24 +178,32 @@ residual = exp_displacement - mu_y
 rel_error = (abs(residual)/abs(mu_y))*100
 
 # Write to CSV
-write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), "outputs/mean_error.csv", row.names = FALSE)
+write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
 
 # Centre the experimental data and convert to vector to pass to stan
 exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
 y = as.vector(exp_displacement_cen)
 
-#-------------------------------------------------------------------------------
+# We also need to interpolate the basis fuctions, K, (determined above using 
+# SVD) to the DIC point cloud locations.
+K_y = intp_nodes_to_cloud_inc(y_element, hr, K_eta, frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+out_frame = as.data.frame(K_y)
+for (i in 1:p_eta) {
+  colnames(out_frame)[i] = sprintf("K_y,%d",i)
+}
+out_frame = cbind(experimental_data[DIC_coord_labels], out_frame, increment = experimental_data$Increment)
+
+# output interpolated bases for plotting
+write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv", sep = ""), row.names = FALSE)
 
 #-------------------------------------------------------------------------------
 
-# specify W_y, the (prior) precision of the observation.
+# specify W_y, the (prior) precision of the observation error.
 
 # The commented code below deals with specifying both an iid noise error, and 
 # one due to an isotropic shift applied to every point
 # For now I pass the identity matrix, and place a weaker prior on the observation
 # error in Stan
-# In the long run it might be worth considering an error term which can change
-# in magnitude across increments. Consider adding this later.
 # sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
 # sigma_shift = 0
 # Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
@@ -205,4 +213,7 @@ y = as.vector(exp_displacement_cen)
 # W_y = solve(Sigma_y)
 
 # Directly pass the identity matrix
-W_y = diag(rep(1.0,n_y))
+# THIS IS TOO BIG!!! THINK ABOUT MATHS - POSSIBLE TO GENERALISE FOR A DIAGONAL
+# INCORPORATE DIRECTLY INTO THE ALGEBRA
+# HOW ABOUT A CONSTANT SHIFT? PLAY AROUND WITH THIS LATER
+# W_y = diag(rep(1.0,n_y))
