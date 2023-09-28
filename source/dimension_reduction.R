@@ -95,10 +95,11 @@ svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, e
   return(list(K, p_eta))
 }
 
-reduce_dimension <- function(eta, K, a_eta, b_eta, orthog_K = TRUE) {
+reduce_dimension_emulator <- function(eta, K, a_eta = NULL, b_eta = NULL, orthog_K = TRUE) {
   
   # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
-  # the necessary quantities for passing to Stan
+  # the necessary quantities for passing to Stan. Focus on quantities relating
+  # to the emulator
   
   # eta = n_eta x m matrix of simulation outputs, where n_eta is the number of
   #     output values per simulation, and m is the number of training data runs
@@ -154,15 +155,71 @@ reduce_dimension <- function(eta, K, a_eta, b_eta, orthog_K = TRUE) {
   # of model output
   z_hat = as.vector(KTKinv%*%KTeta)
   
-  # Adjust prior parameters of the expansion truncation error to account for the
-  # dimension reduction(Eq. 11 Higdon et al.)
-  a_eta_dash = a_eta+(0.5*(m*(n_eta-p_eta))) 
-  # Stack model output eta into a single vector
-  eta_vec = as.vector(eta)
-  # Re-arranged b_eta_dash from Higdon et al. for computational efficiency using
-  # eta'*(I - K*(K'*K)^-1*K')*eta = eta'*eta - (K'*eta)'*w_hat
-  b_eta_dash = as.numeric(b_eta + (0.5*(t(eta_vec)%*%eta_vec - t(KTeta) %*% z_hat)))
+  # If required, adjust prior parameters of the expansion truncation error to 
+  # account for the dimension reduction(Eq. 11 Higdon et al.)
+  if (!is.null(a_eta) & !is.null(b_eta)){
+    a_eta_dash = a_eta+(0.5*(m*(n_eta-p_eta))) 
+    # Stack model output eta into a single vector
+    eta_vec = as.vector(eta)
+    # Re-arranged b_eta_dash from Higdon et al. for computational efficiency using
+    # eta'*(I - K*(K'*K)^-1*K')*eta = eta'*eta - (K'*eta)'*w_hat
+    b_eta_dash = as.numeric(b_eta + (0.5*(t(eta_vec)%*%eta_vec - t(KTeta) %*% z_hat)))  
+    return(list(a_eta_dash, b_eta_dash, z_hat, KTKinv))
+  } else {
+    return(list(z_hat, KTKinv))
+  }
   
-  return(list(a_eta_dash, b_eta_dash, z_hat, KTKinv))
+}
+
+reduce_dimension_calibration <- function(y, B, W_y, a_y = NULL, b_y = NULL){
   
+  # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
+  # the necessary quantities for passing to Stan. Focus on quantities relating
+  # to the experimental data
+  
+  # y = n_y-vector of experimental measurements, where n_y is the number of data
+  #     points
+  # B = n_eta x p_B matrix of basis functions used to decompose eta, where p_B
+  #     depends upon whether, and how the discrepancy is included. For the most 
+  #     general implementation of Higdon et al. this will equal p_eta + p_delta
+  # W_y = Prior precision of observation error, which can be passed as an n_y x
+  #     n_y matrix, or if the precision is diagonal, as a n_y vector of 
+  #     the diagonal
+  # a_y = Shape parameter of the gamma prior on the observation error
+  # b_y = Rate parameter of the gamma prior on the observation error
+  
+  # Calculate inverse of K^T*K. K is the matrix of emulator basis functions for 
+  # the full model output arranged as in Section 2.2.2 of Higdon et al. The 
+  # inverse is calculated via closed-form expressions for K^T*K.
+  # Calculate B'*W_y*B
+  if (is.vector(W_y)){
+    BTWyB = t(K_y)%*%(W_y*K_y) # For diagonal W_y 
+  } else {
+    BTWyB = t(K_y)%*%W_y%*%K_y
+  }
+  BTWyBinv = solve(BTWyB)
+  
+  # Calculate reduced dimensional model coefficients for the experimental data.
+  if (is.vector(W_y)){
+    BTWyy = t(B)%*%(W_y*y) # For diagonal W_y
+  } else {
+    BTWyy = t(B)%*%W_y%*%y
+  }
+  
+  u_hat = as.vector(BTWyBinv%*%BTWyy)
+  
+  # If required, adjust prior parameters of the observation error to  account 
+  # for the dimension reduction
+  if (!is.null(a_y) & !is.null(b_y)){
+    a_y_dash = a_y+(0.5*(n_y-p_eta)) # Adjusted shape parameter for the lambda_y prior.
+    # Re-arraged version of b_y_dash from that in Eq. (11) for efficiency.
+    if (is.vector(W_y)){
+      b_y_dash = as.numeric(b_y + (0.5*(t(y)%*%(W_y*y) - t(BTWyy) %*% u_hat))) # For diagonal W_y
+    } else {
+      b_y_dash = as.numeric(b_y + (0.5*(t(y)%*%W_y%*%y - t(BTWyy) %*% u_hat)))
+    }
+    return(list(a_y_dash, b_y_dash, u_hat, BTWyBinv))
+  } else {
+    return(list(u_hat, BTWyBinv))
+  }
 }
