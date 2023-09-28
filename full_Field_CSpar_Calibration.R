@@ -20,7 +20,7 @@ setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 source("source/transform_input_output.R")
 source("source/interpolate_data.R")
 source("source/utils.R")
-# source("source/dimension_reduction.R")
+source("source/dimension_reduction.R")
 # source("source/prior_posterior_plots.R")
 # source("source/gp_predictions.R")
 
@@ -28,21 +28,17 @@ source("source/utils.R")
 
 # Set up parameters which govern the formulation
 # Might be able to delete some of these later
-# p_eta = 7 # Number of basis functions retained for the emulator from SVD
-# exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
-# Define parameters of the gamma prior on the error associated with truncating
-# the series expansion for the model output
-# a_eta = 1.0     # Shape parameter for the lambda_eta prior
-# b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
+# Define parameters for (gamma) prior distributions on the observation error
+a_y = 5.0  # Shape parameter for the lambda_y prior
+b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 # print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
 exp_data_file = "Image_0074" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
-
 
 #-------------------------------------------------------------------------------
 
@@ -184,10 +180,11 @@ y = as.vector(exp_displacement_cen)
 # We also need to interpolate the basis fuctions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
 K_y = intp_nodes_to_cloud(y_element, hr, K_eta, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
-out_frame = cbind(experimental_data[DIC_coord_labels],K_y)
+out_frame = as.data.frame(K_y)
 for (i in 1:p_eta) {
-  colnames(out_frame)[3+i] = sprintf("K_y,%d",i)
+  colnames(out_frame)[i] = sprintf("K_y,%d",i)
 }
+out_frame = cbind(experimental_data[DIC_coord_labels],out_frame)
 # output interpolated bases for plotting
 write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = ""), row.names = FALSE)
 
@@ -207,251 +204,79 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = "
 # Convert covariance matrix to a precision 
 # W_y = solve(Sigma_y)
 
+# The below code doesn't work when dealing with large quantities of experimental
+# data. I've implemented a method which instead works with a vector, assuming
+# The precision matrix is diagonal. This will need to be adapted to work with 
+# other types of precision matrix
 # Directly pass the identity matrix
-W_y = diag(rep(1.0,n_y))
+# W_y = diag(rep(1.0,n_y))
+W_y = rep(1.0,n_y)
+#-------------------------------------------------------------------------------
+
+# Reduce the dimension of the output data and calculate associated quantities 
+# for input to Stan
+# First calculate quantities related to the emulator
+processed_data = reduce_dimension_emulator(eta, K_eta)
+# Adjusted prior parameters for the basis expansion truncation error
+w_hat = processed_data[[1]] # Reduced-dimensional outputs
+KTKinv = processed_data[[2]] # Inverse of the product of basis matrices
+
+processed_data = reduce_dimension_calibration(y, K_y, W_y, a_y=a_y, b_y=b_y)
+a_y_dash = processed_data[[1]]
+b_y_dash = processed_data[[2]]
+u_hat = processed_data[[3]]
+BTWyBinv = processed_data[[4]]
+
+# Group together coefficient samples from experimental data and model into a 
+# single vector
+z_hat = c(u_hat,w_hat)
+
+
+# Force the adjusted parameters of the observation error prior to specified 
+# values to overcome over-constraint issues
+a_y_dash = 5.0
+b_y_dash = 0.05
 
 #-------------------------------------------------------------------------------
+
+# Load in fixed values of emulator parameters, determined seperately, e.g. via
+# MLE or MAP estimate
+emulator_parameters = c(as.matrix(read.table(paste("outputs/emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
+rho_w = emulator_parameters[1:(p_eta*q)]
+lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
+lambda_eta = emulator_parameters[p_eta*(q+1)+1]
+
+# Set up the environment for Stan, pass arguments, and run stan model
+# Settings taken from: https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
+util = new.env()
+
+# List of arguments to pass to stan
+stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, a_y_dash = a_y_dash,
+                 b_y_dash = b_y_dash, lambda_eta = lambda_eta, z_hat = z_hat,
+                 tf_param_1=tf_param$p1_trans, tf_param_2=tf_param$p2_trans, 
+                 rho_w = rho_w, lambda_w = lambda_w, tc = tc, KTKinv = KTKinv, 
+                 BTWyBinv = BTWyBinv)
+
+fit = stan(file = "source/Full_Field_Calibration_Higdon_Prior_Spec_No_Disc_fixed_param.stan",
+           data = stan_data,
+           iter = 4000,
+           chains = 3)
+
+#-------------------------------------------------------------------------------
+
+# NEXT TIDY UP STAN FILE LIKE I DID WITH THE EMULATOR!! Think if there's a way
+# of passing different distribution for priors via string. Maybe even integers?
 
 # WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
 # QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
 # DUPLICATION - REPEAT ABOVE FOR NONLINEAR CODE AND IN EXISTING EMULATOR CODE
 
-#-------------------------------------------------------------------------------
-
-# Code for if identical bases are used for emulator and discrepancy
-
-# In this case I use identical bases for both the emulator and discrepancy. It
-# seems reasonable that in the absence of prior information the same bases could
-# be used. While a simpler formulation could be used in this case, I chose to 
-# stick with that of Higdon et al. for the sake of generality.
-#D_y = K_y[,1:p_delta]
-
-# Not used here, but for predictions. Define Discrepancy basis matrix at points
-# at which predictions are made
-#D_eta = K_eta[,1:p_delta]
-
-# In this case it is easy to specify B_tilde as equal to K_y, as this contains
-# all of the unique bases, then define L as a matrix mapping the corresponding 
-# columns of this matrix to also represent the discrepancy bases
-#L = matrix(0,nrow = p_eta, ncol = p_eta + p_delta)
-#L[1:p_delta,1:p_delta] = diag(p_delta)
-#L[,(p_delta+1):(p_delta+p_eta)] = diag(p_eta)
-# B_tilde = K_y
-
-# In general, if similar but not identical bases are used for D_y and K_y it can
-# result in a matrix which is numerically singular. In such an instance L and 
-# B_tilde should be determined numerically.
-
-#-------------------------------------------------------------------------------
-
-# This portion of the code deals with the matrix algebra from Section 2.2.4 of 
-# Higdon et al., calculating the necessary quantities for passing to stan, where
-# the sampling is undertaken
-
-# Assemble B matrix, which maps between the experimental data points,y, and the
-# reduced-dimension coefficients, v (discrepancy) and u (emulator) corresponding 
-# to these points. For n = 1 experiment this is simply the concatenation of D_y 
-# and K_y
-B = cbind(D_y,K_y)
-
-# As stated above, B may not be full rank, which can make it impossible to
-# calculating the inverse of B'*W_y*B. Below is the implementation of two 
-# methods for accounting for this possibility, as well as the standard method
-# from Higdon et al. The other possibilities are:
-  # i) Do sampling using alternative full-rank B_tilde as described above
-# ii) Add a small diagonal ridge term to the B'*W_y*B matrix which is to be
-#     inverted
-# Note that I define the inverse here rather than solving the equations via 
-# other more efficient means, as the inverse is used for multiple calculations
-ridge = 1e-4 # magnitude of the ridge term if used
-rank_B = qr(B)$rank # calculate the rank of B
-# Calculate B'*W_y*B
-BTWyB = t(B)%*%W_y%*%B
-# Is B full rank?
-if (rank_B < (p_eta+p_delta)){
-  if (exists("B_tilde")){
-    # If B is not full rank, but matrix B_tilde is pre-defined, then use this 
-    # full-rank matrix instead of B
-    print("B is not full column rank, using B_tilde instead")
-    # Calculate B_tilde'*W_y*B_tilde
-    BTWyB = t(B_tilde)%*%W_y%*%B_tilde
-    BTWyBinv = solve(BTWyB) # Determine inverse
-    # Update B with B_tilde for all subsequent calculations
-    B = B_tilde
-  } else {
-    # If B is not full rank, but an alternative full-rank matrix has not been 
-    # provided, add a ridge to B'*W_y*B
-    print("Adding ridge as B is not full column rank and a reduced-rank alternative has not been specified")
-    BTWyB = BTWyB + diag(p_eta+p_delta)*ridge
-    BTWyBinv = solve(BTWyB) # Determine inverse
-  }
-} else {
-  # If B is full rank then B'*W_y*B may be solved directly
-  print("B is full column rank, solve directly")
-  BTWyBinv = solve(BTWyB)
-}
-
-# Calculate inverse of K'*K. This is used for multiple calculations and so it is
-# more efficient to store the inverse than to solve the equations via other means
-# Here K is the matrix of emulator basis functions evaluated for full model 
-# output, arranged as specified at the end of Section 2.2.2 of Higdon et al.
-# Note that this is a very large matrix (m x n_eta) by (m x p_eta), and as such
-# calculating K'*K is computationally expensive, and requires a prohibitively 
-# large amount of memory. To make this code possible I've calculated closed-form
-# expressions for this matrix product, and inputted K'*K directly.
-
-# Populate dense matrix of products of basis vectors, 
-# with KTK_dense[i,j] = k_i'*k_j
-# These product of individual basis vectors make up the entries of K'*K
-KTK_dense = t(K_eta)%*%K_eta
-# Note that the below code is the general expression for this matrix product if
-# basis vectors are not orthogonal. As the basis vectors obtained by SVD are 
-# orthogonal such that k_i'*k_j = 0 if i not equal to j, the code for populating
-# off-diagonal terms has been commented out. This may be adapted to non-
-# orthogonal bases by un-commenting the nested for loop.
-KTK = matrix(0,m*p_eta,m*p_eta)
-for (i in 1:p_eta){
-  # Populate diagonal terms
-  KTK[((i-1)*m+1):(i*m),((i-1)*m+1):(i*m)] = diag(m)*KTK_dense[i,i]
-  # Note, Need to use seq_len as colon operator in R does not assume the list of 
-  # indices must always increase, and j in 1:(i+1) throws an error when i = p_eta
-  # for (j in (i + seq_len(p_eta-i))){
-  #  # Populate off-diagonal terms. Note that these will be zero if the ks are orthogonal
-  #  KTK[((i-1)*m+1):(i*m),((j-1)*m+1):(j*m)] = diag(m)*KTK_dense[i,j]
-  #  KTK[((j-1)*m+1):(j*m),((i-1)*m+1):(i*m)] = diag(m)*KTK_dense[i,j]
-  #}
-}
-# Determine inverse of K'*K. Note that as this matrix is diagonal for
-# orthogonal basis functions in such cases it would be more efficient to 
-# directly input the inverse, by inputting the reciprocal of the entries in the 
-# above loop.
-KTKinv = solve(KTK)
-
-# Calculate K'*eta, which is used to calculate OLS solution w_hat. This 
-# calculation has also been implemented by directly inputting the closed-form
-# expression for this product, due to the large size of K.
-# Note that in Higdon et al, eta is reshaped from a n_eta x m matrix into a 
-# (m x n_eta) x 1 vector, as eta = [eta_1',eta_2',...,eta_m']'.
-# K'*eta therefore results in a stack of
-# [k_1'*eta_1;...;k_1'*eta_m;k_2'*eta_1;k_2'*eta_m;...;k_p_eta'*eta_m]
-# It is more efficient to do this product by keeping K_eta stored as a matrix
-# and likewise retaining eta as a matrix (for the purposes of this comment let's
-# call this matrix eta_mat), then calculating K'*eta by obtaining eta_mat'*K_eta
-# reshaped column-wise into a vector, as below
-KTeta = t(eta)%*%(K_eta)
-KTeta = as.vector(KTeta)
-
-# Determine pseudo-inverses of basis matrices to get reduced-dimensional 
-# representation of model output and experimental data
-w_hat = KTKinv%*%KTeta # reduced-dimensional representation of emulator training data
-# Calculate reduced dimensional representation of discrepancy and emulator 
-# corresponding to experimental data.
-# Note. I have not implemented an efficient version of the below matrix algebra
-# as the quantity of experimental data is small in this application. When using
-# DIC data, I will likely have to implement more closed-form expressions for the
-# matrix products as in the case of K.I've implemented the more efficient version
-# for b_y_dash - just not the pseudo-inverse
-BTWyy = t(B)%*%W_y%*%y
-# vu_hat = BTWyBinv%*%t(B)%*%W_y%*%y 
-vu_hat = BTWyBinv%*%BTWyy
-
-
-
-# Group together all samples from experimental data and model output into a 
-# single vector
-z_hat = as.vector(rbind(vu_hat,w_hat))
-
-# Define parameters for (gamma) prior distributions on the emulator error and 
-# observation error terms
-a_eta = 1.0     # Shape parameter for the lambda_eta prior
-b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
-a_y = 5.0       # Shape parameter for the lambda_y prior
-# b_y = 5.0       # Rate parameter for the lambda_y prior
-# b_y = 0.05
-b_y = 0.5
-
-a_eta_dash = a_eta+(0.5*(m*(n_eta-p_eta))) # Adjusted shape parameter for the lambda_eta prior (Eq. 11 Higdon et al.)
-a_y_dash = a_y+(0.5*(n_y-rank_B)) # Adjusted shape parameter for the lambda_y prior.
-
-# Stack reshaped model output eta into a single vector. This is the format used 
-# in Higdon et al., although it wasn't necessary for the above calculations it
-# is used to adjust the prior parameters.
-eta_vec = as.vector(eta)
-# Re-arraged version of b_eta_dash from that in Eq. (11) for the sake of 
-# computational efficiency, using the fact that:
-# eta'*(I - K*(K'*K)^-1*K')*eta = eta'*eta - (K'*eta)'*w_hat
-b_eta_dash = as.numeric(b_eta + (0.5*(t(eta_vec)%*%eta_vec - t(KTeta) %*% w_hat)))
-#b_y_dash = as.numeric(b_y + (0.5*(t(y)%*%(W_y - W_y%*%B%*%BTWyBinv%*%t(B)%*%W_y)%*%y)))
-b_y_dash = as.numeric(b_y + (0.5*(t(y)%*%W_y%*%y - t(BTWyy) %*% vu_hat)))
-
-#-------------------------------------------------------------------------------
-
-
 # This segment of code deals with setting up the environment for stan, passing 
 # data to stan, and running the correct stan code depending upon which method is
 # required for sampling
-
-# Set up the environment for the Stan model to run in parallel. Taken from:
-# https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
-rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())
-parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
-util = new.env()
-par(family="CMU Serif", las=1, bty="l", cex.axis=1, cex.lab=1, cex.main=1,
-    xaxs="i", yaxs="i", mar = c(5, 5, 3, 5))
-
-# If basis matrix B is not full column rank, and a full-rank equivalent B_tilde 
-# is used in its place, a different stan code is required to calculate as the
-# dimension of the covariance matrix will be smaller, and will consequently 
-# require some adjustment. This calculation must happen within stan as the 
-# matrix in question depends upon uncertain parameters.
-
-
-# Sort out conditionals later. Having just one general purpose code might be
-# better, at least for the discrepancy bit
-
-
-# Code for a single set of discrepancy parameters, using the full rank code
-stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, p_delta=p_delta, a_eta_dash = a_eta_dash, a_y_dash = a_y_dash, b_eta_dash = b_eta_dash, b_y_dash = b_y_dash, z_hat = z_hat, tf_param_1=tf_param_1, tf_param_2=tf_param_2, tc = tc, KTKinv = KTKinv, BTWyBinv = BTWyBinv)
-fit = stan(file = "source/Full_Field_Calibration_Higdon_Prior_Spec_one_disc.stan",
-           data = stan_data,
-           iter = 4000,
-           chains = 3)
-
-
-# Code for a single set of discrepancy parameters, using the reduced rank code
-stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, p_delta=p_delta, rank_B=rank_B,a_eta_dash = a_eta_dash, a_y_dash = a_y_dash, b_eta_dash = b_eta_dash, b_y_dash = b_y_dash, z_hat = z_hat, tf_param_1=tf_param_1, tf_param_2=tf_param_2, tc = tc, KTKinv = KTKinv, BTWyBinv = BTWyBinv, L = L)
-fit = stan(file = "source/Full_Field_Calibration_Higdon_Red_Rank_one_disc.stan",
-           data = stan_data,
-           iter = 4000,
-           chains = 3)
-
-
-# Conditional statement for testing which stan code to run
-if ((rank_B < (p_eta+p_delta)) && exists("B_tilde")){
-  # B is not full rank, but alternative B_tilde has been provided
-  
-  # Create list of relevant data for input to stan.
-  # Note that it is necessary to pass L to stan in this case for adjusting the 
-  # covariance matrix
-  stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, p_delta=p_delta, rank_B=rank_B,a_eta_dash = a_eta_dash, a_y_dash = a_y_dash, b_eta_dash = b_eta_dash, b_y_dash = b_y_dash, z_hat = z_hat, tf_param_1=tf_param_1, tf_param_2=tf_param_2, tc = tc, KTKinv = KTKinv, BTWyBinv = BTWyBinv, L = L)
-  # Run stan code to sample from posterior distributions
-  fit = stan(file = "source/Full_Field_Calibration_Higdon_Red_Rank.stan",
-               data = stan_data,
-               iter = 4000,
-               chains = 3)
-} else {
-  # If B is of full column rank, or a ridge is used to force B to be of full rank
-  # then the code may be used as described directly in Higdon et al.
-  
-  # Create list of relevent data for input to stan
-  stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, p_delta=p_delta, a_eta_dash = a_eta_dash, a_y_dash = a_y_dash, b_eta_dash = b_eta_dash, b_y_dash = b_y_dash, z_hat = z_hat, tf_param_1=tf_param_1, tf_param_2=tf_param_2, tc = tc, KTKinv = KTKinv, BTWyBinv = BTWyBinv)
-  # Run stan code to sample from posterior distributions
-  fit = stan(file = "source/Full_Field_Calibration_Higdon_Prior_Spec.stan",
-             data = stan_data,
-             iter = 4000,
-             chains = 3)
-}
 
 #-------------------------------------------------------------------------------
 
