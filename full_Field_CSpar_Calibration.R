@@ -21,7 +21,7 @@ source("source/transform_input_output.R")
 source("source/interpolate_data.R")
 source("source/utils.R")
 source("source/dimension_reduction.R")
-# source("source/prior_posterior_plots.R")
+source("source/prior_posterior_plots.R")
 # source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
@@ -35,7 +35,6 @@ a_y = 5.0  # Shape parameter for the lambda_y prior
 b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-# print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
 exp_data_file = "Image_0074" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
@@ -260,216 +259,135 @@ stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, a_y_dash = a_y_das
                  rho_w = rho_w, lambda_w = lambda_w, tc = tc, KTKinv = KTKinv, 
                  BTWyBinv = BTWyBinv)
 
-fit = stan(file = "source/Full_Field_Calibration_Higdon_Prior_Spec_No_Disc_fixed_param.stan",
+# Set via variable as in emulator case
+fit = stan(file = "source/full_field_calibration_fixed_em.stan",
            data = stan_data,
-           iter = 4000,
-           chains = 3)
+           iter = iter,
+           chains = chains,
+           model_name = "full_field_calibration")
+           #chains = 1,
+           #iter = 1)
 
 #-------------------------------------------------------------------------------
 
-# NEXT TIDY UP STAN FILE LIKE I DID WITH THE EMULATOR!! Think if there's a way
+# Post-process and plot the simulation data
+
+# plot trace plots
+stan_trace(fit, pars = c("tf", "lambda_y"))
+# Print summary of results
+print(fit, pars = c("tf", "lambda_y")) # , "lambda_w", "lambda_v","lambda_y","lambda_eta"))
+
+# extract samples from stan output
+samples <- extract(fit)
+tf <- samples$tf              # Calibrated model inputs
+lambda_y <- samples$lambda_y  # Observation error magnitude
+N_samples <- dim(tf)[1]       # Total number of samples post warm-up
+
+# Extract label of inputs for plots
+labels = colnames(XT_sim)
+
+# Plot observation error precision
+lambda_hist(lambda_y, prior_shape = a_y, prior_rate = b_y, label = "lambda_y") #, adj_prior_shape = a_y_dash, adj_prior_rate = b_y_dash)
+
+# Transform calibrated inputs onto their original scale for plotting and output
+tf = rescale_inputs(tf, t_min, t_max)
+# Plot prior and posterior distribution of the calibration parameters.
+calibration_inp_hist(tf, tf_param = tf_param)
+
+# estimate means and modes of the posterior distribution and print to the screen
+modes = rep(0,q)
+for (i in 1:q){
+  modes[i] = estimate_mode(tf[,i])
+}
+print("calibration parameter modes = ")
+print(modes)
+print("calibration parameter means = ")
+print(colMeans(tf))
+
+dsadsadsd
+
+# Work from HERE!!! Finish this plot then continue working through stan code tidy
+# package pairs code into prior_posterior_plots.R after this
+tf_plot = as.data.frame(tf)
+colnames(tf_plot) = labels
+pairs(tf_plot)
+
+#pairs(~E11 + t_ply + logK, data = tf_trans, 
+#      col = "blue",
+#      pch = 18)
+prior_sam = matrix(0, nrow = N_samples, ncol = q)
+for (i in 1:q){
+  if (tf_param$distribution[i] == "Gaussian"){
+    # maximum and minimum of +/- 3 standard deviations
+    prior_sam[,i] = rnorm(N_samples, tf_param$param_1[i], tf_param$param_2[i])
+  } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+    prior_sam[,i] = runif(N_samples, tf_param$param_1[i], tf_param$param_2[i])
+  } else {
+    stop("Error: Non-implemented distribution")
+  }
+}
+prior_post_frame = as.data.frame(rbind(prior_sam, tf))
+colnames(prior_post_frame) = rownames(tf_param)
+colors = c(rep("blue",N_samples),rep("red",N_samples))
+pairs(prior_post_frame,)
+
+dev.new(noRStudioGD = TRUE, width=5, height=4) # plot in new window
+par(mfrow = c(1,3))
+plot(prior_sam[,1],prior_sam[,2],
+     col = "blue",
+     xlab = expression("E"[11]*" (GPa)"),
+     ylab = expression("t"["ply"]*" (mm)"),#'_ply (mm)",
+     cex.lab = 2,
+     cex.axis = 2,
+     pch = 18)
+points(tf_trans[,1],tf_trans[,2],
+       col = "red",
+       pch = 18)
+
+
+plot(prior_sam[,1],prior_sam[,3],
+     col = "blue",
+     xlab = expression("E"[11]*" (GPa)"),
+     ylab = "log(K)",
+     cex.lab = 2,
+     cex.axis = 2,
+     pch = 18)
+points(tf_trans[,1],tf_trans[,3],
+       col = "red",
+       pch = 18)
+
+
+plot(prior_sam[,2],prior_sam[,3],
+     col = "blue",
+     xlab = expression("t"["ply"]*" (mm)"),#'_ply (mm)",
+     ylab = "log(K)",
+     cex.lab = 2,
+     cex.axis = 2,
+     pch = 18)
+points(tf_trans[,2],tf_trans[,3],
+       col = "red",
+       pch = 18)
+
+
+
+#-------------------------------------------------------------------------------
+
+
+# Good to here...
+# Think of if there's a way
 # of passing different distribution for priors via string. Maybe even integers?
 
 # WORK FROM HERE!!! CONSIDER STORING USEFUL QUANTITIES, E.G. NORMALISATION 
 # QUANTITIES, BASIS FUNCTIONS ETC IN A CSV FILE AS IN EMULATOR MODES TO REDUCE 
 # DUPLICATION - REPEAT ABOVE FOR NONLINEAR CODE AND IN EXISTING EMULATOR CODE
 
-# This segment of code deals with setting up the environment for stan, passing 
-# data to stan, and running the correct stan code depending upon which method is
-# required for sampling
+# Think a bit about how to plot observation error on a real scale - it's a little
+# abstract at the moment. This might go hand in hand with thinking about 
+# specifying a stronger prior
 
-#-------------------------------------------------------------------------------
+# Pairs plot of calibration parameters if it isn't there already...
 
-# This section of code deals with post-processing of the data coming out of the 
-# simulations
-
-# plot trace plots of simulation samples
-# dev.new(noRStudioGD = TRUE)  # generate plots in separate window
-stan_trace(fit, pars = c("tf", "rho_w", "lambda_w", "lambda_v","lambda_y","lambda_eta"))
-
-# Summarise results to check convergence
-print(fit, pars = c("tf", "rho_w", "lambda_w", "lambda_v","lambda_y","lambda_eta"))
-
-# extract samples from stan output
-
-samples <- extract(fit)
-N_samples = dim(samples$rho_w)[1] # get total number of samples
-
-# Extract label of inputs for plots
-labels = colnames(XT_sim)
-
-# Produce plots of posterior and prior distributions of correlation parameters
-# (rho) for emulator. Here the rows corresponding to the different principal
-# components, whereas the columns correspond to the different calibration inputs
-# A values of rho close to 1 implies that an input does strongly affect the 
-# model output
-dev.new(noRStudioGD = TRUE)
-par(mfrow = c(p_eta,q))
-rho_plot = seq(0,1, length.out = 100)
-for (i in 1:p_eta){
-  for (j in 1:q){
-    # Plot histogram of posterior distribution
-    hist(samples$rho_w[,(i-1)*q+j],
-         main = labels[j],
-         #main = paste("rho_w,",as.character(i),",",as.character(j)),
-         xlab = paste("rho_w,",as.character(i),",",as.character(j)),
-         col = "firebrick1",
-         breaks = 25,
-         freq = FALSE,
-         xlim = c(0,1), 
-         cex.lab=1.5,
-         cex.axis=1.5)
-    # Plot prior distribution
-    prior_plot = dbeta(rho_plot,shape1=1,shape2=0.1)
-    lines(rho_plot,prior_plot,lwd=3,col="blue")
-  }
-}
-
-# Plot precision parameters for emulator. Each plot corresponds to a different
-# principal component
-dev.new(noRStudioGD = TRUE)
-par(mfrow = c(1,p_eta))
-lambda_plot = seq(0,2.5, length.out = 100)
-for (i in 1:p_eta) {
-  # plot posterior
-  hist(samples$lambda_w[,i],
-       main = paste("lambda_w",as.character(i)),
-       xlab = paste("lambda_w",as.character(i)),
-       col = "firebrick1",
-       breaks = 25,
-       freq = FALSE,
-       xlim = c(0,2.5),
-       cex.axis=1.5,
-       cex.lab=1.5)
-  # plot prior
-  prior_plot = dgamma(lambda_plot,shape=5,rate=5)
-  lines(lambda_plot,prior_plot,lwd=3,col="blue")
-}
-
-# Plot precision parameters for the discrepancy. Each plot corresponds to a 
-# different basis function
-# dev.new(noRStudioGD = TRUE)
-# par(mfrow = c(1,p_delta))
-# lambda_plot = seq(0,1E5, length.out = 100)
-# for (i in 1:p_delta){
-#   # plot posterior
-#  hist(samples$lambda_v[,i],
-#       main = paste("lambda_v",as.character(i)),
-#       xlab = paste("lambda_v",as.character(i)),
-#       col = "firebrick1",
-#       breaks = 25,
-#       freq = FALSE,
-#       #xlim = c(0,75),
-#       cex.axis=1.5,
-#       cex.lab=1.5)
-#  # plot prior
-#  prior_plot = dgamma(lambda_plot,shape=1.0,rate=0.0001)
-#  lines(lambda_plot,prior_plot,lwd=3,col="blue")
-#}
-
-# Version for if just one set of discrepancy parameters
-dev.new(noRStudioGD = TRUE)
-lambda_plot = seq(0,1E5, length.out = 100)
-# plot posterior
-hist(samples$lambda_v,
-  main = "lambda_v",
-  xlab = "lambda_v",
-  col = "firebrick1",
-  breaks = 25,
-  freq = FALSE,
-  # xlim = c(0,1),
-  #ylim = c(0,0.001),
-  cex.axis=1.5,
-  cex.lab=1.5)
-# plot prior
-prior_plot = dgamma(lambda_plot,shape=1.0,rate=0.0001)
-lines(lambda_plot,prior_plot,lwd=3,col="blue")
-
-
-
-# Plot precision of the observation error and PCA truncation error
-lambda_plot = seq(0,10.0, length.out = 100)
-dev.new(noRStudioGD = TRUE)
-par(mfrow = c(1,2))
-#plot posterior
-hist(samples$lambda_y,
-     main = "lambda_y",
-     xlab = "lambda_y",
-     col = "firebrick1",
-     breaks = 25,
-     freq = FALSE,
-#     xlim = c(0,10.0),
-     cex.axis=1.5,
-     cex.lab=1.5)
-# plot prior
-prior_plot = dgamma(lambda_plot,shape=a_y,rate=b_y)
-lines(lambda_plot,prior_plot,lwd=3,col="blue")
-# plot of prior adjusted for equivalent, reduced-dimension normal-gamma model
-adj_prior_plot = dgamma(lambda_plot,shape=a_y_dash,rate=b_y_dash)
-lines(lambda_plot,adj_prior_plot,lwd=3,col="green")
-
-hist(samples$lambda_eta,
-     main = "lambda_eta",
-     xlab = "lambda_eta",
-     col = "firebrick1",
-     breaks = 25,
-     freq = FALSE,
-     xlim = c(0,5e6),
-     cex.axis=1.5,
-     cex.lab=1,5)
-# plot prior
-lambda_plot = seq(0,5E6, length.out = 1000)
-prior_plot = dgamma(lambda_plot,shape=a_eta,rate=b_eta)
-lines(lambda_plot,prior_plot,lwd=3,col="blue")
-adj_prior_plot = dgamma(lambda_plot,shape=a_eta_dash,rate=b_eta_dash)
-lines(lambda_plot,adj_prior_plot,lwd=3,col="green")
-
-# Before plotting their distributions, the calibration parameters must be 
-# transformed back onto their original scale, recalling that they were initially
-# transformed onto [0,1]
-tf_trans = samples$tf
-tf_trans = tf_trans*matrix(rep(t_max-t_min,N_samples),ncol=q,byrow=TRUE) + matrix(rep(t_min,N_samples),ncol=q,byrow=TRUE)
-
-# Plot prior and posterior distribution of the calibration parameters.
-# Note that the calibration parameters were initially defined as deviations from
-# their nominal values in this application. Here I've added these nominal values
-# back onto the prior and posterior plots, such that they are more readable by 
-# engineers
-dev.new(noRStudioGD = TRUE) # plot in new window
-par(mfrow = c(1,q))
-# plot histogram of posterior
-for (i in 1:q){
-  hist(tf_trans[,i], 
-       main = labels[i],
-       xlab = labels[i],
-       col = "brown1",
-       breaks = 25,
-       freq = FALSE,
-       xlim = c(t_min[i],t_max[i]),
-       cex.lab = 1.25,
-       cex.axis = 1.25)
-  # overlay plot of prior distribution
-  t_plot = seq(t_min[i],t_max[i], length.out = 100)
-  if (i < q){
-    print(i)
-    prior_plot = dnorm(t_plot,mean = tf_param_1[i]*(t_max[i]-t_min[i]) + t_min[i], sd = tf_param_2[i]*(t_max[i]-t_min[i]))
-    } else {
-    prior_plot = dunif(t_plot, min = (tf_param_1[i]*(t_max[i]-t_min[i]) + t_min[i]), max = (tf_param_2[i]*(t_max[i]-t_min[i]) + t_min[i]))
-  }
-  lines(t_plot,prior_plot,lwd=3,"col"="blue")
-}
-
-
-# estimate mode of the posterior distribution
-modes = rep(0,q)
-for (i in 1:q){
-  modes[i] = estimate_mode(tf_trans[,i])
-}
-print("calibration parameter modes = ")
-print(modes)
-
-print("calibration parameter means = ")
-print(colMeans(tf_trans))
+# Write posterior samples to csv file???
 
 #-------------------------------------------------------------------------------
 

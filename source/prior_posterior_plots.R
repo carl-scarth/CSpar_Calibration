@@ -1,5 +1,75 @@
 # Functions for plots of overlaid prior and posterior distributions
 
+calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_window = FALSE){
+  # Produce prior and posterior plots for samples of calibrated model inputs
+  # tf = matrix of posterior samples
+  # tf_param = data.frame where each row is a random variable, which has columns 
+  # "distribution" indicating the prior distribution, and "param_1" and
+  # "param_2" with parameters of the distribution
+  
+  if (new_window) {
+    dev.new(noRStudioGD = TRUE) # Create a new window if needed
+  }
+  q = ncol(tf)
+  
+  # If labels aren't provided, get these from the parameter list if provided
+  if (is.null(inp_labels)){
+    if (!is.null(tf_param)){
+      inp_labels = rownames(tf_param)
+    }
+  }
+
+  # Produce a subplot for each input
+  par(mfrow = c(1,q))
+  for (i in 1:q){
+    if (!is.null(inp_labels)){
+      label = inp_labels[i]
+    } else {
+      label = paste("tf_",as.character(i),sep="")
+    }
+    # get limits for plot
+    if (!is.null(tf_param)){
+      if (tf_param$distribution[i] == "Gaussian"){
+        # maximum and minimum of +/- 3 standard deviations
+        mu = tf_param$param_1[i]
+        std = tf_param$param_2[i]
+        t_min = mu - 3*std
+        t_max = mu + 3*std
+      } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+        t_min = tf_param$param_1[i]
+        t_max = tf_param$param_2[i]
+      } else {
+        stop("Error: Non-implemented distribution")
+      }
+    } else {
+      t_min = min(tf[,i])
+      t_max = max(tf[,i])
+    }
+    hist(tf[,i], 
+         main = label,
+         xlab = label,
+         col = "brown1",
+         breaks = 25,
+         freq = FALSE,
+         xlim = c(t_min,t_max),
+         cex.lab = 1.25,
+         cex.axis = 1.25)
+  
+    # overlay plot of prior distribution if parameters are provided
+    if (!is.null(tf_param)){
+      # identify the appropriate distribution and properties
+      t_plot = seq(t_min,t_max, length.out = 100)
+      if (tf_param$distribution[i] == "Gaussian"){
+        # maximum and minimum of +/- 3 standard deviations
+        prior_plot = dnorm(t_plot, mean = mu, sd = std)
+      } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+        prior_plot = dunif(t_plot, min = t_min, max = t_max)
+      }
+      lines(t_plot,prior_plot,lwd=3,"col"="blue")
+    }
+  }
+}
+
 full_field_rho_hist <- function(rho_w, p_eta, inp_labels=NULL, prior_shape_1 = 1.0, prior_shape_2 = 0.1, new_window = FALSE){
   # Produce plots of posterior and prior distributions of correlation parameters
   # (rho) for full-field emulator. Arrange with each row corresponding a given
