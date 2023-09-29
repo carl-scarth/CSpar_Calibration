@@ -20,6 +20,26 @@ normalise_inputs <- function(x, x_min, x_max, std = FALSE){
   return(x_norm)
 }
 
+# Convert inputs which have been normalised to lie on the unit hypercube back
+# onto their original scale using (scalar or vector) minimum and maximum values 
+# std indicates whether the x is a standard deviation, in which case it isn't
+# necessary to subtract the minimum
+rescale_inputs <- function(x_norm, x_min, x_max, std = FALSE){
+  # Put maximum and minimum values into the correct format
+  x_min = t(as.matrix(x_min))
+  x_max = t(as.matrix(x_max))
+  if (is.matrix(x_norm)){
+    N = nrow(x_norm)
+  } else {
+    N = 1
+  }
+  x = x_norm*(x_max[rep(1,N),]-x_min[rep(1,N),])
+  if (!std){
+    x = x + x_min[rep(1,N),]
+  }
+  return(x)
+}
+
 # Function for standardising vector output by the mean vector mu_y and scalar 
 # standard deviation sigma_y to have unit mean and zero standard deviation
 # std indicates whether y is a standard deviation, in which case it isn't
