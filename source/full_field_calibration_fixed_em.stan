@@ -1,72 +1,11 @@
-// Code for fitting a Gaussian process emulator using Bayesian inferrence, and making subsequent predictions
-// Modified from: https://github.com/adChong/bc-stan, [1]
-// prediction code modified from: 
-// https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process [2]
-// The main modification is to strip out the experimental data from [1], leaving only the emulator.
-// efficient posterior predictions are made using the closed-form Gaussian process expressions, with code taken from [2].
-// For expressions, see Chapter 2, "Gaussian Processes for Machine Learning", Rasmussen and Williams, MIT Press, 2006, ISBN 0-262-18253-X.
-// http://www.gaussianprocess.org/gpml/
+// Bayesian model calibration code using full-field model output and expeimental
+// data using the method from:
+// D. Higdon et al, "Computer Model Calibration Using High-Dimensional Output",
+// Journal of the American Statistical Association,2008.
+// This is a simplified code wherein there is no discrepancy, only one 
+// experiment, and the emulator parameters are fixed.
 
-// Modified version with simplified discrepancy, defined by a single set of 
-// parameters
-
-functions {
-  // Define a function for evaluating a square-exponential covariance matrix with non-isotropic correlation length i.e. there 
-  // is a different correlation length for each input (this is necessary as the in-built Stan SE covariance is isotropic)
-  matrix ARD_SE_cov(matrix x, real lambda, row_vector beta, real delta) {
-    int N = rows(x);    // number of training data points
-    int d = cols(x);    // number of inputs
-    matrix[N, N] K;     // Covariance matrix
-    {
-    // Main body of the function
-    // Declare variables
-    row_vector[d] dx;   // variable used to determine difference between inputs
-    K = diag_matrix(rep_vector((1/lambda), N));
-    for (i in 1:N) {
-      for (j in (i+1):N) {
-        dx = x[i] - x[j];
-        K[i, j] = (beta .* dx) * dx';
-        K[i, j] = exp(-K[i, j])/lambda;
-        K[j, i] = K[i, j];
-      }
-    }
-    // add nugget term to diagonals
-    K = K + diag_matrix(rep_vector(delta,N));
-    }
-    return K;
-  }
-  
-  // Define a function for evaluating a square-exponential covariance matrix with non-isotropic correlation length as above,
-  // but for a non-symmetric covariance matrix. This is used when evaulating the covariance between two different sets of points.
-  matrix ARD_SE_cov_non_sym(row_vector x1, matrix x2, real lambda, row_vector beta) {
-    int N1 = rows(x1);  // number of training data points
-    int N2 = rows(x2);  // number of points at which predictions are required
-    int d = cols(x1);   // number of inputs
-    matrix[N1, N2] K;   // Declare covariance matrix
-    {
-    // Main body of the function
-    // Declare variables
-    row_vector[d] dx;   // variable used to determine difference between inputs
-    K = rep_matrix(0,N1,N2);
-    // print(x1);
-    // print("");
-    // print(x2);
-    // print("");
-    for (i in 1:N1) {
-      for (j in 1:N2) {
-        // Deleted the index on x1 as this was just picking the first entry of the
-        // vector, was intended to be matrix.
-        dx = x1 - x2[j];
-        // print(dx);
-        // print("");
-        K[i, j] = (beta .* dx) * dx';
-        K[i, j] = exp(-K[i, j])/lambda;
-      }
-    }
-    }
-    return K;
-  }
-}
+#include covariance_matrices.stan
 
 data {
   int<lower=0> m;               // number of computer simulations
@@ -105,7 +44,7 @@ parameters {
   // -distributed prior this may make sense, however, reasonable bounds should 
   // be chosen for a normal prior (say [-0.1,1.1]), in conjunction with a well-
   // characterised prior
-  row_vector<lower=-0.05,upper=1.05>[q] tf_gauss; // Gaussian-distributed priors
+  row_vector<lower=-0.1,upper=1.1>[q] tf_gauss; // Gaussian-distributed priors
   // row_vector<lower=0,upper=1>[q-1] tf_gauss; // Gaussian-distributed priors
   real<lower=0> lambda_y;
   // real<lower=tf_param_1[q],upper=tf_param_2[q]> tf_unif; // uniform-distributed prior
@@ -158,7 +97,7 @@ model {
   // print(tf);
   // print("");
   for (i in 1:p_eta) {
-    sigma_uw[i,(i-1)*m+1:i*m] = to_row_vector(ARD_SE_cov_non_sym(tf, tc, lambda_w[i], beta_w[(i-1)*q+1:i*q]));
+    sigma_uw[i,(i-1)*m+1:i*m] = to_row_vector(ARD_SE_cov_non_sym(to_matrix(tf), tc, lambda_w[i], beta_w[(i-1)*q+1:i*q]));
     //sigma_uw[i,(i-1)*m+1:i*m] = to_row_vector(ARD_SE_cov_non_sym(tf, tc, lambda_w, beta_w[(i-1)*q+1:i*q]));
   }
   // print(sigma_uw);

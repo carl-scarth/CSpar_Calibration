@@ -47,5 +47,5 @@ functions {
     }
     return K;
   }
-  
+ 
 }
