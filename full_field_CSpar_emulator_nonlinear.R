@@ -182,7 +182,7 @@ full_field_rho_hist(rho_w, p_eta, inp_labels = labels)
 # Plot emulator precision parameters for emulator
 full_field_lambda_hist(lambda_w, p_eta)
 # Plot emulator trunction error precision
-lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
+lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda_eta", adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
 
 #-------------------------------------------------------------------------------
 

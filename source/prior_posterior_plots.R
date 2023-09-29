@@ -89,7 +89,7 @@ full_field_lambda_hist <- function(lambda, p, prior_shape = 5.0, prior_rate = 5.
   par(mfrow = c(1,1))
 }
 
-lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, adj_prior_shape = NULL, adj_prior_rate = NULL, new_window = FALSE){
+lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, label = "lambda", adj_prior_shape = NULL, adj_prior_rate = NULL, new_window = FALSE){
   # Plots precision hyper-parameter lambda for scalar-valued quantities
   # Optional inputs prior_shape and prior_rate give the properties of the gamma
   # prior. Default values are the Higdon et al. values for emulator precision
@@ -116,8 +116,8 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, adj_prior_s
   
   #plot posterior
   hist(lambda,
-     main = "lambda_eta",
-     xlab = "lambda_eta",
+     main = label,
+     xlab = label,
      col = "firebrick1",
      breaks = 25,
      freq = FALSE,
@@ -143,4 +143,3 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, adj_prior_s
 
 # If modelling discrepancy consider re-using the above code? It could be that the
 # only changes would be axis labels
-# Maybe use dataframes for labels?

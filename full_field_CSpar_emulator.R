@@ -178,7 +178,7 @@ lambda_eta <- samples$lambda_eta # Expansion truncation error
 N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
 
 # Extract label of inputs for plots
-labels = colnames(XT_sim) # don't think I need this but keeping just in case
+labels = colnames(XT_sim)
 
 # If required, estimate the modes of emulator hyperparameters and write to a csv
 if (export_modes){
@@ -190,8 +190,8 @@ if (export_modes){
 full_field_rho_hist(rho_w, p_eta, inp_labels = labels)
 # Plot emulator precision parameters for emulator
 full_field_lambda_hist(lambda_w, p_eta)
-# Plot emulator trunction error precision
-lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
+# Plot emulator truncation error precision
+lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda_eta", adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
 
 #-------------------------------------------------------------------------------
 
