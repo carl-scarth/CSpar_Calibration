@@ -105,16 +105,18 @@ parameters {
   // -distributed prior this may make sense, however, reasonable bounds should 
   // be chosen for a normal prior (say [-0.1,1.1]), in conjunction with a well-
   // characterised prior
-  row_vector<lower=0,upper=1>[q-1] tf_gauss; // Gaussian-distributed priors
+  row_vector<lower=-0.05,upper=1.05>[q] tf_gauss; // Gaussian-distributed priors
+  // row_vector<lower=0,upper=1>[q-1] tf_gauss; // Gaussian-distributed priors\
   real<lower=0> lambda_y;
-  real<lower=tf_param_1[q],upper=tf_param_2[q]> tf_unif; // uniform-distributed prior
+  // real<lower=tf_param_1[q],upper=tf_param_2[q]> tf_unif; // uniform-distributed prior
 }
 
 transformed parameters {
   // cacluate correlation length from transformed parameter rho_eta
   row_vector[q] tf; // Vector containing both uniform and Gaussian distributed priors
   
-  tf = append_col(tf_gauss, tf_unif);
+  // tf = append_col(tf_gauss, tf_unif);
+  tf = tf_gauss;
 }
 
 model {
@@ -204,7 +206,7 @@ model {
   // Specify priors here
   lambda_y ~ gamma(a_y_dash, b_y_dash);               // Precision parameter for observation error, gamma (shape, rate)
   // define priors on calibration parameters
-  for (i in 1:(q-1)){
+  for (i in 1:q){
     tf_gauss[i] ~ normal(tf_param_1[i], tf_param_2[i]);
   }
   // Remaining calibration parameters are uniformly distributed by default, between previously defined bounds
