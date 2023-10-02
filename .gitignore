@@ -12,6 +12,7 @@
 !outputs/basis_LHSDesign40x4.csv
 !outputs/emulator_modes_LHSDesign40x4.csv
 !outputs/nonlinear_emulator_modes_LHSDesign40x4.csv
+*.rds
 *.json
 *.geo
 *.msh
