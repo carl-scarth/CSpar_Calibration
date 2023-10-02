@@ -213,3 +213,40 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, label = "la
 
 # If modelling discrepancy consider re-using the above code? It could be that the
 # only changes would be axis labels
+
+prior_posterior_pairs <- function(tf, tf_param, inp_labels = NULL, new_window = FALSE){
+  # Produces scatter plots populated with samples from the prior and posterior 
+  # distribution of the calibration parameters, where posterior samples are 
+  # passed via matrix tf
+  # tf_param = data.frame where each row is a random variable, which has columns 
+  # "distribution" indicating the prior distribution, and "param_1" and
+  # "param_2" with parameters of the distribution
+  # inp_labels = optional labels for each random variable
+  
+  if (new_window) {
+    dev.new(noRStudioGD = TRUE) # Create a new window if needed
+  }
+  q = ncol(tf)
+  
+  # If labels aren't provided, get these from the parameter list if provided
+  if (is.null(inp_labels)){
+    inp_labels = rownames(tf_param)
+  }
+  
+  prior_sam = matrix(0, nrow = N_samples, ncol = q)
+  for (i in 1:q){
+    if (tf_param$distribution[i] == "Gaussian"){
+      prior_sam[,i] = rnorm(N_samples, tf_param$param_1[i], tf_param$param_2[i])
+    } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+      prior_sam[,i] = runif(N_samples, tf_param$param_1[i], tf_param$param_2[i])
+    } else {
+      stop("Error: Non-implemented distribution")
+    }
+  }
+  # Combine prior and posterior samples into a single data.frame
+  prior_post_frame = as.data.frame(rbind(prior_sam, tf))
+  colnames(prior_post_frame) = inp_labels
+  # Create list of colours for the plot
+  colours = c(rep("blue",N_samples),rep("red",N_samples))
+  pairs(prior_post_frame,col=colours)
+}
