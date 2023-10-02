@@ -200,3 +200,90 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
   
   return(out_list)
 }
+
+# Make a prediction replicating the full-field test data for a single condition
+# using a calibrated Gaussian process, with emulator parameters fixed to 
+# constant values
+full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, beta_w, lambda_w, lambda_eta, sam_GP = FALSE, output_coeff_sam = TRUE, output_ff_sam = TRUE){
+  # N_post_pred = 
+  # tf = 
+  # WRITE LIST OF INPUTS
+  # COPY AND PASTE CODE HERE. WHERE THERE IS REPETIION WITH THE ABOVE CODE,
+  # PACKAGE INTO SEPARATE FUNCTIONS
+  N_sam_post = nrow(tf) # Determine overall number of posterior samples
+  N_eta = nrow(K) # Determine number of output values per simulation
+  N_y = nrow(K_y) # Determine number of experimental data points
+  p_eta = ncol(lambda_w) # Determine number of bases (this might not work for fixed point)
+  print(p_eta)
+  
+  # Sub-sample from the posterior distribution
+  subsam_ind = sample.int(N_sam_post, N_post_pred) # Determine index of posterior samples
+  
+  # Initialise output arrays
+  # Do I want to output posterior samples for basis coefficients?
+  if (output_coeff_sam){
+    w_star_mu_out = matrix(0, p_eta, N_post_pred)
+    w_star_sigma_out = array(0, c(p_eta, p_eta, N_post_pred))
+    if (sam_gp) {
+      w_star_out = matrix(0, p_eta, N_post_pred)
+    } else {
+      w_star_out = NULL
+    }
+  }
+
+  # Do I want to output posterior samples for full-field response
+  if (output_ff_sam){
+    eta_mu_out = matrix(0, N_eta, N_post_pred)
+    eta_sigma_out = matrix(0, N_eta, N_post_pred)
+    if (sam_gp) {
+      eta_sam_out = matrix(0, N_eta, N_post_pred)
+      eta_y_out = matrix(0, n_y, N_post_pred)
+    } else {
+      eta_sam_out = NULL
+    }
+  }
+  # Commented for now until I figure out what I've already implemented
+  # Do I want to output averages across samples of basis coefficients?
+  # if (output_coeff_mean) {
+  #   w_star_mu_mu_out = matrix(0, p, N_pred)
+  #   w_star_sigma_mu_out = array(0, c(p, p, N_pred))
+  #  if (sam_gp) {
+  #    w_star_sam_mu_out = matrix(0, p, N_pred)
+  #  }
+  #}
+  # Do I want to output averages across samples of full-field output?
+  #if (output_ff_mean) {
+  #  eta_mu_mu_out = matrix(0, N_eta, N_pred)
+  #  eta_sigma_mu_out = matrix(0, N_eta, N_pred)
+  #  if (sam_gp) {
+  #    eta_sam_mu_out = matrix(0, N_eta, N_pred)
+  #  }
+  #}
+  
+  # Covariance matrix for the emulator at the experimental data points. This 
+  # reduces to a diagonal matrix for a single experiment
+  Sigma_u = diag(1/lambda_w, nrow=p_eta, ncol=p_eta)
+  # Define the covariance matrix for the emulator weights, evaluated at the
+  # training data points.
+  Sigma_w = full_field_cov(tc, lambda_w, beta_w)
+  View(Sigma_w)
+  
+  # FROM HERE!!!!
+  
+  # NOTE - WILL NEED TO UPDATE LAMBDA W_I ETC TO GET RID OF SUBSCRIPT
+  # Remember I capitalised Sigma for matrices
+  # Loop over all GP samples
+  for (i in 1:N_post_pred){
+    print(i) # Print count of loop
+    # Copied from the above emulator code vvvv will need to be changed to fit in
+    # with copied and pasted calibration code
+    # Adjust sigma_z to account for the dimension reduction
+    Sigma_z_hat = Sigma_z + KTKinv/lambda_eta[i]
+    # Determine covariance of emulator prediction with itself
+    sigma_w_star = diag(1/lambda_w[i,])
+  }
+  # Think about whether it's necessary to produce outputs for y in this code, 
+  # or if it's better to just have a separate prediction code using K_y in 
+  # place of K_eta. This will depend on if I need both to make predicitons, 
+  # which I can't remember
+}
