@@ -76,3 +76,26 @@ full_field_cov_non_sym = function(x1, x2, lambda, beta) {
   
   return(K)
 }
+
+ff_calibration_cov = function(Sigma_u, Sigma_w, Sigma_uw) {
+  # Assemble joint covariance matrix for experimental and model training data 
+  # used in the full-field model calibration.
+  # Sigma_u = p_eta x p_eta emulator autocovariance matrix for the experimental 
+  # data
+  # Sigma_w = (m*p_eta)x(m*p_eta) emulator autocovariance matrix for the 
+  # training data points
+  # Sigma_uw = p_eta x (m*p_eta) cross-covariance matrix between the 
+  # experimental data and model data
+  # where m is the number of training data points, and p_eta is the number of
+  # basis functions used to represent the full-field model output
+  # (Note: This same code could be used in the univariate case, though not sure
+  # if it would hold for multiple experimental data points)
+  nu = nrow(Sigma_u)
+  nw = nrow(Sigma_w)
+  Sigma_z = matrix(0,nu+nw,nu+nw)
+  Sigma_z[1:nu,1:nu] = sigma_u
+  Sigma_z[-(1:nu),-(1:nu)] = sigma_w
+  Sigma_z[1:nu,-(1:nu)] = sigma_uw
+  Sigma_z[-(1:nu),1:nu] = t(sigma_uw)
+  return(Sigma_z)
+}
