@@ -1,4 +1,4 @@
-# define a vector of calibration parameters and their bounds
+// define a vector of calibration parameters and their bounds
 row_vector<lower=-0.1,upper=1.1>[q] tf_gauss;
 
 // row_vector<lower=0,upper=1>[q-1] tf_gauss; // Gaussian-distributed priors
