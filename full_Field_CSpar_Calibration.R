@@ -22,7 +22,7 @@ source("source/interpolate_data.R")
 source("source/utils.R")
 source("source/dimension_reduction.R")
 source("source/prior_posterior_plots.R")
-# source("source/gp_predictions.R")
+source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
@@ -314,202 +314,17 @@ N_sam_plot = 100 # Required number of prediction samples
 # N_sam_plot = N_samples
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, beta_w, lambda_w, lambda_eta, lambda_y, sam_GP = FALSE, output_coeff_sam = TRUE, output_ff_sam = TRUE)
 
-
-# Make predictions. Request only averages of the full-field across the posterior
-# uncertainty --vvvvvv code for emulator, not calibration, just keeping here as
-# a placeholder for now
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # Copy and paste from here
 for (i in 1:N_sam_plot){
-  print(i)
-  sam_ind = rand_ind[i]
-  # Construct covariance matrix for the current sample
-  
-  # Code for if there are only one set of discrepancy parameters to learn about
-  
-  tf_i = samples$tf[sam_ind, ]
-  lambda_y_i = samples$lambda_y[i]
-  
-  # Evaluate cross-covariance of emulator weights between training data and experimental data points
-  sigma_uw = matrix(0, p_eta, m*p_eta)
-  for (j in 1:p_eta) {
-    sigma_uw[j,((j-1)*m+1):(j*m)] = ARD_SE_cov_non_sym(t(as.matrix(tf_i)), tc, lambda_w_i[j], beta_w_i[((j-1)*q+1):(j*q)])
-  }
-  
-  # The covariance matrices used in predictions will differ depending on whether
-  # or not B is full rank
-  sigma_z = matrix(0,(m+1)*p_eta, (m+1)*p_eta)
-  sigma_z[1:p_eta,1:p_eta] = sigma_u
-  sigma_z[-(1:p_eta),-(1:p_eta)] = sigma_w
-  sigma_z[1:p_eta,-(1:p_eta)] = sigma_uw
-  sigma_z[-(1:p_eta),1:p_eta] = t(sigma_uw)
-  
-  # Adjust the covariance matrix sigma_z to include transformed emulator and 
-  # experimental error terms
-  sigma_z_hat = matrix(0,(m+1)*p_eta, (m+1)*p_eta)
-  sigma_z_hat[1:p_eta,1:p_eta] = BTWyBinv/lambda_y_i
-  sigma_z_hat[-(1:p_eta),-(1:p_eta)] = KTKinv/lambda_eta_i
-  sigma_z_hat = sigma_z_hat + sigma_z
-  
-  # Define cross-correlation of emulator predictions w_star with emulator training
-  # data. Note that in this application, because we are making a prediction at the
-  # same value of controlled input x, and uncontrolled inputs are set to their
-  # calibrated values as was the case for the experimental data, then this is 
-  # given by sigma_u_w', Note that this won't be the case if we want to make a
-  # prediction at a different x, or want to evaluate just the emulator across a 
-  # range of t values
-  sigma_w_w_star = t(sigma_uw)
-  # Define cross-correlation terms for z with emulator prediction w_star
-  sigma_z_w_star = rbind(sigma_u, sigma_w_w_star)
-  
-  # Define correlation of emulator prediction with itself
-  sigma_w_star = sigma_u
-  
-  # Consider adding a nugget...
-  
-  # Two different methods for making predictions. The first method is quicker, but 
-  # I think the second is more numerically stable, which seems to make a different
-  # when the variance is small. Consider using this if the simulation is taking 
-  # too long
-  
-  # Explicitly calculating inverse, then reusing for all predictions. 
-  # Ainv = solve(sigma_z_hat)
-  # v_mu = t(Lsigma_z_v_star) %*% Ainv %*% z_hat
-  # w_mu = t(Lsigma_z_w_star) %*% Ainv %*% z_hat
-  # v_sigma = sigma_v_star - (t(Lsigma_z_v_star) %*% Ainv %*% Lsigma_z_v_star)
-  # w_sigma = sigma_w_star - (t(Lsigma_z_w_star) %*% Ainv %*% Lsigma_z_w_star)
-  
-  # Solving using solve
-  Ainv_z_hat = solve(sigma_z_hat,z_hat)
-  # Store mean and covariance matrices of discrepancy and adjusted prediction Gaussian processes
-  w_star_mu[,i] = t(sigma_z_w_star) %*% Ainv_z_hat
-  w_star_sigma[,,i] = sigma_w_star - (t(sigma_z_w_star) %*% solve(sigma_z_hat,sigma_z_w_star))
-  
-  # Sample from Gaussian process (might not be necessary - could just cheat and 
-  # look at the mean
-  w_star[,i] = mvrnorm(n = 1, w_star_mu[,i], w_star_sigma[,,i])
-  
-  # Generate individual Samples
-  eta_sam[,i] = (K_eta %*% w_star[,i])*sd_dt + mu_dt
-  eta_y[,i] = (K_y %*% w_star[,i])*sd_dt + mu_y
+  # Generate individual samples
+
 }
-
-# Good to here...
-# Think of if there's a way
-
-# Think a bit about how to plot observation error on a real scale - it's a little
-# abstract at the moment. This might go hand in hand with thinking about 
-# specifying a stronger prior
 
 #-------------------------------------------------------------------------------
 
-  # Covariance matrix discrepancy weights.Here I assume that each weight is an
-  # independent Gaussian process (i.e. F = p_delta, |G_i| = 1 for all i = 1,...p_delta)
-  # Code for set of discrepancy parameters per basis functio
-  # sigma_v = diag(1/lambda_v_i)
-  # Code for if there is only one set of discrepancy parameters
-  sigma_v = diag(rep(1/lambda_v_i,p_delta))
-  
-  # Define the covariance matrix for the emulator weights, evaluated at the
-  # experimental data points. As we only have one experiment, and
-  # R(theta,theta) = 1, this also reduces to a diagonal matrix.
-  sigma_u = diag(1/lambda_w_i)
-
-  # Combine contributions from sigma_u and sigma_v into a single block-diagonal
-  # matrix for subsequent transformation onto their full-rank equivalent combining
-  # terms from both
-  sigma_vu_join = matrix(0, p_eta+p_delta, p_eta+p_delta)
-  sigma_vu_join[1:p_delta, 1:p_delta] = sigma_v
-  sigma_vu_join[-(1:p_delta), -(1:p_delta)] = sigma_u
-  
-  # Define the covariance matrix for the emulator weights, evaluated at the
-  # training data points.
-  sigma_w = matrix(0, m*p_eta, m*p_eta)
-  
-  for (j in 1:p_eta) {
-    # Calculate the covariance matrix for the ith emulator weight
-    sigma_w[((j-1)*m+1):(j*m), ((j-1)*m+1):(j*m)] = ARD_SE_cov(tc, lambda_w_i[j], beta_w_i[((j-1)*q+1):(j*q)], 0)
-  }
-  
-  # Evaluate cross-covariance of emulator weights between training data and experimental data points
-  sigma_uw = matrix(0, p_eta, m*p_eta)
-  for (j in 1:p_eta) {
-    sigma_uw[j,((j-1)*m+1):(j*m)] = ARD_SE_cov_non_sym(t(as.matrix(tf_i)), tc, lambda_w_i[j], beta_w_i[((j-1)*q+1):(j*q)])
-  }
-  
-  # The covariance matrices used in predictions will differ depending on whether
-  # or not B is full rank
-  if ((rank_B < (p_eta+p_delta)) && exists("B_tilde")){
-    # Transform contributions from sigma uv to into their full rank equivalent
-    Lsigma_uw = L %*% rbind(matrix(0, p_delta, m*p_eta), sigma_uw)
-    # Assemble covariance matrix for joint experimental and model data
-    sigma_z = matrix(0,rank_B+m*p_eta, rank_B+m*p_eta)
-    sigma_z[1:rank_B,1:rank_B] = L %*% sigma_vu_join %*% t(L)
-    sigma_z[-(1:rank_B),-(1:rank_B)] = sigma_w
-    sigma_z[1:rank_B,-(1:rank_B)] = Lsigma_uw
-    sigma_z[-(1:rank_B),1:rank_B] = t(Lsigma_uw)
-  } else {
-    # Assemble covariance matrix for joint experimental and model data
-    sigma_z = matrix(0,p_delta+(m+1)*p_eta, p_delta+(m+1)*p_eta)
-    sigma_z[1:p_delta,1:p_delta] = sigma_v
-    sigma_z[(p_delta+1):(p_delta+p_eta),(p_delta+1):(p_delta+p_eta)] = sigma_u
-    sigma_z[-(1:(p_delta+p_eta)),-(1:(p_delta+p_eta))] = sigma_w
-    sigma_z[(p_delta+1):(p_delta+p_eta),-(1:(p_delta+p_eta))] = sigma_uw
-    sigma_z[-(1:(p_delta+p_eta)),(p_delta+1):(p_delta+p_eta)] = t(sigma_uw)
-  }
-  # Adjust the covariance matrix sigma_z to include transformed emulator and 
-  # experimental error terms
-  sigma_z_hat = matrix(0,rank_B+m*p_eta, rank_B+m*p_eta)
-  sigma_z_hat[1:rank_B,1:rank_B] = BTWyBinv/lambda_y_i
-  sigma_z_hat[-(1:rank_B),-(1:rank_B)] = KTKinv/lambda_eta_i
-  sigma_z_hat = sigma_z_hat + sigma_z
-
-  # Likewise covariance matrix with predictions will depend upon whether full-
-  # rank format is used
-  if ((rank_B < (p_eta+p_delta)) && exists("B_tilde")){
-    # Define cross-correlation terms for z with discrepancy prediction, v_star. Note
-    # That this does not need to be adjusted to as sigma_z_hat was, as the error 
-    # terms do not apply to predictions
-    sigma_z_v_star = rbind(sigma_v,matrix(0,p_eta,p_delta))
-    # Need to multiply by L to obtain full-rank equivalent
-    Lsigma_z_v_star = L %*% sigma_z_v_star
-    # The resulting matrix is then  padded with zeros for correlation with w
-    Lsigma_z_v_star = rbind(Lsigma_z_v_star,matrix(0,m*p_eta,p_delta))
-  
-    # Define cross-correlation of emulator predictions w_star with emulator training
-    # data. Note that in this application, because we are making a prediction at the
-    # same value of controlled input x, and uncontrolled inputs are set to their
-    # calibrated values as was the case for the experimental data, then this is 
-    # given by sigma_u_w', Note that this won't be the case if we want to make a
-    # prediction at a different x, or want to evaluate just the emulator across a 
-    # range of t values
-    sigma_w_w_star = t(sigma_uw)
-
-    # Define cross-correlation terms for z with emulator prediction w_star
-    sigma_z_w_star = rbind(matrix(0,p_delta,p_eta), sigma_u)
-    Lsigma_z_w_star = L %*% sigma_z_w_star
-    # Combine with the correlation matrix for w to get the full correlation with z
-    Lsigma_z_w_star = rbind(Lsigma_z_w_star,sigma_w_w_star)
-  } else {
-    # Define cross-correlation terms for z with discrepancy prediction, v_star. 
-    # Note that this does not need to be adjusted to as sigma_z_hat was, as the 
-    # error terms do not apply to predictions
-    sigma_z_v_star = rbind(sigma_v,matrix(0,(m+1)*p_eta,p_delta))
-    
-    # Define cross-correlation of emulator predictions w_star with emulator training
-    # data. Note that in this application, because we are making a prediction at the
-    # same value of controlled input x, and uncontrolled inputs are set to their
-    # calibrated values as was the case for the experimental data, then this is 
-    # given by sigma_u_w', Note that this won't be the case if we want to make a
-    # prediction at a different x, or want to evaluate just the emulator across a 
-    # range of t values
-    sigma_w_w_star = t(sigma_uw)
-    # Define cross-correlation terms for z with emulator prediction w_star
-    sigma_z_w_star = rbind(matrix(0,p_delta,p_eta), sigma_u, sigma_w_w_star)
-  }
-  
   # Define correlation of discrepancy prediction v_star with itself
   sigma_v_star = sigma_v
   
