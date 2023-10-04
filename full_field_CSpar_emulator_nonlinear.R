@@ -207,7 +207,7 @@ for (i in 1:length(out_strings)){
     # Transform outputs back onto their individual scale
     # If the output is a standard deviation a different transformation is required
     if (grepl("sigma", out_strings[i], fixed=TRUE)){
-      out_i = rescale_vector_output(out_i, mu_dt, sd_dt, sd=TRUE)
+      out_i = rescale_vector_output(out_i, mu_dt, sd_dt, std=TRUE)
     } else {
       out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
     }
