@@ -217,3 +217,11 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv
 # INCORPORATE DIRECTLY INTO THE ALGEBRA
 # HOW ABOUT A CONSTANT SHIFT? PLAY AROUND WITH THIS LATER
 # W_y = diag(rep(1.0,n_y))
+
+# SORT THIS OUT...
+
+#-------------------------------------------------------------------------------
+
+# WHEN DEALING WITH PREDICTION CODE, UPDATE HEADER TO TIDY UP AS THERE'S A LOT OF
+# REPETITION.
+# AT LEAST PACKAGE UP CODE FOR WRITING OUT_LIST. APPLY SAME TO EMULATOR CODE
