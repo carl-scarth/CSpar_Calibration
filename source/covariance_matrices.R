@@ -93,9 +93,9 @@ ff_calibration_cov = function(Sigma_u, Sigma_w, Sigma_uw) {
   nu = nrow(Sigma_u)
   nw = nrow(Sigma_w)
   Sigma_z = matrix(0,nu+nw,nu+nw)
-  Sigma_z[1:nu,1:nu] = sigma_u
-  Sigma_z[-(1:nu),-(1:nu)] = sigma_w
-  Sigma_z[1:nu,-(1:nu)] = sigma_uw
-  Sigma_z[-(1:nu),1:nu] = t(sigma_uw)
+  Sigma_z[1:nu,1:nu] = Sigma_u
+  Sigma_z[-(1:nu),-(1:nu)] = Sigma_w
+  Sigma_z[1:nu,-(1:nu)] = Sigma_uw
+  Sigma_z[-(1:nu),1:nu] = t(Sigma_uw)
   return(Sigma_z)
 }

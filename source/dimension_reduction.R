@@ -236,10 +236,9 @@ adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyBinv, lambda_eta, lambd
   # lambda_eta = scalar sample of truncation error precision
   # lambda_y = scalar sample of observation error precision
   n_exp = nrow(BTWyBinv)
-  Sigma_z_hat = matrix(0, n_model+n_experiment, n_model+n_experiment)
+  Sigma_z_hat = matrix(0, nrow(Sigma_z), ncol(Sigma_z))
   Sigma_z_hat[1:n_exp,1:n_exp] = BTWyBinv/lambda_y
   Sigma_z_hat[-(1:n_exp),-(1:n_exp)] = KTKinv/lambda_eta
-  View(Sigma_z_hat)
   Sigma_z_hat = Sigma_z_hat + Sigma_z
   
   return(Sigma_z_hat)

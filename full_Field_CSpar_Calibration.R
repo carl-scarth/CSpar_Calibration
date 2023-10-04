@@ -290,22 +290,22 @@ labels = colnames(XT_sim)
 lambda_hist(lambda_y, prior_shape = a_y, prior_rate = b_y, label = "lambda_y") #, adj_prior_shape = a_y_dash, adj_prior_rate = b_y_dash)
 
 # Transform calibrated inputs onto their original scale for plotting and output
-tf = rescale_inputs(tf, t_min, t_max)
+tf_trans = rescale_inputs(tf, t_min, t_max)
 # Plot prior and posterior distribution of the calibration parameters.
-calibration_inp_hist(tf, tf_param = tf_param)
+calibration_inp_hist(tf_trans, tf_param = tf_param)
 
 # estimate means and modes of the posterior distribution and print to the screen
 modes = rep(0,q)
 for (i in 1:q){
-  modes[i] = estimate_mode(tf[,i])
+  modes[i] = estimate_mode(tf_trans[,i])
 }
 print("calibration parameter modes = ")
 print(modes)
 print("calibration parameter means = ")
-print(colMeans(tf))
+print(colMeans(tf_trans))
 
 # Produce pairs plots of prior and posterior distributions
-prior_posterior_pairs(tf, tf_param)
+prior_posterior_pairs(tf_trans, tf_param)
 
 #-------------------------------------------------------------------------------
 
@@ -314,66 +314,95 @@ N_sam_plot = 100 # Required number of prediction samples
 # N_sam_plot = N_samples
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, beta_w, lambda_w, lambda_eta, lambda_y, sam_GP = FALSE, output_coeff_sam = TRUE, output_ff_sam = TRUE)
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = T, output_ff_sam = T, output_coeff_mean = T, output_ff_mean = T)
 
-
-# Copy and paste from here
-for (i in 1:N_sam_plot){
-  # Generate individual samples
-
-}
-
-#-------------------------------------------------------------------------------
-
-  # Define correlation of discrepancy prediction v_star with itself
-  sigma_v_star = sigma_v
-  
-  # Define correlation of emulator prediction with itself
-  sigma_w_star = sigma_u
-  
-  # Consider adding a nugget...
-  
-  # Two different methods for making predictions. The first method is quicker, but 
-  # I think the second is more numerically stable, which seems to make a different
-  # when the variance is small. Consider using this if the simulation is taking 
-  # too long
-  
-  # Explicitly calculating inverse, then reusing for all predictions. 
-  # Ainv = solve(sigma_z_hat)
-  # v_mu = t(Lsigma_z_v_star) %*% Ainv %*% z_hat
-  # w_mu = t(Lsigma_z_w_star) %*% Ainv %*% z_hat
-  # v_sigma = sigma_v_star - (t(Lsigma_z_v_star) %*% Ainv %*% Lsigma_z_v_star)
-  # w_sigma = sigma_w_star - (t(Lsigma_z_w_star) %*% Ainv %*% Lsigma_z_w_star)
-
-  # Solving using solve
-  Ainv_z_hat = solve(sigma_z_hat,z_hat)
-  # Store mean and covariance matrices of discrepancy and adjusted prediction Gaussian processes
-  if ((rank_B < (p_eta+p_delta)) && exists("B_tilde")){
-    v_star_mu[,i] = t(Lsigma_z_v_star) %*% Ainv_z_hat
-    w_star_mu[,i] = t(Lsigma_z_w_star) %*% Ainv_z_hat
-    v_star_sigma[,,i] = sigma_v_star - (t(Lsigma_z_v_star) %*% solve(sigma_z_hat,Lsigma_z_v_star))
-    w_star_sigma[,,i] = sigma_w_star - (t(Lsigma_z_w_star) %*% solve(sigma_z_hat,Lsigma_z_w_star))
+# extract quantities of interest from output, transform back onto the original
+# (un-standardised) scale, then write to json
+# List of full-field outputs which may be in out_list
+out_strings = c("eta_mu_mu", "eta_sigma_mu", "eta_sam_mu", "eta_mu", "eta_sigma", "eta_sam")
+# Loop over each output, transform back onto the correct scale, then write to 
+# csv
+#json_list <- list()
+for (i in 1:length(out_list)){
+  out_string = names(out_list[i])
+  print(out_string)
+  out_i = out_list[[out_string]]
+  # If the quantity is in full-field, transform back onto it's original scale
+  # First, identify the correct mean vector to use for the transformation
+  if (grepl("y", out_string, fixed = TRUE)){
+    mu_out = mu_y
   } else {
-    v_star_mu[,i] = t(sigma_z_v_star) %*% Ainv_z_hat
-    w_star_mu[,i] = t(sigma_z_w_star) %*% Ainv_z_hat
-    v_star_sigma[,,i] = sigma_v_star - (t(sigma_z_v_star) %*% solve(sigma_z_hat,sigma_z_v_star))
-    w_star_sigma[,,i] = sigma_w_star - (t(sigma_z_w_star) %*% solve(sigma_z_hat,sigma_z_w_star))
+    mu_out = mu_dt
   }
-
-  # Sample from Gaussian process (might not be necessary - could just cheat and 
-  # look at the mean
-  v_star[,i] = mvrnorm(n = 1, v_star_mu[,i], v_star_sigma[,,i])
-  w_star[,i] = mvrnorm(n = 1, w_star_mu[,i], w_star_sigma[,,i])
-  
-  # Generate individual Samples
-  delta_sam[,i] = (D_eta %*% v_star[,i])*sd_dt
-  delta_y[,i] = (D_y %*% v_star[,i])*sd_dt
-  eta_sam[,i] = (K_eta %*% w_star[,i])*sd_dt + mu_dt
-  eta_y[,i] = (K_y %*% w_star[,i])*sd_dt + mu_y
+  if (grepl("sigma", out_string, fixed=TRUE) & grepl("eta", out_string, fixed=TRUE)){
+    #print(out_string)
+    out_i = rescale_vector_output(out_i, mu_out, sd_dt, std=TRUE)
+    print(length(mu_out))
+  } else if (grepl("eta", out_string, fixed=TRUE)) {
+    #print(out_string)
+    print(length(mu_out))
+    #print(nrows(out_i))
+    # THE BELOW SCRIPT HAS SOME STRANGE BEHAVIOUR FOR LARGE MATRICES. TRY 
+    # DEBUGGING IF THE ERROR PERSISTS. MIGHT NEED TO CODE SOME EXPLICIT BEHAVIOUR
+    # FOR MATRICES IF NECESSARY. DON'T WASTE TOO MUCH TIME
+    out_i = rescale_vector_output(out_i, mu_out, sd_dt)
+  }
 }
 
-# Good to here!!!
+# From nonlinear code vvv. Can I improve this. Also need to update other emulator code
 
+for (i in 1:length(out_strings)){
+  if (out_strings[i] %in% names(out_list)){
+    out_i = out_list[[out_strings[i]]]
+    # Transform outputs back onto their individual scale
+    # If the output is a standard deviation a different transformation is required
+    if (grepl("sigma", out_strings[i], fixed=TRUE)){
+      out_i = rescale_vector_output(out_i, mu_dt, sd_dt, sd=TRUE)
+    } else {
+      out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
+    }
+    # Append transformed values to list
+    out_i = list(out_i)
+    names(out_i) = out_strings[i]
+    json_list = append(json_list, out_i)
+  }
+}
+
+
+# extract quantities of interest from output, transform back onto the original
+# (un-standardised) scale, then write to csv
+if ("eta_mu_mu" %in% names(out_list)){
+  eta_mu_mu = out_list$eta_mu_mu
+  eta_sigma_mu = out_list$eta_sigma_mu
+  
+  # Convert back on true scale
+  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
+  eta_sigma_mu = eta_sigma_mu*sd_dt
+  
+  write_output(eta_mu_mu, "eta_mu_mu", in_file)
+  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
+}
+if ("eta_sam_mu" %in% names(out_list)){
+  eta_sam_mu = out_list$eta_sam_mu
+  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
+  write_output(eta_sam_mu, "eta_sam_mu", in_file)
+}
+# Are there individual samples to be written to file?
+if ("eta_mu" %in% names(out_list)){
+  eta_mu = out_list$eta_mu
+  eta_mu = eta_mu*sd_dt + mu_dt
+  eta_sigma = out_list$eta_sigma
+  eta_sigma = eta_sigma*sd_dt
+  write_output_samples(eta_mu, "eta_mu", in_file)
+  write_output_samples(eta_sigma, "eta_sigma", in_file)
+}
+if ("eta_sam" %in% names(out_list)){
+  eta_sam = out_list$eta_sam
+  eta_sam = eta_sam*sd_dt + mu_dt
+  write_output_samples(eta_sam, "eta_sam", in_file)
+}
+
+# Sort out then package to plot
 # Plot histogram of reduced coefficients
 dev.new(noRStudioGD = TRUE) # plot in new window
 par(mfrow = c(1, p_eta))
@@ -382,9 +411,9 @@ for (i in 1:p_eta){
        main =  paste("Feature",as.character(i)),
        xlab = paste("w_star", as.character(i)),
        col = "brown1",
-       breaks = 25,
+       breaks = 15,
        freq = FALSE,
-       xlim = c(-4,4),
+       # xlim = c(-4,4),
        cex.lab = 1.25,
        cex.axis = 1.25)
   # overlay plot of prior distribution
@@ -392,86 +421,3 @@ for (i in 1:p_eta){
   prior_plot = dnorm(w_plot,mean = 0, sd = 1)
   lines(w_plot,prior_plot,lwd=3,"col"="blue")
 }
-
-dev.new(noRStudioGD = TRUE) # plot in new window
-par(mfrow = c(1, p_delta))
-for (i in 1:p_delta){
-  hist(w_star[i,], 
-       main =  paste("Feature",as.character(i)),
-       xlab = paste("v_star", as.character(i)),
-       col = "brown1",
-       breaks = 25,
-       freq = FALSE,
-       xlim = c(-4,4),
-       cex.lab = 1.25,
-       cex.axis = 1.25)
-  # overlay plot of prior distribution
-  w_plot = seq(-4,4, length.out = 100)
-  prior_plot = dnorm(w_plot,mean = 0, sd = 1)
-  lines(w_plot,prior_plot,lwd=3,"col"="blue")
-}
-
-# Also look at samples of the mean for output
-# Multiply stored mean values by the appropriate basis matrix and transform back
-# onto their correct scales
-delta_mu = (D_eta %*% v_star_mu)*sd_dt
-delta_y_mu = (D_y %*% v_star_mu)*sd_dt
-eta_mu = (K_eta %*% w_star_mu)*sd_dt + mu_dt
-eta_y_mu = (K_y %*% w_star_mu)*sd_dt + mu_y
-
-# Calculate the diagonal terms of the covariance matrix. Just do this as the
-# full covariance is too big. Take the square root (standard deviation) as this
-# is more meaningful
-delta_sigma = matrix(0, n_eta, N_sam_plot)
-delta_y_sigma = matrix(0, n_y, N_sam_plot)
-eta_sigma = matrix(0, n_eta, N_sam_plot)
-eta_y_sigma = matrix(0, n_y, N_sam_plot)
-for (i in 1:N_sam_plot){
-  delta_sigma[,i] = sqrt(as.matrix(rowSums((D_eta %*% v_star_sigma[,,i]) * D_eta)))*sd_dt
-  delta_y_sigma[,i] = sqrt(as.matrix(rowSums((D_y %*% v_star_sigma[,,i]) * D_y)))*sd_dt
-  eta_sigma[,i] = sqrt(as.matrix(rowSums((K_eta %*% w_star_sigma[,,i]) * K_eta)))*sd_dt
-  eta_y_sigma[,i] = sqrt(as.matrix(rowSums((K_y %*% w_star_sigma[,,i]) * K_y)))*sd_dt
-}
-
-# Integrate uncertainty out of mean and standard deviation by taking average
-eta_mu_mu = rowMeans(eta_mu)
-delta_mu_mu = rowMeans(delta_mu)
-eta_y_mu_mu = rowMeans(eta_y_mu)
-delta_y_mu_mu = rowMeans(delta_y_mu)
-
-eta_sigma_mu = rowMeans(eta_sigma)
-delta_sigma_mu = rowMeans(delta_sigma)
-eta_y_sigma_mu = rowMeans(eta_y_sigma)
-delta_y_sigma_mu = rowMeans(delta_y_sigma)
-
-
-
-# Also separate emulator
-
-# Here it would be good to take some averages!! We haven't averaged out the calibration parameters!!
-
-
-
-# Write all output to text files for plotting
-write.csv(eta_mu, "outputs/eta_mu.csv", row.names = FALSE)
-write.csv(delta_mu, "outputs/delta_mu.csv", row.names = FALSE)
-write.csv(eta_y_mu, "outputs/eta_y_mu.csv", row.names = FALSE)
-write.csv(delta_y_mu, "outputs/delta_y_mu.csv", row.names = FALSE)
-write.csv(delta_sam, "outputs/delta_sam.csv", row.names = FALSE)
-write.csv(eta_sam, "outputs/eta_sam.csv", row.names = FALSE)
-write.csv(delta_y, "outputs/delta_y.csv", row.names = FALSE)
-write.csv(eta_y, "outputs/eta_y.csv", row.names = FALSE)
-write.csv(delta_sigma, "outputs/delta_sigma.csv", row.names = FALSE)
-write.csv(delta_y_sigma, "outputs/delta_y_sigma.csv", row.names = FALSE)
-write.csv(eta_sigma, "outputs/eta_sigma.csv", row.names = FALSE)
-write.csv(eta_y_sigma, "outputs/eta_y_sigma.csv", row.names = FALSE)
-
-write.csv(eta_mu_mu, "outputs/eta_mu_mu.csv", row.names = FALSE)
-write.csv(delta_mu_mu, "outputs/delta_mu_mu.csv", row.names = FALSE)
-write.csv(eta_y_mu_mu, "outputs/eta_y_mu_mu.csv", row.names = FALSE)
-write.csv(delta_y_mu_mu, "outputs/delta_y_mu_mu.csv", row.names = FALSE)
-
-write.csv(eta_sigma_mu, "outputs/eta_sigma_mu.csv", row.names = FALSE)
-write.csv(delta_sigma_mu, "outputs/delta_sigma_mu.csv", row.names = FALSE)
-write.csv(eta_y_sigma_mu, "outputs/eta_y_sigma_mu.csv", row.names = FALSE)
-write.csv(delta_y_sigma_mu, "outputs/delta_y_sigma_mu.csv", row.names = FALSE)
