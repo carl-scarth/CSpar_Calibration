@@ -3,14 +3,17 @@
 import numpy as np
 import pandas as pd
 import meshio
+import os
 
 shell_mesh = True
 label = "LHSDesign40x4"
 plot_basis = False # Plot of basis functions
 plot_training_data_mean = False # Plot mean of training data
 plot_GP_Mean = True # Plot average across posterior samples of Gaussian process predictions
-plot_GP_Post_Sam = False # Plot Gaussian process predictions across a set of posterior samples of hyperparameters
+plot_GP_Std = True # Plot standard deviation of posterior predictive samples
+plot_GP_Post_Sam = False # Plot Gaussian process predictions across a set of posterior samples
 plot_GP_Sam = True # Plot samples from Gaussian process?
+file_series = False # Output as a file series for animating in paraview 
  
 file_list = []
 if plot_basis:
@@ -21,13 +24,14 @@ if plot_GP_Mean:
     file_list.extend(["eta_mu_mu","eta_sigma_mu"])
     if plot_GP_Sam:
         file_list.append("eta_sam_mu")
+if plot_GP_Std:
+    file_list.append("eta_mu_sigma")
+    if plot_GP_Sam:
+        file_list.append("eta_sam_sigma")
 if plot_GP_Post_Sam:
     file_list.extend(["eta_mu", "eta_sigma"])
     if plot_GP_Sam:
         file_list.append("eta_sam")
-
-# Files containing output samples
-# sample_file_list = ['eta_mu','delta_mu','delta_sam','eta_sam','delta_sigma','eta_sigma']
 
 # Open the output files
 if shell_mesh:
@@ -61,35 +65,31 @@ for face in face_nodes:
 # Convert connectivity from abaqus to python indexing
 faces = faces - 1
 
-# Loop over different csv files containing output data, and create a dictionary
-# No longer used. Delete if I find it definitely isn't necessary
-#for file_name in sample_file_list:
-#    output_dict = {}
-#    output = np.loadtxt(file_name + '.csv', delimiter = ',', skiprows = 1)
-#    # Loop over samples of the current output and add to dictionary
-#    #for i in range(output.shape[1]):
-#    for i in range(10):
-#        print(i)
-#        output_dict[file_name + str(i+1)] = output[2:,i]
-#    meshio.Mesh(points = nodes, cells = [("quad",elements_face)], point_data = output_dict).write(file_name + "_samples.vtk", file_format="vtk")
-
-# Dictionary containing name of output field, and the field values
+dict_list = []
 output_dict = {}
-# Loop over all files for which output is required and populate the output dictionary
-for filestr in file_list:
+for i, filestr in enumerate(file_list):
     # load in output from current filename
-    # output = np.loadtxt(filestr + "_" + label + ".csv", delimiter = ",", skiprows = 1) # legacy code
-    # output = output[2:,:]
-    # for i in range(output.shape[1]):
-    #    output_dict[filestr + "_" + str(i+1)] = output[:,i]
-
     output = pd.read_csv(filestr + "_" + label + ".csv")
-
     # Discard the first two points from the output as these are reference points
     output = output.loc[2:]
-    # Loop over entries of the output file and store in the output dictionary
-    for col in output.columns:
-        output_dict[col] = output[col]
+    for j, col in enumerate(output.columns):
+        if  file_series:
+            # If outputting a file series, create individual vtks for each sample
+            if i == 0:
+                dict_list.append({filestr:output[col]})
+            else:
+                dict_list[j][filestr] = output[col]
+        else:
+            # Otherwise write to a single vtk
+            for col in output.columns:
+                output_dict[col] = output[col]
 
-# Get data in the correct format for meshio
-meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write("output_vtk.vtk", file_format="vtk")
+# Get data in the correct format for meshio and write to vtk
+if file_series:
+    if "output_vtk" not in os.listdir(os.getcwd()):
+        os.makedirs("output_vtk")
+    for  i, output_dict in enumerate(dict_list):
+        meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write(os.path.join("output_vtk","Sample_"+str(i)+".vtk"), file_format="vtk")
+else:
+    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write("output_vtk.vtk", file_format="vtk")
+
