@@ -164,7 +164,7 @@ hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
 exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
 # Interpolate the training data mean. Skip the first two nodes in the output as 
 # these are reference points which are not referenced by the connectivity file.
-mu_y = intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+mu_y = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
 
 # Calculate residuals of experimental error
 residual = exp_displacement - mu_y
@@ -310,22 +310,16 @@ prior_posterior_pairs(tf_trans, tf_param)
 #-------------------------------------------------------------------------------
 
 # Make predictions from fitted Gaussian process emulator
-N_sam_plot = 100 # Required number of prediction samples
-# N_sam_plot = N_samples
+N_sam_plot = N_samples
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = T, output_ff_sam = T, output_coeff_mean = T, output_ff_mean = T)
+# Make predictions using the calibrated Gaussian process
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
 
-# extract quantities of interest from output, transform back onto the original
-# (un-standardised) scale, then write to json
-# List of full-field outputs which may be in out_list
-out_strings = c("eta_mu_mu", "eta_sigma_mu", "eta_sam_mu", "eta_mu", "eta_sigma", "eta_sam")
-# Loop over each output, transform back onto the correct scale, then write to 
-# csv
-#json_list <- list()
+# Loop over each output,transform onto the correct scale, then write to csv for
+# plotting outside of R
 for (i in 1:length(out_list)){
   out_string = names(out_list[i])
-  print(out_string)
   out_i = out_list[[out_string]]
   # If the quantity is in full-field, transform back onto it's original scale
   # First, identify the correct mean vector to use for the transformation
@@ -335,89 +329,21 @@ for (i in 1:length(out_list)){
     mu_out = mu_dt
   }
   if (grepl("sigma", out_string, fixed=TRUE) & grepl("eta", out_string, fixed=TRUE)){
-    #print(out_string)
     out_i = rescale_vector_output(out_i, mu_out, sd_dt, std=TRUE)
-    print(length(mu_out))
   } else if (grepl("eta", out_string, fixed=TRUE)) {
-    #print(out_string)
-    print(length(mu_out))
-    #print(nrows(out_i))
-    # THE BELOW SCRIPT HAS SOME STRANGE BEHAVIOUR FOR LARGE MATRICES. TRY 
-    # DEBUGGING IF THE ERROR PERSISTS. MIGHT NEED TO CODE SOME EXPLICIT BEHAVIOUR
-    # FOR MATRICES IF NECESSARY. DON'T WASTE TOO MUCH TIME
+    # I encountered a bug here as mu_y was a matrix, not a vector. I've corrected 
+    # this in the above code but haven't tested all the way through. I suggest 
+    # that if this happens again it's worth checking this first
     out_i = rescale_vector_output(out_i, mu_out, sd_dt)
   }
-}
-
-# From nonlinear code vvv. Can I improve this. Also need to update other emulator code
-
-for (i in 1:length(out_strings)){
-  if (out_strings[i] %in% names(out_list)){
-    out_i = out_list[[out_strings[i]]]
-    # Transform outputs back onto their individual scale
-    # If the output is a standard deviation a different transformation is required
-    if (grepl("sigma", out_strings[i], fixed=TRUE)){
-      out_i = rescale_vector_output(out_i, mu_dt, sd_dt, sd=TRUE)
-    } else {
-      out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
-    }
-    # Append transformed values to list
-    out_i = list(out_i)
-    names(out_i) = out_strings[i]
-    json_list = append(json_list, out_i)
+  # We don't want to output covariance matrices. All other data sets have fewer
+  # than two dimensions
+  if (length(dim(out_i)) <= 2) {
+    print(paste("writing outputs\\", out_string, "_", in_file, ".csv", sep=""))
+    write_output(out_i, out_string, in_file)
   }
 }
 
-
-# extract quantities of interest from output, transform back onto the original
-# (un-standardised) scale, then write to csv
-if ("eta_mu_mu" %in% names(out_list)){
-  eta_mu_mu = out_list$eta_mu_mu
-  eta_sigma_mu = out_list$eta_sigma_mu
-  
-  # Convert back on true scale
-  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
-  eta_sigma_mu = eta_sigma_mu*sd_dt
-  
-  write_output(eta_mu_mu, "eta_mu_mu", in_file)
-  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
-}
-if ("eta_sam_mu" %in% names(out_list)){
-  eta_sam_mu = out_list$eta_sam_mu
-  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
-  write_output(eta_sam_mu, "eta_sam_mu", in_file)
-}
-# Are there individual samples to be written to file?
-if ("eta_mu" %in% names(out_list)){
-  eta_mu = out_list$eta_mu
-  eta_mu = eta_mu*sd_dt + mu_dt
-  eta_sigma = out_list$eta_sigma
-  eta_sigma = eta_sigma*sd_dt
-  write_output_samples(eta_mu, "eta_mu", in_file)
-  write_output_samples(eta_sigma, "eta_sigma", in_file)
-}
-if ("eta_sam" %in% names(out_list)){
-  eta_sam = out_list$eta_sam
-  eta_sam = eta_sam*sd_dt + mu_dt
-  write_output_samples(eta_sam, "eta_sam", in_file)
-}
-
-# Sort out then package to plot
-# Plot histogram of reduced coefficients
-dev.new(noRStudioGD = TRUE) # plot in new window
-par(mfrow = c(1, p_eta))
-for (i in 1:p_eta){
-  hist(w_star[i,], 
-       main =  paste("Feature",as.character(i)),
-       xlab = paste("w_star", as.character(i)),
-       col = "brown1",
-       breaks = 15,
-       freq = FALSE,
-       # xlim = c(-4,4),
-       cex.lab = 1.25,
-       cex.axis = 1.25)
-  # overlay plot of prior distribution
-  w_plot = seq(-4,4, length.out = 100)
-  prior_plot = dnorm(w_plot,mean = 0, sd = 1)
-  lines(w_plot,prior_plot,lwd=3,"col"="blue")
-}
+# Plot histogram of calibrated expansion coefficients
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, nugget = F, sam_gp = T, output_coeff_sam = T, output_ff_sam = F, output_coeff_mean = F, output_ff_mean = F, output_ff_std = F)
+w_star_hist(out_list$w_star, w_lim = c(-3,3))

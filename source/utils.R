@@ -37,13 +37,23 @@ full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta) {
 
 write_output <- function(data, out_string, label_string){
   # Formats data and writes to a csv file with name, and column headings given 
-  # in out_string, and label label_string
-  data = as.data.frame(data)
-  if (ncol(data) == 1){
-    colnames(data) = c(out_string)
+  # in out_string, and label label_string.
+  if (is.vector(data)){
+    # Convert vectors to arrays
+    data = matrix(data, nrow = length(data), ncol = 1)
+  }
+  # If an array of multiple predictions, pass to the relevant code
+  if (length(dims(data)) > 2) {
+    write_output_samples(data, out_string, label_string)
   } else {
-    for (i in 1:ncol(data)){
-      colnames(data)[i] = sprintf("%s_%d",out_string, i)
+    data = as.data.frame(data)
+    # If only one column, don't need to append header with sample number
+    if (ncol(data) == 1){
+      colnames(data) = c(out_string)
+    } else {
+      for (i in 1:ncol(data)){
+        colnames(data)[i] = sprintf("%s_%d",out_string, i)
+      }
     }
   }
   write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)

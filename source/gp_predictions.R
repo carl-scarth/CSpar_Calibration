@@ -206,7 +206,7 @@ full_field_gp_pred <- function(N_post_pred, x_train, z_train, x_pred, beta_w, la
   return(out_list)
 }
 
-full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T){
+full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F){
   # Make N_post_pred predictions replicating the full-field test data for a 
   # single condition using a calibrated Gaussian process, with emulator 
   # parameters fixed to constant values. Sub-sampling from the posterior helps
@@ -229,6 +229,7 @@ full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, bet
   # output_ff_sam = Boolean on whether to output info for the full-field response
   # output_coeff_mean = Boolean on whether to average across posterior predictions for the basis coefficients
   # output_ff_mean = Boolean on whether to average across posterior predictions for the full-field
+  # output_ff_std = Boolean on whether to output standard deviation across posterior predictions
 
   N_sam_post = nrow(tf) # Determine overall number of posterior samples
   if (!is.null(K)){N_eta = nrow(K)} # Determine number of output values per simulation
@@ -282,18 +283,31 @@ full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, bet
     }
   }
   # Do I want to output averages across samples of full-field output?
-  if (output_ff_mean & !is.null(K)) {
+  if ((output_ff_mean | output_ff_std) & !is.null(K)) {
     eta_mu_mu_out = rep(0, N_eta)
     eta_sigma_mu_out = rep(0, N_eta)
     if (sam_gp) {
       eta_sam_mu_out = rep(0, N_eta)
     }
   }
-  if (output_ff_mean & !is.null(K_y)) {
+  if ((output_ff_mean | output_ff_std) & !is.null(K_y)) {
     eta_mu_y_mu_out = rep(0, N_y)
     eta_sigma_y_mu_out = rep(0, N_y)
     if (sam_gp) {
       eta_sam_y_mu_out = rep(0, N_y)
+    }
+  }
+  # Do I want to output averages across samples of full-field output?
+  if (output_ff_std & !is.null(K)) {
+    eta_mu_std_out = rep(0, N_eta)
+    if (sam_gp) {
+      eta_sam_std_out = rep(0, N_eta)
+    }
+  }
+  if (output_ff_std & !is.null(K_y)) {
+    eta_mu_y_std_out = rep(0, N_y)
+    if (sam_gp) {
+      eta_sam_y_std_out = rep(0, N_y)
     }
   }
   
@@ -382,18 +396,30 @@ full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, bet
       }
     }
     # Add to average across full-field posterior samples if required
-    if (output_ff_mean & !is.null(K)){
+    if ((output_ff_mean | output_ff_std) & !is.null(K)){
       eta_mu_mu_out = eta_mu_mu_out + eta_mu/N_post_pred
       eta_sigma_mu_out = eta_sigma_mu_out + eta_sigma/N_post_pred
       if (sam_gp) {
         eta_sam_mu_out = eta_sam_mu_out + eta_sam/N_post_pred
       }
     }
-    if (output_ff_mean & !is.null(K_y)){
+    if ((output_ff_mean | output_ff_std) & !is.null(K_y)){
       eta_mu_y_mu_out = eta_mu_y_mu_out + eta_mu_y/N_post_pred
       eta_sigma_y_mu_out = eta_sigma_y_mu_out + eta_sigma_y/N_post_pred
       if (sam_gp) {
         eta_sam_y_mu_out = eta_sam_y_mu_out + eta_sam_y/N_post_pred
+      }
+    }
+    if (output_ff_std & !is.null(K)){
+      eta_mu_std_out = eta_mu_std_out + (eta_mu^2)/N_post_pred
+      if (sam_gp) {
+        eta_sam_std_out = eta_sam_std_out + (eta_sam^2)/N_post_pred
+      }
+    }
+    if (output_ff_std & !is.null(K_y)){
+      eta_mu_y_std_out = eta_mu_y_std_out + (eta_mu_y^2)/N_post_pred
+      if (sam_gp) {
+        eta_sam_y_std_out = eta_sam_y_std_out + (eta_sam_y^2)/N_post_pred
       }
     }
   }
@@ -441,6 +467,18 @@ full_field_calibration_pred_fixed_em <- function(N_post_pred, tc, tf, z_hat, bet
     out_list[["eta_sigma_y_mu"]] = eta_sigma_y_mu_out
     if (sam_gp){
       out_list[["eta_sam_y_mu"]] = eta_sam_y_mu_out
+    }
+  }
+  if (output_ff_std & !is.null(K)){
+    out_list[["eta_mu_sigma"]] = sqrt(eta_mu_std_out - (eta_mu_mu_out^2))
+    if (sam_gp){
+      out_list[["eta_sam_sigma"]] = sqrt(eta_sam_std_out - (eta_sam_mu_out^2))
+    }
+  }
+  if (output_ff_std & !is.null(K_y)){
+    out_list[["eta_mu_y_sigma"]] = sqrt(eta_mu_y_std_out - (eta_mu_y_mu_out^2))
+    if (sam_gp){
+      out_list[["eta_sam_y_sigma"]] = sqrt(eta_sam_y_std_out - (eta_sam_y_mu_out^2))
     }
   }
   

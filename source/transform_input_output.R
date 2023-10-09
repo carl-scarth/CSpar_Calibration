@@ -72,12 +72,12 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
 rescale_vector_output <- function(y_scale, mu_y, sigma_y, std = FALSE){
   y = y_scale*sigma_y
   if (!std) {
-    print(length(y))
-    if (is.matrix(y)){
-      print(nrow(y))
-      print(ncol(y))
-    }
+    #if (is.matrix)(y){
+    #  y = y + t(replicate(ncol(y), mu_y))
+      #y = y + matrix(replicate(ncol(y),mu_y),nrow=nrow(y))
+    #} else {
     y = y + mu_y
+    #}
   }
   return(y)
 }
