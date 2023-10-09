@@ -250,3 +250,41 @@ prior_posterior_pairs <- function(tf, tf_param, inp_labels = NULL, new_window = 
   colours = c(rep("blue",N_samples),rep("red",N_samples))
   pairs(prior_post_frame,col=colours)
 }
+
+
+w_star_hist <- function(w_star, w_lim = NULL, new_window = FALSE){
+  # Produces prior and posterior plots of the calibrated expansion coefficients 
+  # in the reduced-dimensional representation of the model output
+  # w_star = p x n_sam matrix of posterior samples of expansion coefficients,
+  # where p is the number of coefficients and n_sam is the number of samples
+  # w_lim = vector containing limits of the prior plot, if provided
+  # Boolean indicating whether to plot in a new window
+  if (new_window) {
+    dev.new(noRStudioGD = TRUE) # Create a new window if needed
+  }
+  if (is.null(w_lim)){
+    get_limits = TRUE
+  } else {
+    get_limits = FALSE
+  }
+  p = nrow(w_star)
+  par(mfrow = c(1, p))
+  for (i in 1:p){
+    if (get_limits){
+      w_lim = c(min(w_star[i,]), max(w_star[i,]))
+    }
+    hist(out_list$w_star[i,], 
+      main =  paste("Feature",as.character(i)),
+      xlab = paste("w_star", as.character(i)),
+      col = "brown1",
+      breaks = 15,
+      freq = FALSE,
+      xlim = w_lim,
+      cex.lab = 1.25,
+      cex.axis = 1.25)
+    # overlay plot of prior distribution
+    w_plot = seq(w_lim[1], w_lim[2], length.out = 100)
+    prior_plot = dnorm(w_plot,mean = 0, sd = 1)
+    lines(w_plot,prior_plot,lwd=3,"col"="blue")
+  }
+}
