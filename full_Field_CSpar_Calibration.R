@@ -9,8 +9,6 @@
 library(data.table)
 library(rstan)
 library(matrixStats)
-# library(MASS)
-# library(colormap)
 
 # Set current working directory. This should be modified to match the directory
 # of the user
@@ -233,8 +231,8 @@ z_hat = c(u_hat,w_hat)
 
 # Force the adjusted parameters of the observation error prior to specified 
 # values to overcome over-constraint issues
-a_y_dash = 5.0
-b_y_dash = 0.05
+a_y_dash = a_y
+b_y_dash = b_y
 
 #-------------------------------------------------------------------------------
 
