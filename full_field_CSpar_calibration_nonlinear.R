@@ -10,8 +10,6 @@
 library(data.table)
 library(rstan)
 library(matrixStats)
-# library(MASS)
-# library(colormap)
 
 # Set current working directory. This should be modified to match the directory
 # of the user
@@ -22,9 +20,9 @@ source("source/abaqus_json.R")
 source("source/transform_input_output.R")
 source("source/utils.R")
 source("source/interpolate_data.R")
-# source("source/dimension_reduction.R")
-# source("source/prior_posterior_plots.R")
-# source("source/gp_predictions.R")
+source("source/dimension_reduction.R")
+source("source/prior_posterior_plots.R")
+source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
@@ -34,13 +32,15 @@ source("source/interpolate_data.R")
 # exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
-
+a_y = 5.0  # Shape parameter for the lambda_y prior
+b_y = 0.05 # Rate parameter for the lambda_y prior
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 exp_data_file = "interpolated_DIC" # Identifier of file containing DIC data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
@@ -78,7 +78,6 @@ row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
 
 # Load in emulator training data input values from Design of Experiments. 
 # in_file = "LHSDesign50x3" # File identifier string for input and output csvs
-in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 
@@ -199,11 +198,9 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv
 #-------------------------------------------------------------------------------
 
 # specify W_y, the (prior) precision of the observation error.
+# In the long run, consider varying the observation error with load magnitude.
+# For now, keep constant.
 
-# The commented code below deals with specifying both an iid noise error, and 
-# one due to an isotropic shift applied to every point
-# For now I pass the identity matrix, and place a weaker prior on the observation
-# error in Stan
 # sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
 # sigma_shift = 0
 # Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
@@ -212,13 +209,109 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv
 # Convert covariance matrix to a precision 
 # W_y = solve(Sigma_y)
 
+# The below code doesn't work when dealing with large quantities of experimental
+# data. I've implemented a method which instead works with a vector, assuming
+# The precision matrix is diagonal. This will need to be adapted to work with 
+# other types of precision matrix
 # Directly pass the identity matrix
-# THIS IS TOO BIG!!! THINK ABOUT MATHS - POSSIBLE TO GENERALISE FOR A DIAGONAL
-# INCORPORATE DIRECTLY INTO THE ALGEBRA
-# HOW ABOUT A CONSTANT SHIFT? PLAY AROUND WITH THIS LATER
 # W_y = diag(rep(1.0,n_y))
+W_y = rep(1.0,n_y)
 
-# SORT THIS OUT...
+#-------------------------------------------------------------------------------
+
+# Reduce the dimension of the output data and calculate associated quantities 
+# for input to Stan
+# First calculate quantities related to the emulator
+processed_data = reduce_dimension_emulator(eta, K_eta)
+# Adjusted prior parameters for the basis expansion truncation error
+w_hat = processed_data[[1]] # Reduced-dimensional outputs
+KTKinv = processed_data[[2]] # Inverse of the product of basis matrices
+
+processed_data = reduce_dimension_calibration(y, K_y, W_y, a_y=a_y, b_y=b_y)
+a_y_dash = processed_data[[1]]
+b_y_dash = processed_data[[2]]
+u_hat = processed_data[[3]]
+BTWyBinv = processed_data[[4]]
+
+# Group together coefficient samples from experimental data and model into a 
+# single vector
+z_hat = c(u_hat,w_hat)
+
+# Force the adjusted parameters of the observation error prior to specified 
+# values to overcome over-constraint issues
+a_y_dash = a_y
+b_y_dash = b_y
+
+#-------------------------------------------------------------------------------
+
+# Load in fixed values of emulator parameters, determined seperately, e.g. via
+# MLE or MAP estimate
+emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
+rho_w = emulator_parameters[1:(p_eta*q)]
+lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
+lambda_eta = emulator_parameters[p_eta*(q+1)+1]
+
+# Set up the environment for Stan, pass arguments, and run stan model
+# Settings taken from: https://betanalpha.github.io/assets/case_studies/gaussian_processes.html#21_Simulating_From_A_Gaussian_Process
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
+util = new.env()
+
+# List of arguments to pass to stan
+stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, a_y_dash = a_y_dash,
+                 b_y_dash = b_y_dash, lambda_eta = lambda_eta, z_hat = z_hat,
+                 tf_param_1=tf_param$p1_trans, tf_param_2=tf_param$p2_trans, 
+                 rho_w = rho_w, lambda_w = lambda_w, tc = tc, KTKinv = KTKinv, 
+                 BTWyBinv = BTWyBinv)
+
+# Set via variable as in emulator case
+fit = stan(file = "source/full_field_calibration_fixed_em.stan",
+           data = stan_data,
+           iter = iter,
+           chains = chains,
+           # chains = 1,
+           # iter = 1,
+           model_name = "full_field_calibration")
+
+#-------------------------------------------------------------------------------
+
+# Post-process and plot the simulation data
+
+# plot trace plots
+stan_trace(fit, pars = c("tf", "lambda_y"))
+# Print summary of results
+print(fit, pars = c("tf", "lambda_y")) # , "lambda_w", "lambda_v","lambda_y","lambda_eta"))
+
+# extract samples from stan output
+samples <- extract(fit)
+tf <- samples$tf              # Calibrated model inputs
+lambda_y <- samples$lambda_y  # Observation error magnitude
+N_samples <- dim(tf)[1]       # Total number of samples post warm-up
+
+# Extract label of inputs for plots
+labels = colnames(XT_sim)
+
+# Plot observation error precision
+lambda_hist(lambda_y, prior_shape = a_y, prior_rate = b_y, label = "lambda_y") #, adj_prior_shape = a_y_dash, adj_prior_rate = b_y_dash)
+
+# Transform calibrated inputs onto their original scale for plotting and output
+tf_trans = rescale_inputs(tf, t_min, t_max)
+# Plot prior and posterior distribution of the calibration parameters.
+calibration_inp_hist(tf_trans, tf_param = tf_param)
+
+# estimate means and modes of the posterior distribution and print to the screen
+modes = rep(0,q)
+for (i in 1:q){
+  modes[i] = estimate_mode(tf_trans[,i])
+}
+print("calibration parameter modes = ")
+print(modes)
+print("calibration parameter means = ")
+print(colMeans(tf_trans))
+
+# Produce pairs plots of prior and posterior distributions
+prior_posterior_pairs(tf_trans, tf_param)
 
 #-------------------------------------------------------------------------------
 
