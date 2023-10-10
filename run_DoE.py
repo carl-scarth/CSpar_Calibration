@@ -30,7 +30,8 @@ def set_input(x_series, x_name, default_val):
 
 
 # infile = "inputs\\LHSDesign40x4_1"
-infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
+# infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
+infile = "inputs\\eccentricity_study"
 
 # infile = "inputs\\LHSDesign100x6"
 # infile = "Problem_run"
@@ -39,36 +40,39 @@ infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\nominal_inputs" # file in which DoE is stored
 
 change_inc = True # Do I want to play with the increment size?
-write_buffer = True # Do I want to write a temporary file to store displacements as I go?
+write_buffer = False # Do I want to write a temporary file to store displacements as I go?
 restart = False # Am I restarting a previous analysis?
-shell_mesh = True # Is the mesh comprised of continuum shells?
+shell_mesh = False # Is the mesh comprised of continuum shells?
+store_all_sam = True
+rotate_flanges = False
 
 max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
-load = -250.0 # Applied load
+load = -350.0 # Applied load
 
-
-# Numpy version
-# Load in the Design of Experiments
-# x_DoE = np.loadtxt(infile + ".csv", delimiter = ",", skiprows = 1, ndmin = 2)
-#N, d = x_DoE.shape # Number of samples and number of inputs
-#print(x_DoE)
+layup = [-45.0, 45.0, 90.0, 0.0, 0.0, 90.0, 45.0, -45.0]
+n_plies = len(layup) # Number of plies
 
 # Pandas version
 x_DoE = pd.read_csv(infile + ".csv", sep = ",")
+print(x_DoE)
 N, d = x_DoE.shape # Number of samples and number of inputs
 
+# Update below with new numbers once I've seen mesh. Factor as multiple of ply numbers?
 if shell_mesh:
     n_Nodes = 9352
 else:
     # n_Nodes = 116876 # Number of nodes per simulation - Old version before adding new reference nodes
-    n_Nodes = 116877 # Number of nodes per simulation (this increased with the additional BCs) 3D Mesh
+    # n_Nodes = 116877 # Number of nodes per simulation (this increased with the additional BCs) 3D Mesh
+    n_Nodes = (n_plies + 1)*4675 + 2 # Assumes mesh density is fixed
 
 # Define inputs which are held constant
 model_name = 'CSpar_sam' # Name of the Abaqus model
 Zlength = 420.0 # effective length of the spar (between end blocks).
-height = 55.0 # distance from tip of the flanges to the outer surface of the web
+# Update when ply thickness known
+# height = 55.0 # distance from tip of the flanges to the outer surface of the web
+height = 61.0 # distance from tip of the flanges to the outer surface of the web
 
 # If we are restarting an aborted set of runs, then reload existing data, otherwise initialise entities used to store data
 if restart:
@@ -122,20 +126,27 @@ for i, x_i in iterable:
     LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
     RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
 
+    # Give unique filenames to each run?
+    if store_all_sam:
+        file_str = "_".join((model_name, str(i)))
+    else:
+        file_str = model_name
+
     # Pick different input file generating script depending on if the mesh is comprised of shells or not
     # ideally I'd just use the same file taking a Boolean input, but keep for now in case of changes
     if shell_mesh:
-        write_shell_parameters(t_ply=t_ply, Zlength=Zlength, height=height, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta,  model_name=model_name)
+        write_shell_parameters(t_ply=t_ply, Zlength=Zlength, height=height, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta,  model_name=file_str)
     else:
         # Write parameters to a text file which will be used to generate mesh
-        write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
+        # write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
+        write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, StackSeq = layup, nb_plies = n_plies, rotate_flanges = rotate_flanges, model_name = file_str)
 
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar
     command = gridMod_dir + "\\gridMod"
     os.system(command)
-    
+
     # Extract other material properties from the DoE
     E11 = set_input(x_i, "E11", 115.6)
     E22 = set_input(x_i, "E22", 9.24)
@@ -202,7 +213,7 @@ for i, x_i in iterable:
             np.savetxt(f, incs_i.reshape((1,-1)))
         with open('RF_buffer.csv', 'a') as f:
             np.savetxt(f, RFs_i.reshape(1,-1))
-        
+    asdsadsd    
 # Consider using json format, stick with csv for now. This should be relatively easy if working with python dictionaries
 
 # Write model outputs from all simulations to csv files   
