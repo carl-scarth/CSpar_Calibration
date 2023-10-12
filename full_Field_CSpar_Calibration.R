@@ -30,7 +30,7 @@ disp_str = "w" # String which identifies the displacement component of interest 
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 # Define parameters for (gamma) prior distributions on the observation error
 a_y = 5.0  # Shape parameter for the lambda_y prior
-b_y = 0.05 # Rate parameter for the lambda_y prior
+b_y = 5.0 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model

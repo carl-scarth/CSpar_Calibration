@@ -33,7 +33,7 @@ source("source/gp_predictions.R")
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 a_y = 5.0  # Shape parameter for the lambda_y prior
-b_y = 0.05 # Rate parameter for the lambda_y prior
+b_y = 0.0005 # Rate parameter for the lambda_y prior
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -315,6 +315,24 @@ prior_posterior_pairs(tf_trans, tf_param)
 
 #-------------------------------------------------------------------------------
 
-# WHEN DEALING WITH PREDICTION CODE, UPDATE HEADER TO TIDY UP AS THERE'S A LOT OF
-# REPETITION.
+# Make predictions from fitted Gaussian process emulator
+# N_sam_plot = N_samples
+N_sam_plot = 10
+# Transform correlation lengths into appropriate format
+beta_w = -4.0*log(rho_w)
+# Make predictions using the calibrated Gaussian process
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
+
+
+# I packaged some of the prediction code into a separate function to tidy.
+# need to check arrays are represented properly when only 1 prediction
+# as is the case for calibration
+# First package up all the w_star prediction into one function then do loop first
+# automatically output all samples as there will always be enough memory for this,
+# though could optionally output them later
+# this would easily cout down on am ount of code because inverse transformation could
+# also be packaged, thus reducing duplication of K_y, but wouldn't have to do
+# the matrix solves twice so not more expenseive. Do on next iteration
+# After this I think it'll probably be possible to tidy further. Wait till
+# I've progressed the calibration work to overcome some of the problems first
 # AT LEAST PACKAGE UP CODE FOR WRITING OUT_LIST. APPLY SAME TO EMULATOR CODE
