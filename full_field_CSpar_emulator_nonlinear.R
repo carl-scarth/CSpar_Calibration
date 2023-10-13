@@ -219,5 +219,5 @@ for (i in 1:length(out_strings)){
 }
 
 # Write json to file
-out_json = gp_pred_to_json(n_frames, n_nodes, n_pred, N_sam_pred, json_list)
+out_json = gp_pred_to_json(json_list, n_frames, n_nodes, n_pred=n_pred, n_post_sam = N_sam_pred)
 write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))

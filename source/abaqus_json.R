@@ -76,14 +76,16 @@ basis_mean_to_json <- function(n_frames, n_nodes, K, mu_dt) {
 #                                                            ["QoI_2"] etc
 # where quantity of interest are contained within input list in_list, and can
 # take values "eta_mu", "eta_sigma", "eta_sam", "eta_mu_mu", "eta_sigma_mu" and
-# "eta_sam_mu". The first three qantitiues are array containing multipe postior
-# samples, and have a subheading "Posterior_Samples" with length n_post_sam
-gp_pred_to_json <- function(n_frames, n_nodes, n_pred, n_post_sam, in_list) {
+# "eta_sam_mu". The first three quantities are array containing multiple 
+# posterior samples, and have a subheading "Posterior_Samples" with length n_post_sam
+gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) {
   # Initialise list
   out_list <- list(list())
   names(out_list) = "Prediction"
-  out_list$Prediction <- vector(mode="list", length=n_pred)
-  # Loop over predicitons
+  if (n_pred > 1){
+    out_list$Prediction <- vector(mode="list", length=n_pred)
+  }
+  # Loop over predictions
   for (i in 1:n_pred){
     out_list$Prediction[[i]] = list(list())
     names(out_list$Prediction[[i]]) = "Frame"
@@ -95,23 +97,42 @@ gp_pred_to_json <- function(n_frames, n_nodes, n_pred, n_post_sam, in_list) {
       for (k in 1:length(in_list)){
         # If output quantity contains multiple posterior samples, the list will
         # contain a sub-list of posterior samples
-        if (names(in_list)[k] == "eta_mu" | names(in_list)[k] == "eta_sigma" | names(in_list)[k] == "eta_sam") {
+        if (names(in_list)[k] == "eta_mu"    | 
+            names(in_list)[k] == "eta_sigma" |
+            names(in_list)[k] == "eta_sam"   |
+            names(in_list)[k] == "w_star_mu" |
+            names(in_list)[k] == "w_star_sam"){
           out_list$Prediction[[i]]$Frame[[j]][[k]] = list(list())
           names(out_list$Prediction[[i]]$Frame[[j]][[k]]) = "Posterior_Sample"
           out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample = vector(mode="list", length=n_post_sam)
           # Loop over posterior samples
           for (l in 1:n_post_sam){
-            out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l,i]
+            if (n_pred > 1) {
+              out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l,i]
+            } else {
+              out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l]
+            }
             # Extract output for relevent list entry
             out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = out_ijl
           }
         } else {
-          out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),i]
+          print(names(in_list[k]))
+          if (n_pred > 1) {
+            out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),i]
+          } else {
+            out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes)]
+          }
+          View(out_list)
+          adsadadasdz
           # Extract output for relevent list entry
           out_list$Prediction[[i]]$Frame[[j]][[k]] = out_ij
         }
       }
     }
+  }
+  # Collapse the first level of the list if there is only one prediction
+  if (n_pred == 1){
+    out_list = out_list$"Prediction"[[1]]
   }
   out_json = toJSON(out_list)
   return(out_json)

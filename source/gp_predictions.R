@@ -131,10 +131,10 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
 
       # Store emulator posterior samples of basis coefficients if requested
       if (output_coeff_sam){
-        outlist$w_star_mu[,i,j] = w_star_mu
-        outlist$w_star_sigma[,,i,j] = w_star_sigma
+        out_list$w_star_mu[,i,j] = w_star_mu
+        out_list$w_star_sigma[,,i,j] = w_star_sigma
         if (sam_gp) {
-          outlist$w_star[,i,j] = w_star
+          out_list$w_star[,i,j] = w_star
         }
       }      
     
@@ -145,30 +145,30 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
         eta_sam = K %*% w_star
       }
       if (output_ff_sam){
-        outlist$eta_mu[,i,j] = eta_mu
+        out_list$eta_mu[,i,j] = eta_mu
         # Only output diagonals of covariance as full matrix is too high-
         # dimensional. Take square-root for standard
-        outlist$eta_sigma[,i,j] = eta_sigma
+        out_list$eta_sigma[,i,j] = eta_sigma
         if (sam_gp) {
-          outlist$eta_sam[,i,j] = eta_sam
+          out_list$eta_sam[,i,j] = eta_sam
         }
       }
     
       # If averages are required across posterior samples, keep a running total
       # to reduce memory requirements, compared with calculating mean at the end
       if (output_coeff_mean) {
-        outlist$w_star_mu_mu[,j] = outlist$w_star_mu_mu[,j] + w_star_mu/N_subsam
-        outlist$w_star_sigma_mu[,,j] = outlist$w_star_sigma_mu[,,j] + w_star_sigma/N_subsam
+        out_list$w_star_mu_mu[,j] = out_list$w_star_mu_mu[,j] + w_star_mu/N_subsam
+        out_list$w_star_sigma_mu[,,j] = out_list$w_star_sigma_mu[,,j] + w_star_sigma/N_subsam
         if (sam_gp) {
-          outlist$w_star_sam_mu[,j] = outlist$w_star_sam_mu[,j] + w_star/N_subsam
+          out_list$w_star_sam_mu[,j] = out_list$w_star_sam_mu[,j] + w_star/N_subsam
         }
       }
       # Add to average across full-field posterior samples if required
       if (output_ff_mean){
-        outlist$eta_mu_mu[,j] = outlist$eta_mu_mu[,j] + eta_mu/N_subsam
-        outlist$eta_sigma_mu[,j] = outlist$eta_sigma_mu[,j] + eta_sigma/N_subsam
+        out_list$eta_mu_mu[,j] = out_list$eta_mu_mu[,j] + eta_mu/N_subsam
+        out_list$eta_sigma_mu[,j] = out_list$eta_sigma_mu[,j] + eta_sigma/N_subsam
         if (sam_gp) {
-          eta_sam_mu_out[,j] = outlist$eta_sam_mu[,j] + eta_sam/N_subsam
+          eta_sam_mu_out[,j] = out_list$eta_sam_mu[,j] + eta_sam/N_subsam
         }
       }
     }
@@ -210,7 +210,7 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
   return(out_list)
 }
 
-full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F){
+full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F) { 
   # Make N_post_pred predictions replicating the full-field test data for a 
   # single condition using a calibrated Gaussian process, with emulator 
   # parameters fixed to constant values. Sub-sampling from the posterior helps
@@ -248,7 +248,8 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
   # Initialise output arrays
   if (!is.null(K)){has_K = TRUE} else {has_K = FALSE}
   if (!is.null(K_y)){has_K_y = TRUE} else {has_K_y = FALSE}
-  out_list = initialise_out_list(p=p_eta, N_eta = N_eta, N_y = N_y, N_post=N_subsam, K=has_K, K_y=has_KY, sam_gp = sam_gp, output_coeff_sam = output_coeff_sam, output_ff_sam = output_ff_sam, output_coeff_mean = output_coeff_mean, output_ff_mean = output_ff_mean, output_ff_std = output_ff_std){
+  out_list = initialise_out_list(p=p_eta, N_eta = N_eta, N_y = N_y, N_post=N_subsam, K=has_K, K_y=has_K_y, sam_gp = sam_gp, output_coeff_sam = output_coeff_sam, output_ff_sam = output_ff_sam, output_coeff_mean = output_coeff_mean, output_ff_mean = output_ff_mean, output_ff_std = output_ff_std)
+  
   # Do I want to output posterior samples for basis coefficients?
   # if (output_coeff_sam){
   #  w_star_mu_out = matrix(0, p_eta, N_post_pred)
@@ -349,10 +350,10 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
     
     # Store emulator posterior samples of basis coefficients if requested
     if (output_coeff_sam){
-      outlist$w_star_mu[,i] = w_star_mu
-      outlist$w_star_sigma[,,i] = w_star_sigma
+      out_list$w_star_mu[,i] = w_star_mu
+      out_list$w_star_sigma[,,i] = w_star_sigma
       if (sam_gp) {
-        outlist$w_star[,i] = w_star
+        out_list$w_star[,i] = w_star
       }
     }
     
@@ -360,72 +361,72 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
     # experimental data points, or both, depending upon which basis matrices
     # have been provided
     if (!is.null(K)){
-      eta_mu = K %*% w_star_mu
-      eta_sigma = sqrt(as.matrix(rowSums((K %*% w_star_sigma) * K)))
+      eta_mu = c(K %*% w_star_mu)
+      eta_sigma = sqrt((rowSums((K %*% w_star_sigma) * K)))
       if (sam_gp) {
-        eta_sam = K %*% w_star
+        eta_sam = c(K %*% w_star)
       }
     }
     if (!is.null(K_y)){
-      eta_mu_y = K_y %*% w_star_mu
-      eta_sigma_y = sqrt(as.matrix(rowSums((K_y %*% w_star_sigma) * K_y)))
+      eta_mu_y = c(K_y %*% w_star_mu)
+      eta_sigma_y = sqrt((rowSums((K_y %*% w_star_sigma) * K_y)))
       if (sam_gp) {
-        eta_sam_y = K_y %*% w_star
+        eta_sam_y = c(K_y %*% w_star)
       }
     }
     if (output_ff_sam & !is.null(K)){
-      outlist$eta_mu[,i] = eta_mu
+      out_list$eta_mu[,i] = eta_mu
       # Only output diagonals of covariance as full matrix is too high-
       # dimensional. Take square-root for standard
-      outlist$eta_sigma[,i] = eta_sigma
+      out_list$eta_sigma[,i] = eta_sigma
       if (sam_gp) {
-        outlist$eta_sam[,i] = eta_sam
+        out_list$eta_sam[,i] = eta_sam
       }
     }
     if (output_ff_sam & !is.null(K_y)) {
-      outlist$eta_mu_y[,i] = eta_mu_y
+      out_list$eta_mu_y[,i] = eta_mu_y
       # Only output diagonals of covariance as full matrix is too high-
       # dimensional. Take square-root for standard
-      outlist$eta_sigma_y[,i] = eta_sigma_y
+      out_list$eta_sigma_y[,i] = eta_sigma_y
       if (sam_gp) {
-        outlist$eta_sam_y[,i] = eta_sam_y
+        out_list$eta_sam_y[,i] = eta_sam_y
       }
     }
     
     # If averages are required across posterior samples, keep a running total
     # to reduce memory requirements, compared with calculating mean at the end
     if (output_coeff_mean) {
-      outlist$w_star_mu_mu = outlist$w_star_mu_mu + w_star_mu/N_subsam
-      outlist$w_star_sigma_mu = outlist$w_star_sigma_mu + w_star_sigma/N_subsam
+      out_list$w_star_mu_mu = out_list$w_star_mu_mu + w_star_mu/N_subsam
+      out_list$w_star_sigma_mu = out_list$w_star_sigma_mu + w_star_sigma/N_subsam
       if (sam_gp) {
-        outlist$w_star_sam_mu = outlist$w_star_sam_mu + w_star/N_subsam
+        out_list$w_star_sam_mu = out_list$w_star_sam_mu + w_star/N_subsam
       }
     }
     # Add to average across full-field posterior samples if required
     if ((output_ff_mean | output_ff_std) & !is.null(K)){
-      outlist$eta_mu_mu = outlist$eta_mu_mu + eta_mu/N_subsam
-      outlist$eta_sigma_mu = outlist$eta_sigma_mu + eta_sigma/N_subsam
+      out_list$eta_mu_mu = out_list$eta_mu_mu + eta_mu/N_subsam
+      out_list$eta_sigma_mu = out_list$eta_sigma_mu + eta_sigma/N_subsam
       if (sam_gp) {
-        outlist$eta_sam_mu = outlist$eta_sam_mu + eta_sam/N_subsam
+        out_list$eta_sam_mu = out_list$eta_sam_mu + eta_sam/N_subsam
       }
     }
     if ((output_ff_mean | output_ff_std) & !is.null(K_y)){
-      outlist$eta_mu_y_mu = outlist$eta_mu_y_mu + eta_mu_y/N_subsam
-      outlist$eta_sigma_y_mu = outlist$eta_sigma_y_mu + eta_sigma_y/N_subsam
+      out_list$eta_mu_y_mu = out_list$eta_mu_y_mu + eta_mu_y/N_subsam
+      out_list$eta_sigma_y_mu = out_list$eta_sigma_y_mu + eta_sigma_y/N_subsam
       if (sam_gp) {
-        outlist$eta_sam_y_mu = outlist$eta_sam_y_mu + eta_sam_y/N_subsam
+        out_list$eta_sam_y_mu = out_list$eta_sam_y_mu + eta_sam_y/N_subsam
       }
     }
     if (output_ff_std & !is.null(K)){
-      outlist$eta_mu_std = outlist$eta_mu_std + (eta_mu^2)/N_subsam
+      out_list$eta_mu_std = out_list$eta_mu_std + (eta_mu^2)/N_subsam
       if (sam_gp) {
-        outlist$eta_sam_std = outlist$eta_sam_std + (eta_sam^2)/N_subsam
+        out_list$eta_sam_std = out_list$eta_sam_std + (eta_sam^2)/N_subsam
       }
     }
     if (output_ff_std & !is.null(K_y)){
-      outlist$eta_mu_y_std = outlist$eta_mu_y_std + (eta_mu_y^2)/N_subsam
+      out_list$eta_mu_y_std = out_list$eta_mu_y_std + (eta_mu_y^2)/N_subsam
       if (sam_gp) {
-        outlist$eta_sam_y_std = outlist$eta_sam_y_std + (eta_sam_y^2)/N_subsam
+        out_list$eta_sam_y_std = out_list$eta_sam_y_std + (eta_sam_y^2)/N_subsam
       }
     }
   }
@@ -476,19 +477,20 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
   #    out_list[["eta_sam_y_mu"]] = eta_sam_y_mu_out
   #  }
   #}
-  #if (output_ff_std & !is.null(K)){
-  #  out_list[["eta_mu_sigma"]] = sqrt(eta_mu_std_out - (eta_mu_mu_out^2))
-  #  if (sam_gp){
-  #    out_list[["eta_sam_sigma"]] = sqrt(eta_sam_std_out - (eta_sam_mu_out^2))
-  #  }
-  #}
   # This needs to stay!!
-  if (output_ff_std & !is.null(K_y)){
-    out_list$eta_mu_y_sigma = sqrt(out_list$eta_mu_y_std - (out_list$eta_mu_y_mu^2))
+  if (output_ff_std & !is.null(K)){
+    out_list$eta_mu_sigma = sqrt(out_list$eta_mu_sigma - (out_list$eta_mu_mu^2))
     if (sam_gp){
-      out_list$eta_sam_y_sigma = sqrt(outlist$eta_sam_y_std - (outlist$eta_sam_y_mu^2))
+      out_list$eta_sam_sigma = sqrt(out_list$eta_sam_sigma - (out_list$eta_sam_mu^2))
     }
   }
+  if (output_ff_std & !is.null(K_y)){
+    out_list$eta_mu_y_sigma = sqrt(out_list$eta_mu_y_sigma - (out_list$eta_mu_y_mu^2))
+    if (sam_gp){
+      out_list$eta_sam_y_sigma = sqrt(out_list$eta_sam_y_sigma - (out_list$eta_sam_y_mu^2))
+    }
+  }
+  
   
   return(out_list)
   
@@ -559,15 +561,22 @@ initialise_out_list <- function(p=NULL, N_eta = NULL, N_y = NULL, N_post=1, N_pr
   }
   # Do I want to output standard deviation across posterior distribution?
   if (output_ff_std & K) {
-    out_list[["eta_mu_std"]] = array(0, c(N_eta, N_pred))
+    out_list[["eta_mu_sigma"]] = array(0, c(N_eta, N_pred))
     if (sam_gp) {
-      out_list[["eta_sam_std"]] = array(0, c(N_eta, N_pred))
+      out_list[["eta_sam_sigma"]] = array(0, c(N_eta, N_pred))
     }
   }
   if (output_ff_std & K_y) {
-    out_list[["eta_mu_y_std"]] = array(0, c(N_y, N_pred))
+    out_list[["eta_mu_y_sigma"]] = array(0, c(N_y, N_pred))
     if (sam_gp) {
-      out_list[["eta_sam_y_std"]] = array(0, c(N_y, N_pred))
+      out_list[["eta_sam_y_sigma"]] = array(0, c(N_y, N_pred))
+    }
+  }
+  
+  # Collapse last dimension if not needed
+  for (i in 1:length(out_list)){
+    if (dim(out_list[[i]])[length(dim(out_list[[i]]))] == 1){
+      dim(out_list[[i]]) <- c(dim(out_list[[i]])[-length(dim(out_list[[i]]))])
     }
   }
   
