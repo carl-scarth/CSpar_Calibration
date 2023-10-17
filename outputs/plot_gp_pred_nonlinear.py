@@ -47,13 +47,19 @@ with open(output_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())  
 
-# Get number of predictions and number of frames
-n_pred = len(in_dict["Prediction"]) # Number of predictions
-n_frames = len(in_dict["Prediction"][0]["Frame"]) # Number of frames
+# Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
+try:
+    n_pred = len(in_dict["Prediction"]) # Number of predictions
+    n_frames = len(in_dict["Prediction"][0]["Frame"]) # Number of frames
+    sam_iter = enumerate(in_dict["Prediction"])
+except:
+    n_pred = 1
+    n_frames = len(in_dict["Frame"])
+    sam_iter = [(0, in_dict)]
 
 output_RP = {} # Dictionary for storing reference point info
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
-for i, sample in enumerate(in_dict["Prediction"]):
+for i, sample in sam_iter:
     for j, frame in enumerate(sample["Frame"]):
         for QoI, predictions in frame.items():
             if "Posterior_Sample" in predictions:
@@ -67,7 +73,10 @@ for i, sample in enumerate(in_dict["Prediction"]):
                     
                     output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam[1]
                     # Dictionary containing output
-                    frame_dict[j][QoI+"_"+str(i)+"_sam_"+str(k)] = post_sam[2:]
+                    if n_pred > 1:
+                        frame_dict[j][QoI+"_"+str(i)+"_sam_"+str(k)] = post_sam[2:]
+                    else:
+                        frame_dict[j][QoI+"_sam_"+str(k)] = post_sam[2:]
         
             else:
                 # Otherwise the prediction is an average across the posterior
@@ -75,7 +84,10 @@ for i, sample in enumerate(in_dict["Prediction"]):
                     output_RP[QoI] = np.empty((n_pred, n_frames))
                 
                 output_RP[QoI][i,j] = predictions[1]
-                frame_dict[j][QoI+"_"+str(i)] = predictions[2:]
+                if n_pred > 1:
+                    frame_dict[j][QoI+"_"+str(i)] = predictions[2:]
+                else:
+                    frame_dict[j][QoI] = predictions[2:]
                 
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
@@ -89,12 +101,12 @@ for i, frame in enumerate(frame_dict):
 
 # Finally, plot the GP predictionsat the reference point
 # Plots for samples
-force = 250
+force = 200
 if len([key for key in output_RP.keys() if "eta_mu_sam" in key]) > 0:
     fig = plt.figure(figsize=(10,8))
     ax = fig.add_subplot(1, 1, 1)
     #ind = range(18)
-    ind = [19]
+    ind = [0]
     for key, value in output_RP.items():
         value = value[ind,:]
         if "eta_mu_sam" in key:
@@ -118,7 +130,7 @@ if len([key for key in output_RP.keys() if "eta_mu_mu" in key]) > 0:
     fig2 = plt.figure(figsize=(10,8))
     ax2 = fig2.add_subplot(1, 1, 1)
     # ind = range(10)
-    ind = [21]
+    ind = [1]
     for key, value in output_RP.items():
         value = value[ind,:]
         if "eta_mu_mu" in key:
