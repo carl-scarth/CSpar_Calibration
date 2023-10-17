@@ -112,27 +112,25 @@ gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) 
             } else {
               out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l]
             }
-            # Extract output for relevent list entry
+            # Extract output for relevant list entry
             out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = out_ijl
           }
         } else {
-          print(names(in_list[k]))
           if (n_pred > 1) {
             out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),i]
           } else {
             out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes)]
           }
-          View(out_list)
-          adsadadasdz
           # Extract output for relevent list entry
           out_list$Prediction[[i]]$Frame[[j]][[k]] = out_ij
         }
       }
     }
   }
+  # View(out_list$Prediction[[1]])
   # Collapse the first level of the list if there is only one prediction
   if (n_pred == 1){
-    out_list = out_list$"Prediction"[[1]]
+    out_list = out_list$Prediction[[1]]
   }
   out_json = toJSON(out_list)
   return(out_json)
