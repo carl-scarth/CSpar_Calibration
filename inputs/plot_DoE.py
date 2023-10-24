@@ -4,7 +4,7 @@ import meshio
 
 shell_mesh = True
 # Open the file in question
-output_file = 'LHSDesign40x4_1_fixed_100kN.csv'
+output_file = 'LHSDesign40x4_fixed_200kN.csv'
 # output_file = 'LHSDesign50x3_1_displacements.csv'
 # output_file = 'spring_study_displacements.csv'
 # Open the output files
@@ -55,6 +55,5 @@ output_dict = {}
 for i, entry in enumerate(output_header):
     output_dict[entry] = displacement[2:,i]
 
-print(output_dict)
 # Get data in the correct format for meshio
-meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write("DoE_Displacements_40x4_1.vtk", file_format="vtk")
+meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = output_dict).write("DoE_Displacements_40x4_fixed_200kN.vtk", file_format="vtk")

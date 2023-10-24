@@ -58,6 +58,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
 abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
+# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_sub.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
@@ -113,6 +114,7 @@ sd_dt = outlist[[3]]
 
 out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
                       print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
+# out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
 
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
@@ -143,7 +145,7 @@ util = new.env()
 
 # List of arguments to pass to stan
 stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, 
-                 b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTKinv)
+                 b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTK_inv)
 # Run stan
 fit = stan(file = "source/full_field_emulator.stan",
            data = stan_data,
@@ -189,10 +191,10 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 # Make predictions from fitted Gaussian process emulator, and write these
 # predictions to a .json file
 
-N_sam_pred = 1000 # Required number of prediction samples
+N_sam_pred = 500 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTK_inv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # extract quantities of interest from output, transform back onto the original
 # (un-standardised) scale, then write to json

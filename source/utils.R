@@ -43,7 +43,7 @@ write_output <- function(data, out_string, label_string){
     data = matrix(data, nrow = length(data), ncol = 1)
   }
   # If an array of multiple predictions, pass to the relevant code
-  if (length(dims(data)) > 2) {
+  if (length(dim(data)) > 2) {
     write_output_samples(data, out_string, label_string)
   } else {
     data = as.data.frame(data)

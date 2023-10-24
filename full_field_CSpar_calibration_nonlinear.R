@@ -33,7 +33,7 @@ source("source/gp_predictions.R")
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 a_y = 5.0  # Shape parameter for the lambda_y prior
-b_y = 5.0 # Rate parameter for the lambda_y prior
+b_y = 0.05 # Rate parameter for the lambda_y prior
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -41,7 +41,7 @@ b_y = 5.0 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs
-exp_data_file = "interpolated_DIC" # Identifier of file containing DIC data
+exp_data_file = "Interpolated_DIC_downsam_8" # Identifier of file containing DIC data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
@@ -239,12 +239,12 @@ z_hat = c(u_hat,w_hat)
 
 # Force the adjusted parameters of the observation error prior to specified 
 # values to overcome over-constraint issues
-# a_y_dash = a_y
-# b_y_dash = b_y
+a_y_dash = a_y
+b_y_dash = b_y
 
 #-------------------------------------------------------------------------------
 
-# Load in fixed values of emulator parameters, determined seperately, e.g. via
+# Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
 emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
 rho_w = emulator_parameters[1:(p_eta*q)]
@@ -317,12 +317,12 @@ prior_posterior_pairs(tf_trans, tf_param)
 
 # Make predictions from fitted Gaussian process emulator
 # N_sam_plot = N_samples
-N_sam_plot = 1000
+N_sam_plot = 50
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
 # Make predictions using the calibrated Gaussian process
 # NEED TO MODIFY CODE SO SUITABLE FOR ARRAYS
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = F, output_ff_std = F)
 
 
 # I packaged some of the prediction code into a separate function to tidy.
@@ -372,8 +372,7 @@ for (i in 1:length(out_list)){
 out_json = gp_pred_to_json(json_list, n_frames, n_nodes, n_post_sam = N_sam_plot)
 write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))
 
-GOOD TO HERE
-
 # Plot histogram of calibrated expansion coefficients
+N_sam_plot = 2500
 out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, nugget = F, sam_gp = T, output_coeff_sam = T, output_ff_sam = F, output_coeff_mean = F, output_ff_mean = F, output_ff_std = F)
 w_star_hist(out_list$w_star, w_lim = c(-3,3))

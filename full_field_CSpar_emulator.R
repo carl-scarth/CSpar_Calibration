@@ -26,7 +26,7 @@ source("source/gp_predictions.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 7 # Number of basis functions retained for the emulator from SVD
+p_eta = 9 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 # Define parameters of the gamma prior on the error associated with truncating
@@ -64,7 +64,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_100kN.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -127,6 +127,7 @@ write_output(as.matrix(mu_dt,n_row = n_eta),"training_data_mean",in_file)
 # Calculate reduced-dimensional basis of training data
 out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
                       print_output = print_svd_output, csv_label = in_file)
+# out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = in_file)
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
@@ -196,10 +197,10 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 #-------------------------------------------------------------------------------
 
 # Make predictions from fitted Gaussian process emulator
-N_sam_pred = 1000 # Required number of prediction samples
+N_sam_pred = 500 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # extract quantities of interst from output, transform back onto the original
 # (un-standardised) scale, then write to csv

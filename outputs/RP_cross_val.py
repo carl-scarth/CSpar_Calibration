@@ -8,14 +8,15 @@ DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
 gp_mean = np.loadtxt("LHSDesign40x4_RP_eta_mu_mu.csv", delimiter=",", skiprows=0)
 gp_sd = np.loadtxt("LHSDesign40x4_RP_eta_sigma_mu.csv", delimiter=",", skiprows=0)
 
+sdfsdfds
 # Create plot
 fig = plt.figure(figsize=(10,8))
 ax = fig.add_subplot(1, 1, 1)
 # Cherry pick from output data
 # ind = [28]
-ind = range(1,2)
-#ind = [1]
-ind = range(15)
+ind = range(1,10)
+# ind = [1]
+# ind = range(15,30)
 
 DoE = DoE[ind,:]
 gp_mean = gp_mean[ind,:]

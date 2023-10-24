@@ -30,11 +30,11 @@ disp_str = "w" # String which identifies the displacement component of interest 
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 # Define parameters for (gamma) prior distributions on the observation error
 a_y = 5.0  # Shape parameter for the lambda_y prior
-b_y = 5.0 # Rate parameter for the lambda_y prior
+b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
-exp_data_file = "Image_0074" # File identifier string for experimental data
+exp_data_file = "Image_0163" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_100kN.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -236,7 +236,7 @@ b_y_dash = b_y
 
 #-------------------------------------------------------------------------------
 
-# Load in fixed values of emulator parameters, determined seperately, e.g. via
+# Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
 emulator_parameters = c(as.matrix(read.table(paste("outputs/emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
 rho_w = emulator_parameters[1:(p_eta*q)]
