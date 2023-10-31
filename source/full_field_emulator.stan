@@ -22,15 +22,15 @@ data {
 transformed data {
   // vector[m*p_eta] mu_z_hat; // prior mean vector
   vector[linear_mean ? 0 : m*p_eta] mu_zero;
-  matrix[linear_mean ? m*p_eta, (q+1)*p_eta : 0,0] H;
-  matrix[linear_mean ? m, (q+1) : 0,0] H_i;
+  matrix[linear_mean ? 1 : m*p_eta, (q+1)*p_eta] H; 
+  matrix[linear_mean ? 1 : m, (q+1)] H_i;
   
   // mu_z_hat = rep_vector(0, m*p_eta);  // set prior mean to zero
   if (linear_mean) {
-    H = rep_matrix(0, m*p_eta, (q+1)*p_eta)
-    H_i = append_col(rep_vector(1.0, m*p_eta), tc)
+    H = rep_matrix(0, m*p_eta, (q+1)*p_eta);
+    H_i = append_col(rep_vector(1.0, m*p_eta), tc);
     for (i in 1:p_eta){
-      H[(i-1)*m+1:i*m, (i-1)*q+1:i*q] = H_i
+      H[(i-1)*m+1:i*m, (i-1)*q+1:i*q] = H_i;
     }
   } else {
     mu_zero = rep_vector(0, m*p_eta);  // set prior mean to zero
@@ -46,25 +46,25 @@ parameters {
 
 transformed parameters {
   row_vector[q*p_eta] beta_w;
-  vector[linear_mean ? m*p_eta : 0] mu_lin
+  vector[linear_mean ? m*p_eta : 0] mu_lin;
   
   beta_w = -4.0 * log(rho_w); // cacluate correlation length from rho_w
   if (linear_mean) {
-    mu_lin = H * phi_w
+    mu_lin = H * phi_w;
   }
 }
 
 model {
-  vector[m*p_eta] mu_z_hat              // Prior mean of training data
+  vector[m*p_eta] mu_z_hat;             // Prior mean of training data
   matrix[m*p_eta, m*p_eta] sigma_z;     // Covariance matrix for emulator training data
   matrix[m*p_eta, m*p_eta] sigma_z_hat; // Covariance matrix adjusted for dimension reduction
   matrix[m*p_eta, m*p_eta] L_z_hat;     // Cholesky decomposition of covariance matrix
 
   // Pick the prior mean vector
   if (linear_mean) {
-    mu_z_hat = mu_lin
+    mu_z_hat = mu_lin;
   } else {
-    mu_z_hat = mu_zero
+    mu_z_hat = mu_zero;
   }
 
   // Populate the covariance matrix
