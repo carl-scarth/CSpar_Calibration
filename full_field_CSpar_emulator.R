@@ -26,7 +26,7 @@ source("source/gp_predictions.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 9 # Number of basis functions retained for the emulator from SVD
+p_eta = 8 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 # Define parameters of the gamma prior on the error associated with truncating
@@ -44,6 +44,7 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 
 # Load in emulator training data input values from Design of Experiments. 
 # in_file = "LHSDesign50x3" # File identifier for input and output csvs
+# in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
@@ -63,8 +64,8 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # a similar naming convention to the inputs to automate changes. 
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
-# abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
+#abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN_interp.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -152,7 +153,7 @@ parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
 
 # List of arguments to pass to stan
-stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, 
+stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, linear_mean = 0, a_eta_dash = a_eta_dash, 
                  b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTKinv)
 # Run stan
 fit = stan(file = "source/full_field_emulator.stan",
@@ -197,42 +198,38 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 #-------------------------------------------------------------------------------
 
 # Make predictions from fitted Gaussian process emulator
-N_sam_pred = 500 # Required number of prediction samples
+N_sam_pred = 20 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = TRUE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # extract quantities of interst from output, transform back onto the original
 # (un-standardised) scale, then write to csv
-if ("eta_mu_mu" %in% names(out_list)){
-  eta_mu_mu = out_list$eta_mu_mu
-  eta_sigma_mu = out_list$eta_sigma_mu
-  
-  # Convert back on true scale
-  eta_mu_mu = eta_mu_mu*sd_dt + mu_dt
-  eta_sigma_mu = eta_sigma_mu*sd_dt
-  
-  write_output(eta_mu_mu, "eta_mu_mu", in_file)
-  write_output(eta_sigma_mu, "eta_sigma_mu",in_file)
-}
-if ("eta_sam_mu" %in% names(out_list)){
-  eta_sam_mu = out_list$eta_sam_mu
-  eta_sam_mu = eta_sam_mu*sd_dt + mu_dt
-  write_output(eta_sam_mu, "eta_sam_mu", in_file)
-}
-# Are there individual samples to be written to file?
-if ("eta_mu" %in% names(out_list)){
-  eta_mu = out_list$eta_mu
-  eta_mu = eta_mu*sd_dt + mu_dt
-  eta_sigma = out_list$eta_sigma
-  eta_sigma = eta_sigma*sd_dt
-  write_output_samples(eta_mu, "eta_mu", in_file)
-  write_output_samples(eta_sigma, "eta_sigma", in_file)
-}
-if ("eta_sam" %in% names(out_list)){
-  eta_sam = out_list$eta_sam
-  eta_sam = eta_sam*sd_dt + mu_dt
-  write_output_samples(eta_sam, "eta_sam", in_file)
+
+# Loop over each output,transform onto the correct scale, then write to csv for
+# plotting outside of R
+# Fine for full-field. SEE WHAT HAPPENS FOR W?
+# THEN NEED TO GO BACK THROUGH PREDICTION CODE - CHECK IF STILL WORKING OR IF
+# EMULATOR JUST BAD
+# COULD BE ERROR IN INTERPOLATION?
+# DID I CORRECTLY INTERPOLATE THE TEST SET? COMARE
+for (i in 1:length(out_list)){
+  out_string = names(out_list[i])
+  out_i = out_list[[out_string]]
+  # If the quantity is in full-field, transform back onto it's original scale
+  if (grepl("sigma", out_string, fixed=TRUE) & grepl("eta", out_string, fixed=TRUE)){
+    out_i = rescale_vector_output(out_i, mu_dt, sd_dt, std=TRUE)
+  } else if (grepl("eta", out_string, fixed=TRUE)) {
+    out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
+  }
+  # We don't want to output covariance matrices. All other data sets have fewer
+  # than four dimensions
+  if (length(dim(out_i)) <= 3) {
+    print(paste("writing outputs\\", out_string, "_", in_file, ".csv", sep=""))
+    write_output(out_i, out_string[1], in_file)
+  } else {
+    print(paste("Not outputting", out_string, sep=""))
+  }
 }
 
 #-------------------------------------------------------------------------------
