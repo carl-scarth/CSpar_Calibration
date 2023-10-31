@@ -99,14 +99,6 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
   #    w_star_sam_mu_out = matrix(0, p, N_pred)
   #  }
   #}
-  # Do I want to output averages across samples of full-field output?
-  #if (output_ff_mean) {
-  #  eta_mu_mu_out = matrix(0, N_eta, N_pred)
-  #  eta_sigma_mu_out = matrix(0, N_eta, N_pred)
-  #  if (sam_gp) {
-  #    eta_sam_mu_out = matrix(0, N_eta, N_pred)
-  #  }
-  #}
 
   # Loop over all posterior samples
   for (i in 1:N_subsam){
@@ -168,7 +160,7 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
         out_list$eta_mu_mu[,j] = out_list$eta_mu_mu[,j] + eta_mu/N_subsam
         out_list$eta_sigma_mu[,j] = out_list$eta_sigma_mu[,j] + eta_sigma/N_subsam
         if (sam_gp) {
-          eta_sam_mu_out[,j] = out_list$eta_sam_mu[,j] + eta_sam/N_subsam
+          out_list$eta_sam_mu[,j] = out_list$eta_sam_mu[,j] + eta_sam/N_subsam
         }
       }
     }
