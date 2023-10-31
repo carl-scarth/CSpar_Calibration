@@ -41,7 +41,7 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs
-exp_data_file = "Interpolated_DIC_downsam_8" # Identifier of file containing DIC data
+exp_data_file = "Interpolated_DIC_downsam_12" # Identifier of file containing DIC data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
@@ -331,12 +331,11 @@ out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_
 # First package up all the w_star prediction into one function then do loop first
 # automatically output all samples as there will always be enough memory for this,
 # though could optionally output them later
-# this would easily cout down on am ount of code because inverse transformation could
+# this would easily cut down on am ount of code because inverse transformation could
 # also be packaged, thus reducing duplication of K_y, but wouldn't have to do
-# the matrix solves twice so not more expenseive. Do on next iteration
+# the matrix solves twice so not more expensive. Do on next iteration
 # After this I think it'll probably be possible to tidy further. Wait till
 # I've progressed the calibration work to overcome some of the problems first
-# AT LEAST PACKAGE UP CODE FOR WRITING OUT_LIST. APPLY SAME TO EMULATOR CODE
 
 # Loop over each output then append to the list to be written to json
 json_list <- list()
