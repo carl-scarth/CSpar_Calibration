@@ -268,7 +268,12 @@ w_star_hist <- function(w_star, w_lim = NULL, new_window = FALSE){
     get_limits = FALSE
   }
   p = nrow(w_star)
-  par(mfrow = c(1, p))
+  # If p is greater than 5, place subplots across multiple rows
+  if (p <= 5){
+    par(mfrow = c(1,p))
+  } else {
+    par(mfrow = c(p%/%5+1,5))
+  }
   for (i in 1:p){
     if (get_limits){
       w_lim = c(min(w_star[i,]), max(w_star[i,]))
