@@ -55,8 +55,8 @@ write_output <- function(data, out_string, label_string){
         colnames(data)[i] = sprintf("%s_%d",out_string, i)
       }
     }
+    write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)
   }
-  write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)
 }
 
 write_output_samples <- function(data, out_string, label_string){
@@ -71,11 +71,13 @@ write_output_samples <- function(data, out_string, label_string){
   # Flatten the array into columns with format [sam1_pred1, sam2_pred1, ... sam_n_pred1, sam_1_pred_2 etc...]
   data = matrix(aperm(data, c(2, 3, 1)), nrow = nrow(data), byrow = TRUE)
   data = as.data.frame(data)
+  # data = as.table(data)
   # Name columns
   for (i in 1:n_pred){
     for (j in 1:n_sam){
-      colnames(data)[(i-1)*n_sam+j] = sprintf("%s_%d_sam_%d",out_string,i,j)
+      colnames(data)[(i-1)*n_sam+j] <- sprintf("%s_%d_sam_%d",out_string,i,j)
     }
   }
   write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)
+  # write.table(data, sprintf("outputs/%s_%s.csv", out_string, label_string), sep=",", row.names = FALSE, col.names=TRUE)
 }
