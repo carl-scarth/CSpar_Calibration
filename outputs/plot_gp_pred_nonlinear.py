@@ -6,6 +6,7 @@ import meshio
 import json
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
 infile = "LHSDesign40x4"
@@ -97,7 +98,6 @@ if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
 # interpret as a file series
 for i, frame in enumerate(frame_dict):
     meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
-    
 
 # Finally, plot the GP predictionsat the reference point
 # Plots for samples
@@ -150,8 +150,15 @@ if len([key for key in output_RP.keys() if "eta_mu_mu" in key]) > 0:
     ax2.set_ylabel("Force (kN)", fontdict = label_font)
     ax2.set_xlabel("Displacement (mm)", fontdict = label_font)
     
-# Write data to csv files for plotting separately
-for key, value in output_RP.items():
-    np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
+# Output reference point data to a single csv file (not implemented for emulator
+# when I've only been interested in mean values so far)
+if n_pred == 1:
+    output_RP = {key : value.flatten() for key, value in output_RP.items()}
+    RP_frame = pd.DataFrame(output_RP)
+    RP_frame.to_csv(infile+"_RP_pred.csv",sep=",",index=False)
+else:
+    # Write data to csv files for plotting separately
+    for key, value in output_RP.items():
+        np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
 
 plt.show()
