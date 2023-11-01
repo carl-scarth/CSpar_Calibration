@@ -97,10 +97,10 @@ gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) 
       for (k in 1:length(in_list)){
         # If output quantity contains multiple posterior samples, the list will
         # contain a sub-list of posterior samples
-        if (names(in_list)[k] == "eta_mu"    | 
-            names(in_list)[k] == "eta_sigma" |
-            names(in_list)[k] == "eta_sam"   |
-            names(in_list)[k] == "w_star_mu" |
+        if (names(in_list)[k] == "eta_mu"      |
+            names(in_list)[k] == "eta_sigma"   |
+            names(in_list)[k] == "eta_sam"     |
+            names(in_list)[k] == "w_star_mu"   |
             names(in_list)[k] == "w_star_sam"){
           out_list$Prediction[[i]]$Frame[[j]][[k]] = list(list())
           names(out_list$Prediction[[i]]$Frame[[j]][[k]]) = "Posterior_Sample"
