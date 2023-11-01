@@ -70,35 +70,6 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
   # Initialise output arrays
   if (!is.null(K)){has_K = TRUE} else {has_K = FALSE}
   out_list = initialise_out_list(p=p, N_eta=N_eta, N_post=N_subsam, N_pred=N_pred, K=has_K, sam_gp=sam_gp, output_coeff_sam=output_coeff_sam, output_ff_sam=output_ff_sam, output_coeff_mean=output_coeff_mean, output_ff_mean=output_ff_mean)
-  # Delete if everything fine
-  # Do I want to output posterior samples for basis coefficients?
-  #if (output_coeff_sam){
-  #  w_star_mu_out = array(0, c(p, N_post_pred, N_pred))
-  #  w_star_sigma_out = array(0, c(p, p, N_post_pred, N_pred))
-  #  if (sam_gp) {
-  #    w_star_out = array(0, c(p, N_post_pred, N_pred))
-  #  } else {
-  #    w_star_out = NULL
-  #  }
-  #}
-  # Do I want to output posterior samples for full-field response
-  #if (output_ff_sam){
-  #  eta_mu_out = array(0, c(N_eta, N_post_pred, N_pred))
-  #  eta_sigma_out = array(0, c(N_eta, N_post_pred, N_pred))
-  #  if (sam_gp) {
-  #    eta_sam_out = array(0, c(N_eta, N_post_pred, N_pred))
-  #  } else {
-  #    eta_sam_out = NULL
-  #  }
-  #}
-  # Do I want to output averages across samples of basis coefficients?
-  #if (output_coeff_mean) {
-  #  w_star_mu_mu_out = matrix(0, p, N_pred)
-  #  w_star_sigma_mu_out = array(0, c(p, p, N_pred))
-  #  if (sam_gp) {
-  #    w_star_sam_mu_out = matrix(0, p, N_pred)
-  #  }
-  #}
 
   # Loop over all posterior samples
   for (i in 1:N_subsam){
