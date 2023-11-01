@@ -198,21 +198,13 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 #-------------------------------------------------------------------------------
 
 # Make predictions from fitted Gaussian process emulator
-N_sam_pred = 20 # Required number of prediction samples
+N_sam_pred = 500 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
-out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = TRUE, output_coeff_sam = FALSE, output_ff_sam = TRUE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
-
-# extract quantities of interst from output, transform back onto the original
-# (un-standardised) scale, then write to csv
+out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTKinv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
 
 # Loop over each output,transform onto the correct scale, then write to csv for
 # plotting outside of R
-# Fine for full-field. SEE WHAT HAPPENS FOR W?
-# THEN NEED TO GO BACK THROUGH PREDICTION CODE - CHECK IF STILL WORKING OR IF
-# EMULATOR JUST BAD
-# COULD BE ERROR IN INTERPOLATION?
-# DID I CORRECTLY INTERPOLATE THE TEST SET? COMARE
 for (i in 1:length(out_list)){
   out_string = names(out_list[i])
   out_i = out_list[[out_string]]
@@ -222,13 +214,12 @@ for (i in 1:length(out_list)){
   } else if (grepl("eta", out_string, fixed=TRUE)) {
     out_i = rescale_vector_output(out_i, mu_dt, sd_dt)
   }
-  # We don't want to output covariance matrices. All other data sets have fewer
-  # than four dimensions
-  if (length(dim(out_i)) <= 3) {
-    print(paste("writing outputs\\", out_string, "_", in_file, ".csv", sep=""))
+  # We don't want to output covariance matrices for w_star.
+  if (!(grepl("sigma", out_string, fixed=TRUE) & grepl("w_star", out_string, fixed=TRUE))) {
+    print(paste("writing outputs/", out_string, "_", in_file, ".csv", sep=""))
     write_output(out_i, out_string[1], in_file)
   } else {
-    print(paste("Not outputting", out_string, sep=""))
+    print(paste("Not outputting ", out_string, sep=""))
   }
 }
 
