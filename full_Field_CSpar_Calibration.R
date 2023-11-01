@@ -34,8 +34,9 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
-exp_data_file = "Image_0163" # File identifier string for experimental data
+exp_data_file = "Interpolated_DIC_200kN" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+interp_model = FALSE # If true, we need to interpolate model outputs to experimental coordinates. Otherwise it is assumed this has already been done
 
 #-------------------------------------------------------------------------------
 
@@ -89,7 +90,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN_interp.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -157,12 +158,16 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 # measurement has been matched, and its natural coordinates within the element
 experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
 n_y = nrow(experimental_data)# Number of observations
-y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
-hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
-exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component 
-# Interpolate the training data mean. Skip the first two nodes in the output as 
-# these are reference points which are not referenced by the connectivity file.
-mu_y = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
+if (interp_model) {
+  y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
+  hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
+  # Interpolate the training data mean. Skip the first two nodes in the output as 
+  # these are reference points which are not referenced by the connectivity file.
+  mu_y = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+} else {
+  mu_y = mu_dt
+}
 
 # Calculate residuals of experimental error
 residual = exp_displacement - mu_y
@@ -176,14 +181,18 @@ y = as.vector(exp_displacement_cen)
 
 # We also need to interpolate the basis fuctions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
-K_y = intp_nodes_to_cloud(y_element, hr, K_eta, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
-out_frame = as.data.frame(K_y)
-for (i in 1:p_eta) {
-  colnames(out_frame)[i] = sprintf("K_y,%d",i)
+if (interp_model) {
+  K_y = intp_nodes_to_cloud(y_element, hr, K_eta, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+  out_frame = as.data.frame(K_y)
+  for (i in 1:p_eta) {
+    colnames(out_frame)[i] = sprintf("K_y,%d",i)
+  }
+  out_frame = cbind(experimental_data[DIC_coord_labels],out_frame)
+  # output interpolated bases for plotting
+  write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = ""), row.names = FALSE)
+} else {
+  K_y = as.matrix(K_eta)
 }
-out_frame = cbind(experimental_data[DIC_coord_labels],out_frame)
-# output interpolated bases for plotting
-write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = ""), row.names = FALSE)
 
 #-------------------------------------------------------------------------------
 
