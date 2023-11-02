@@ -1,6 +1,7 @@
 # Plots the basis functions of finite element model output
 # Write a general function for plotting all outputs and place in parent directory??
 
+from math import e
 import numpy as np
 import meshio
 import json
@@ -46,7 +47,7 @@ faces = faces - 1
 # Read in basis data
 with open(output_file, "r") as f:
     # Load in string from file
-    in_dict = json.loads(f.readline())  
+    in_dict = json.loads(f.readline())
 
 # Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
 try:
@@ -64,15 +65,21 @@ for i, sample in sam_iter:
     for j, frame in enumerate(sample["Frame"]):
         for QoI, predictions in frame.items():
             if "Posterior_Sample" in predictions:
+                n_post_sam = len(predictions["Posterior_Sample"])
                 for k, post_sam in enumerate(predictions["Posterior_Sample"]):
                     # Convert from list to numpy
                     post_sam = np.array(post_sam, dtype="float")
                     # Initialise entry in the reference point dictionary if it doesn't exist already
                     # (not necessary if doing RP cross-val separately)
-                    if QoI+"_sam_"+str(k) not in output_RP:
-                        output_RP[QoI+"_sam_"+str(k)] = np.empty((n_pred, n_frames))
+                    if n_pred > 1:
+                        if QoI+"_sam_"+str(k) not in output_RP:
+                            output_RP[QoI+"_sam_"+str(k)] = np.empty((n_pred, n_frames))
+                        output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam[1]
+                    else:
+                        if QoI not in output_RP:
+                            output_RP[QoI] = np.empty((n_frames, n_post_sam))
+                        output_RP[QoI][j,k] = post_sam[1]
                     
-                    output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam[1]
                     # Dictionary containing output
                     if n_pred > 1:
                         frame_dict[j][QoI+"_"+str(i)+"_sam_"+str(k)] = post_sam[2:]
@@ -82,14 +89,18 @@ for i, sample in sam_iter:
             else:
                 # Otherwise the prediction is an average across the posterior
                 if QoI not in output_RP:
-                    output_RP[QoI] = np.empty((n_pred, n_frames))
-                
-                output_RP[QoI][i,j] = predictions[1]
+                    if n_pred > 1:
+                        output_RP[QoI] = np.empty((n_pred, n_frames))
+                    else:
+                        output_RP[QoI] = np.empty(n_frames)
+
                 if n_pred > 1:
+                    output_RP[QoI][i,j] = predictions[1]
                     frame_dict[j][QoI+"_"+str(i)] = predictions[2:]
                 else:
                     frame_dict[j][QoI] = predictions[2:]
-                
+                    output_RP[QoI][j] = predictions[1]
+
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
     os.mkdir("gp_predictions_nonlinear_" + infile)
@@ -102,63 +113,112 @@ for i, frame in enumerate(frame_dict):
 # Finally, plot the GP predictionsat the reference point
 # Plots for samples
 force = 200
-if len([key for key in output_RP.keys() if "eta_mu_sam" in key]) > 0:
+
+if n_pred > 1:
+    if len([key for key in output_RP.keys() if "eta_mu_sam" in key]) > 0:
+        fig = plt.figure(figsize=(10,8))
+        ax = fig.add_subplot(1, 1, 1)
+        #ind = range(18)
+        ind = [0]
+        for key, value in output_RP.items():
+            value = value[ind,:]
+            if "eta_mu_sam" in key:
+                for displacement in value:
+                    ax.plot(-displacement, np.linspace(0,force,n_frames), "r")
+            if "eta_sam_sam" in key:
+                for displacement in value:
+                    ax.plot(-displacement, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+            if "eta_sigma_sam" in key:
+                mu_key = "eta_mu_sam_" + key.strip("eta_sigma_sam_")
+                mu = output_RP[mu_key][ind,:]
+                for i, sd in enumerate(value):
+                    ax.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
+                    ax.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")   
+            
+        label_font = {'family': 'serif', 'size': 16,}
+        ax.set_ylabel("Force (kN)", fontdict = label_font)
+        ax.set_xlabel("Displacement (mm)", fontdict = label_font)
+
+elif "eta_mu" in output_RP.keys():
     fig = plt.figure(figsize=(10,8))
     ax = fig.add_subplot(1, 1, 1)
-    #ind = range(18)
-    ind = [0]
     for key, value in output_RP.items():
-        value = value[ind,:]
-        if "eta_mu_sam" in key:
-            for displacement in value:
-                ax.plot(-displacement, np.linspace(0,force,n_frames), "r")
-        if "eta_sam_sam" in key:
-            for displacement in value:
-                ax.plot(-displacement, np.linspace(0,force,n_frames), "c", linewidth=0.25)
-        if "eta_sigma_sam" in key:
-            mu_key = "eta_mu_sam_" + key.strip("eta_sigma_sam_")
-            mu = output_RP[mu_key][ind,:]
-            for i, sd in enumerate(value):
-                ax.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
-                ax.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")
+        #if key == "eta_mu":
+        #    ax.plot(-value, np.linspace(0,force,n_frames), "r")
+        if key == "eta_sam":
+            ax.plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+        #if key == "eta_sigma":
+        #    mu = output_RP["eta_mu"]
+        #    ax.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
+        #    ax.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
             
     label_font = {'family': 'serif', 'size': 16,}
     ax.set_ylabel("Force (kN)", fontdict = label_font)
     ax.set_xlabel("Displacement (mm)", fontdict = label_font)
 
+
 if len([key for key in output_RP.keys() if "eta_mu_mu" in key]) > 0:
     fig2 = plt.figure(figsize=(10,8))
     ax2 = fig2.add_subplot(1, 1, 1)
     # ind = range(10)
-    ind = [1]
+    # ind = [0]
     for key, value in output_RP.items():
-        value = value[ind,:]
+        # value = value[ind,:]
         if "eta_mu_mu" in key:
-            for displacement in value:
-                ax2.plot(-displacement, np.linspace(0,force,n_frames), "r")
+            if value.ndim > 1:
+                for displacement in value:
+                    ax2.plot(-displacement, np.linspace(0,force,n_frames), "r")
+            else:
+                ax2.plot(-value, np.linspace(0,force,n_frames), "r")
         if "eta_sam_mu" in key:
-            for displacement in value:
-                ax2.plot(-displacement, np.linspace(0,force,n_frames), "g")
+            if value.ndim > 1:
+                for displacement in value:
+                    ax2.plot(-displacement, np.linspace(0,force,n_frames), "g")
+            else:
+                ax2.plot(-value, np.linspace(0,force,n_frames), "g")
         if "eta_sigma_mu" in key:
             mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
-            mu = output_RP[mu_key][ind,:]
-            for i, sd in enumerate(value):
-                ax2.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
-                ax2.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")
+            mu = output_RP[mu_key]#[ind,:]
+            if value.ndim > 1: 
+                for i, sd in enumerate(value):
+                    ax2.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
+                    ax2.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")
+            else:
+                ax2.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
+                ax2.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")
+        if "eta_mu_sigma" in key:
+            mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
+            mu = output_RP[mu_key]
+            if value.ndim > 1: 
+                for i, sd in enumerate(value):
+                    ax2.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "c")
+                    ax2.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "c")
+            else:
+                ax2.plot(-mu-2*value, np.linspace(0,force,n_frames), "c")
+                ax2.plot(-mu+2*value, np.linspace(0,force,n_frames), "c")
+        
+        if "eta_sam_sigma" in key:
+            mu_key = "eta_sam_mu" + key.strip("eta_sigma_mu_")
+            mu = output_RP[mu_key]
+            if value.ndim > 1: 
+                for i, sd in enumerate(value):
+                    ax2.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "m")
+                    ax2.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "m")
+            else:
+                ax2.plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
+                ax2.plot(-mu+2*value, np.linspace(0,force,n_frames), "m")
             
     label_font = {'family': 'serif', 'size': 16,}
     ax2.set_ylabel("Force (kN)", fontdict = label_font)
     ax2.set_xlabel("Displacement (mm)", fontdict = label_font)
     
-# Output reference point data to a single csv file (not implemented for emulator
-# when I've only been interested in mean values so far)
-if n_pred == 1:
-    output_RP = {key : value.flatten() for key, value in output_RP.items()}
-    RP_frame = pd.DataFrame(output_RP)
-    RP_frame.to_csv(infile+"_RP_pred.csv",sep=",",index=False)
-else:
-    # Write data to csv files for plotting separately
-    for key, value in output_RP.items():
-        np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
+#if n_pred == 1:
+#    # output_RP = {key : value.flatten() for key, value in output_RP.items()}
+#    RP_frame = pd.DataFrame(output_RP)
+#    RP_frame.to_csv(infile+"_RP_pred.csv",sep=",",index=False)
+#else:
+#    # Write data to csv files for plotting separately
+for key, value in output_RP.items():
+    np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
 
 plt.show()
