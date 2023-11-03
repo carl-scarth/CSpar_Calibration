@@ -321,12 +321,11 @@ N_sam_plot = 2500
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
 # Take averages across posterior predictions of the calibrated Gaussian process
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
 # It is too expensive to store a large number of posterior samples. Instead 
 # output a fewer number of samples and append to output list
 N_sam_plot = 100
 out_list = c(out_list, full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = F))
-
 
 # On next iteration, tidy up prediciton code as follows:
 # First package up all the w_star prediction into one function then do loop first
@@ -342,7 +341,6 @@ out_list = c(out_list, full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, 
 json_list <- list()
 for (i in 1:length(out_list)){
   out_string = names(out_list[i])
-  print(out_string)
   out_i = out_list[[out_string]]
   # If the quantity is in full-field, transform back onto it's original scale
   # First, identify the correct mean vector to use for the transformation
@@ -359,25 +357,23 @@ for (i in 1:length(out_list)){
     # that if this happens again it's worth checking this first
     out_i = rescale_vector_output(out_i, mu_out, sd_dt)
   }
-  # We don't want to output covariance matrices.
   # Predictions at experimental data points to be outputted separately as csvs
-  if (out_string != "w_star_sigma" & !grepl("y", out_string, fixed = TRUE)) {
+  if (!grepl("w_star", out_string, fixed = TRUE) & !grepl("y", out_string, fixed = TRUE)) {
     # Append transformed values to list
     out_i = list(out_i)
     names(out_i) = out_string
     json_list = append(json_list, out_i)
+  } else if (out_string != "w_star_sigma") {
+    print(out_string)
+    # We don't want to output covariance matrices.
+    # Output predictions at experimental coordinates to csv
+    write_output(out_i, out_string, in_file)
   }
 }
-
-# OUTPUT EXPERIMENTAL DATA TO CSV JOINED WITH RELEVANT QUANTITIES FROM EXPERIMENTAL DATA
-# TO HELP DISCERN WHICH FRAME. MAKES MORE SENSE
-# WHAT HAPPENS TO W???
 
 # Write json to file
 out_json = gp_pred_to_json(json_list, n_frames, n_nodes, n_post_sam = N_sam_plot)
 write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))
 
 # Now plot histogram of calibrated expansion coefficients
-N_sam_plot = 2500
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, nugget = F, sam_gp = T, output_coeff_sam = T, output_ff_sam = F, output_coeff_mean = F, output_ff_mean = F, output_ff_std = F)
 w_star_hist(out_list$w_star, w_lim = c(-3,3))
