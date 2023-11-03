@@ -294,24 +294,6 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
     }
   }
 
-  # Delete if this works
-  # create list of the requested outputs
-  # out_list = list()
-  # Add items to list
-  #if (output_coeff_sam){
-  #  out_list[["w_star_mu"]] = w_star_mu_out
-  #  out_list[["w_star_sigma"]] = w_star_sigma_out
-  #  if (sam_gp){
-  #    out_list[["w_star"]] = w_star_out
-  #  }
-  #}
-  #if (output_coeff_mean){
-  #  out_list[["w_star_mu_mu"]] = w_star_mu_mu_out
-  #  out_list[["w_star_sigma_mu"]] = w_star_sigma_mu_out
-  #  if (sam_gp){
-  #    out_list[["w_star_sam_mu_out"]] = w_star_sam_mu_out
-  #  }
-  #}
   if (output_ff_std & !is.null(K)){
     out_list$eta_mu_sigma = sqrt(out_list$eta_mu_sigma - (out_list$eta_mu_mu^2))
     if (sam_gp){
