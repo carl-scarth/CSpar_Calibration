@@ -12,6 +12,7 @@
 !outputs/basis_LHSDesign40x4.csv
 !outputs/emulator_modes_LHSDesign40x4.csv
 !outputs/nonlinear_emulator_modes_LHSDesign40x4.csv
+*.asv
 *.rds
 *.json
 *.geo
@@ -32,6 +33,7 @@
 *.sta
 Abaqus/
 Dune/
+source/__pycache__/
 parameters.txt
 input.txt
 CSpar_sam_displacement.csv
