@@ -41,7 +41,6 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 
 # Load in emulator training data input values from Design of Experiments. 
 # in_file = "LHSDesign50x3" # File identifier for input and output csvs
-# in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 

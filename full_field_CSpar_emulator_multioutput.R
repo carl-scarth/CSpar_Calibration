@@ -1,73 +1,98 @@
-
-# Full-field emulator code using the Higdon method of dimension-reduction, 
-# rather than that used by Chensen
-
-# Set up R
+# Fit an emulator to the full displacement vector output from a C-Spar Finite 
+# Element model
+# Follows emulator aspect of D. Higdon et al, "Computer Model Calibration Using 
+# High-Dimensional Output",Journal of the American Statistical Association,2008.
+# This code handles pre and post processing.
 
 library(data.table)
 library(rstan)
-#library(maximin)
 library(matrixStats)
-#library(colormap)
-library(MASS)
 
 # Set current working directory. This should be modified to match the directory
-# at which the stan code and any data is stored
+# of the user
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
-source("source/estimate_mode.R")
-source("source/covariance_matrices.R")
+source("source/transform_input_output.R")
+source("source/utils.R")
+source("source/dimension_reduction.R")
+source("source/prior_posterior_plots.R")
+source("source/gp_predictions.R")
 
 #-------------------------------------------------------------------------------
 
 # Set up parameters which govern the formulation
 
-p_eta = 5 # Number of basis functions to be retained for the emulator from SVD
+p_eta = 15 # Number of basis functions retained for the emulator from SVD
+exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
+# Delete or replace with something else. Or do disp_str = "u, "v", "w" to enable generic code
+# disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+# Define parameters of the gamma prior on the error associated with truncating
+# the series expansion for the model output
+a_eta = 1.0     # Shape parameter for the lambda_eta prior
+b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
+iter = 4000 # Number of samples per chain
+chains = 3 # Number of chains for simulation
+print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
+export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 
 #-------------------------------------------------------------------------------
 
 # Set up simulation data
 
-# Load in emulator training data (input values) from Design of Experiments. 
-# This input includes different values across uncontrolled calibration inputs.
-# XT_sim = fread("inputs/LHSDesign30x3.csv")
-XT_sim = fread("inputs/LHSDesign50x3.csv")
-# XT_sim = fread("inputs/LHSDesign50x3_1.csv")
-# XT_sim = fread("inputs/LHSDesign100x3.csv")
-# take natural logarithm of spring stiffness
-XT_sim$K = log(XT_sim$K)
-colnames(XT_sim)[3] = "log_K"
+# Load in emulator training data input values from Design of Experiments. 
+# in_file = "LHSDesign50x3" # File identifier for input and output csvs
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs
+XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
+
+# In this example I fit the emulator to the log of spring stiffness K, which is 
+# a more natural choice of values across which outputs are expected for
+# variations in this input
+#XT_sim$K = log(XT_sim$K)
+#colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
-# match the notation of Higdon et al.
+# match the notation of Higdon et al. 2008
 q = ncol(XT_sim)          # number of calibration inputs
-tc = as.matrix(XT_sim)    # Convert training data input points to a matrix for passing to stan
+tc = as.matrix(XT_sim)    # Convert to a matrix for passing to stan
 m = nrow(XT_sim)          # sample size of computer simulation data
 
-# Load in emulator training data (outputs - Abaqus nodal displacement data).
-# Each row matches inputs for the corresponding row in XT_sim
-# displacement_data = fread("inputs/LHSDesign30x3_displacements.csv")#, header = FALSE, sep = ",")
-displacement_data = fread("inputs/LHSDesign50x3_displacements.csv")#, header = FALSE, sep = ",")
-# displacement_data = fread("inputs/LHSDesign100x3_displacements.csv")#, header = FALSE, sep = ",")
+# Load in training data output displacement values from Abaqus. I've used
+# a similar naming convention to the inputs to automate changes. 
+# Each row of XT_sim corresponds to a block of three columns of displacement 
+# data, with a column for each component u,v,w 
+# abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 
-
-# I'm not in a hurry this time so may as well get this next bit right. Try to 
-# write a bit of code to stack the outputs with all of w then u. Delete all of the
-# other multi-output stuff as this will save space, but also make sure I don't
-# make a mistake in future
-
-n_eta = 2*nrow(displacement_data) # number of output points per simulation
-dt_all_simulation = matrix(NA,nrow = n_eta, ncol = m)
-# Extract the axial displacement, w
+disp_str = "uv"
+print(disp_str[1])
+length(disp_str)
+disp_str = c("u","v","w")
+print(disp_str[1])
+n_eta = nrow(abaqus_displacements) # number of output points per simulation
+# We can treat disp_str as a vector - then loop over it's length within the 
+# below loop - this should allow the same code to be used for this, so I can just
+# delete this version from github
+# Would have to multiply n_eta by the length of disp_str
+# Implement then check below code
+# Extract the displacement for the component of interest and store in a matrix
+disp_str = c("u","v","w")
+dt_simulation = matrix(NA,nrow = length(disp_str)*n_eta, ncol = m)
 for (i in 1:m){
-  dt_all_simulation[,i] = c(displacement_data[[as.name(sprintf('w_%d', i))]],displacement_data[[as.name(sprintf('u_%d', i))]])
+  for (j in 1:length(disp_str)) {
+    dt_simulation[((j-1)*n_eta+1):(j*n_eta),i] = abaqus_displacements[[as.name(paste(disp_str[j],sprintf("_%d", i),sep=""))]]
+  }
 }
+n_eta = n_eta*length(disp_str) # update n_eta definition for stan input
 
-#mins = matrix(colMins(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-# maxs = matrix(colMaxs(as.matrix(dt_all_simulation)),nrow = 3,ncol = 60)
-#dt_all_simulation = matrix(as.matrix(dt_all_simulation),nrow = n_eta*3,ncol = m)
-
+# The above code correctly formats the output regardless of the number of elements
+# of disp_str
+# I think the code is identical from here on out. check if this is the case
+# If so, run the remaining portion of the emulator code - see if it works. 
+# The just modify the appropriate lines of the main emulator code to match the
+# above, and delete this file.
+sdfdsfdsf
+S
 
 #-------------------------------------------------------------------------------
 
