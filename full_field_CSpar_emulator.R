@@ -122,9 +122,9 @@ sd_dt = outlist[[3]]
 write_output(as.matrix(mu_dt,n_row = n_eta),"training_data_mean",in_file)
 
 # Calculate reduced-dimensional basis of training data
-out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
-                      print_output = print_svd_output, csv_label = in_file)
-# out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = in_file)
+#out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
+#                      print_output = print_svd_output, csv_label = in_file)
+out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = in_file)
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 

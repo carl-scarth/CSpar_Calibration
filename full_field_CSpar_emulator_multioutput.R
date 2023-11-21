@@ -64,11 +64,9 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
 abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 
-disp_str = "uv"
-print(disp_str[1])
-length(disp_str)
 disp_str = c("u","v","w")
 print(disp_str[1])
+disp_str = "w"
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 # We can treat disp_str as a vector - then loop over it's length within the 
 # below loop - this should allow the same code to be used for this, so I can just
@@ -76,7 +74,6 @@ n_eta = nrow(abaqus_displacements) # number of output points per simulation
 # Would have to multiply n_eta by the length of disp_str
 # Implement then check below code
 # Extract the displacement for the component of interest and store in a matrix
-disp_str = c("u","v","w")
 dt_simulation = matrix(NA,nrow = length(disp_str)*n_eta, ncol = m)
 for (i in 1:m){
   for (j in 1:length(disp_str)) {
@@ -91,8 +88,7 @@ n_eta = n_eta*length(disp_str) # update n_eta definition for stan input
 # If so, run the remaining portion of the emulator code - see if it works. 
 # The just modify the appropriate lines of the main emulator code to match the
 # above, and delete this file.
-sdfdsfdsf
-S
+
 
 #-------------------------------------------------------------------------------
 
