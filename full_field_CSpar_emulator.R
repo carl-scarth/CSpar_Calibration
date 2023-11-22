@@ -218,19 +218,3 @@ for (i in 1:length(out_list)){
     print(paste("Not outputting ", out_string, sep=""))
   }
 }
-
-#-------------------------------------------------------------------------------
-
-# Example cross validation exercise, where comparison is made with another set 
-# of samples with known output
-
-# Compare against known output for separate set of samples
-cross_val_disp = fread("inputs/LHSDesign40x4_1_fixed_100kN.csv")
-cross_val = matrix(0,n_eta,n_pred)
-for (i in 1:n_pred){
-  cross_val[,i] = cross_val_disp[[as.name(sprintf('w_%d', i))]]
-}
-  
-# Quick cross-validation exercise, which compares the displacement of a 
-# reference point at the spar tip in the model with emulator predictions
-View(rbind(eta_sam_mu[2,],eta_mu_mu[2,],cross_val[2,],eta_sigma_mu[2,]))
