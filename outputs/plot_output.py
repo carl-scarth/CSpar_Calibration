@@ -7,13 +7,14 @@ import os
 
 shell_mesh = True
 label = "LHSDesign40x4"
-plot_basis = False # Plot of basis functions
+plot_basis = True # Plot of basis functions
 plot_training_data_mean = False # Plot mean of training data
 plot_GP_Mean = True # Plot average across posterior samples of Gaussian process predictions
 plot_GP_Std = False # Plot standard deviation of posterior predictive samples
 plot_GP_Post_Sam = False # Plot Gaussian process predictions across a set of posterior samples
 plot_GP_Sam = False # Plot samples from Gaussian process?
 file_series = False # Output as a file series for animating in paraview 
+out_str = ["u", "w"] # Strings for labelling output components. Used to determine number of quantities in output vector
  
 file_list = []
 if plot_basis:
@@ -70,6 +71,14 @@ output_dict = {}
 for i, filestr in enumerate(file_list):
     # load in output from current filename
     output = pd.read_csv(filestr + "_" + label + ".csv")
+    # If the csv contains output for multiple displacement components, separate these out first
+    if len(out_str) > 0:
+        labels = output.columns.values
+        output = output.to_numpy()
+        n_out = output.shape[0]//len(out_str)
+        # Reshape output and update column labels
+        output = pd.DataFrame(output.reshape(n_out,-1, order = 'F'), columns= ["_".join((label, comp)) for label in labels for comp in out_str])
+        
     # Discard the first two points from the output as these are reference points
     output = output.loc[2:]
     for j, col in enumerate(output.columns):
