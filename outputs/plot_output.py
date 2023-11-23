@@ -14,7 +14,7 @@ plot_GP_Std = False # Plot standard deviation of posterior predictive samples
 plot_GP_Post_Sam = False # Plot Gaussian process predictions across a set of posterior samples
 plot_GP_Sam = False # Plot samples from Gaussian process?
 file_series = False # Output as a file series for animating in paraview 
-out_str = ["u", "w"] # Strings for labelling output components. Used to determine number of quantities in output vector
+out_str = ["u", "v", "w"] # Strings for labelling output components. Used to determine number of quantities in output vector
  
 file_list = []
 if plot_basis:
