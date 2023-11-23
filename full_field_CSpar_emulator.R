@@ -23,9 +23,9 @@ source("source/gp_predictions.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 8 # Number of basis functions retained for the emulator from SVD
+p_eta = 40 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w)
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -60,15 +60,17 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # a similar naming convention to the inputs to automate changes. 
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
-#abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN_interp.csv", sep=""))
+# abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
-
-# Extract the displacement for the component of interest and store in a matrix
-dt_simulation = matrix(NA,nrow = n_eta, ncol = m)
+# Extract the displacement for the component(s) of interest and store in a matrix
+dt_simulation = matrix(NA,nrow = length(disp_str)*n_eta, ncol = m)
 for (i in 1:m){
-  dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
+  for (j in 1:length(disp_str)) {
+    dt_simulation[((j-1)*n_eta+1):(j*n_eta),i] = abaqus_displacements[[as.name(paste(disp_str[j],sprintf("_%d", i),sep=""))]]
+  }
 }
+n_eta = n_eta*length(disp_str) # update n_eta definition for stan input
 
 #-------------------------------------------------------------------------------
 
