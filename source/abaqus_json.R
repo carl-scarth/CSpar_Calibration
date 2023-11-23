@@ -9,14 +9,16 @@ library(rjson)
 #                                       ["RFs"]
 
 extract_const_frame <- function(in_struct, disp_str) {
-  # Assign a column index depending on which displacement component is of interest
-  col_ind = switch(disp_str, "u"=1, "v"=2, "w"=3)
   # Assume number of frames is the same for each sample, and the number of nodes 
   # the same for each frame. Add error terms to spot if this isn't the case
   n_nodes = length(in_struct$Sample[[1]]$Frame[[1]]$Displacements) # Number of nodes
   n_frames = length(in_struct$Sample[[1]]$Frame) # Number of frames
   m = length(in_struct$Sample) # Number of samples
-  out_mat = matrix(NA,nrow = n_nodes*n_frames, ncol = m)
+  out_mat = matrix(NA,nrow = n_nodes*n_frames*length(disp_str), ncol = m)
+  # Assign a column index depending on which displacement component is of interest
+  col_ind = sapply(disp_str, function(x) switch(x, "u"=1, "v"=2, "w"=3))
+  print(col_ind)
+  
   # Loop over output for all samples
   for (i in 1:length(in_struct$Sample)){
     # Extract a list of frames for each sample
@@ -36,8 +38,11 @@ extract_const_frame <- function(in_struct, disp_str) {
       # the outputs of each frame are concatenated
       disp_i = rbind(disp_i, frame_j)
     }
-    # Store the component of interest to the matrix of model outputs
-    out_mat[,i] = disp_i[,col_ind]
+    # Store the component(s) of interest to the matrix of model outputs
+    for (j in 1:length(col_ind)){
+      out_mat[((j-1)*(n_nodes*n_frames)+1):(j*n_nodes*n_frames),i] = disp_i[,col_ind[j]]
+    }
+    # out_mat[,i] = disp_i[,col_ind]
   }
   
   return(list(out_mat,n_nodes,n_frames))
