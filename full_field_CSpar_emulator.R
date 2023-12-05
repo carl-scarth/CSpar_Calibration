@@ -183,7 +183,8 @@ labels = colnames(XT_sim)
 # If required, estimate the modes of emulator hyperparameters and write to a csv
 if (export_modes){
   modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
-  write.csv(modes, paste("outputs/emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
+  #write.csv(modes, paste("outputs/emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
+  write.csv(modes, paste("outputs/emulator_modes_",in_file,"_multi.csv", sep=""), row.names = FALSE)
 }
 
 # Plot correlation parameter histograms

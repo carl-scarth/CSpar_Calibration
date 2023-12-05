@@ -41,7 +41,7 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs
-exp_data_file = "Interpolated_DIC_downsam_12" # Identifier of file containing DIC data
+exp_data_file = "Interpolated_DIC_downsam_10" # Identifier of file containing DIC data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
@@ -96,6 +96,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
 abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
+#abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
@@ -201,13 +202,14 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv
 # In the long run, consider varying the observation error with load magnitude.
 # For now, keep constant.
 
-# sigma_error = 0.01 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
+sigma_noise = 1.0 # standard deviation associated with noise (a choice of 0.005 would also be reasonable if this is too large)
 # sigma_shift = 0
 # Sigma_y = diag(rep(sigma_error^2,n_y)) + matrix(sigma_shift^2, nrow = n_y, ncol = n_y)
 # Standardise using the model output variance 
 # Sigma_y = Sigma_y/(sd_dt^2)
 # Convert covariance matrix to a precision 
 # W_y = solve(Sigma_y)
+# W_y = diag(rep(1/(sigma_noise^2), n_y))
 
 # The below code doesn't work when dealing with large quantities of experimental
 # data. I've implemented a method which instead works with a vector, assuming
@@ -215,7 +217,8 @@ write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv
 # other types of precision matrix
 # Directly pass the identity matrix
 # W_y = diag(rep(1.0,n_y))
-W_y = rep(1.0,n_y)
+# W_y = rep(1.0,n_y)
+W_y = rep(1/(sigma_noise^2),n_y)
 
 #-------------------------------------------------------------------------------
 

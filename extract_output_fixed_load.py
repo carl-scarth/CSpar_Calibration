@@ -2,7 +2,7 @@
 import json
 import pandas as pd
 
-specify_load = False
+specify_load = True
 if not specify_load:
     specify_inc = True
 else:
@@ -11,7 +11,7 @@ else:
 load = 200 # Desired applied load Value
 inc = 2
 
-file_str = "LHSDesign40x4"
+file_str = "LHSDesign40x4_1"
 with open("inputs\\" + file_str + "_output_struct.json",'r') as f:
     output_dict = json.loads(f.readline())
 

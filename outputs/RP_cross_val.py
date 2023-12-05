@@ -1,23 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
+
+rcParams.update({'figure.figsize' : (8,6),
+                'font.size' : 14,
+                'font.family' : 'serif',
+                'figure.titlesize' : 16,
+                'axes.labelsize': 16,
+                'xtick.labelsize': 14,
+                'ytick.labelsize': 14,
+                'legend.fontsize': 14})
 
 infile = "LHSDesign40x4_1"
 # Load training data
-DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
+# DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
+DoE = np.loadtxt(infile + "_u_max_displacements.csv", delimiter=",", skiprows=0)
 # Load gp mean and standard deviation (used a different name for training gp - fix later)
 gp_mean = np.loadtxt("LHSDesign40x4_RP_eta_mu_mu.csv", delimiter=",", skiprows=0)
 gp_sd = np.loadtxt("LHSDesign40x4_RP_eta_sigma_mu.csv", delimiter=",", skiprows=0)
 
-sdfsdfds
 # Create plot
-fig = plt.figure(figsize=(10,8))
-ax = fig.add_subplot(1, 1, 1)
+fig, ax = plt.subplots()
 # Cherry pick from output data
 # ind = [28]
-ind = range(1,10)
-# ind = [1]
-# ind = range(15,30)
-
+# ind = range(0,10)
+# ind = [2]
+ind = range(31,40)
+# ind = [30]
 DoE = DoE[ind,:]
 gp_mean = gp_mean[ind,:]
 gp_sd = gp_sd[ind,:]
@@ -37,8 +46,6 @@ for i, sd in enumerate(gp_sd):
     ax.plot(-gp_mean[i,:]-2*sd, y_GP, "b")
     ax.plot(-gp_mean[i,:]+2*sd, y_GP, "b")
         
-label_font = {'family': 'serif', 'size': 16,}
-ax.set_ylabel("Force (kN)", fontdict = label_font)
-ax.set_xlabel("Displacement (mm)", fontdict = label_font)
-
+ax.set_ylabel("Force (kN)")
+ax.set_xlabel("Displacement (mm)")
 plt.show()

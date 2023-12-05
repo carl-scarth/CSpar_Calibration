@@ -30,7 +30,7 @@ source("source/transform_input_output.R")
 
 p_eta = 20 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = "u" # String which identifies the displacement component of interest (u,v, or w)
+disp_str = c("u","w") # String which identifies the displacement component of interest (u,v, or w)
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 # Define parameters of the gamma prior on the error associated with truncating

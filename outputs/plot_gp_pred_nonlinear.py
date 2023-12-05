@@ -330,6 +330,6 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
 for key, value in output_RP.items():
     np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
 for key, value in output_max.items():
-    np.savetxt(infile+"_RP_"+key+".csv", value, delimiter=',')
+    np.savetxt(infile+"_max_"+key+".csv", value, delimiter=',')
 
 plt.show()
