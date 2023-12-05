@@ -120,7 +120,7 @@ K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
 
 # Write basis to .json file
-out_json = basis_mean_to_json(n_frames, n_nodes, K_eta, mu_dt)
+out_json = basis_mean_to_json(n_frames, n_nodes, K_eta, mu_dt, disp_str)
 write(out_json, paste("outputs/basis_nonlinear_",in_file,".json",sep=""))
 
 #-------------------------------------------------------------------------------

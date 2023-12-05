@@ -54,20 +54,28 @@ extract_const_frame <- function(in_struct, disp_str) {
 #out_scruct["Frame"][[i]]["Bases"]
 #                        ["Training_Data_Mean"]
 # where "Bases" contains an n_nodes list of n_bases basis values
-basis_mean_to_json <- function(n_frames, n_nodes, K, mu_dt) {
+basis_mean_to_json <- function(n_frames, n_nodes, K, mu_dt, disp_str) {
   # Initialise list
   out_list <- list(list())
   names(out_list) <- "Frame"
   out_list$Frame <- vector(mode="list", length=n_frames)
   for (i in 1:n_frames){
-    # Extract bases for the current frame
-    K_i = K[((i-1)*n_nodes+1):(i*n_nodes),]
-    # Also output model mean to the same json
-    mu_i = mu_dt[((i-1)*n_nodes+1):(i*n_nodes)]
-    out_list$Frame[[i]] = list(vector(mode="list", length=n_nodes), mu_i)
+    out_list$Frame[[i]] = list(vector(mode="list", length=n_nodes), vector(mode="list", length=n_nodes))
     names(out_list$Frame[[i]]) = c("Bases", "Training_Data_Mean")
-    for (j in 1:n_nodes){
-      out_list$Frame[[i]]$Bases[[j]] = K_i[j,]
+    out_list$Frame[[i]]$Bases = vector(mode = "list", length=length(disp_str))
+    out_list$Frame[[i]]$Training_Data_Mean = vector(mode="list", length=length(disp_str))
+    names(out_list$Frame[[i]]$Bases) = disp_str
+    names(out_list$Frame[[i]]$Training_Data_Mean) = disp_str
+    # Extract bases for the current frame
+    for (j in 1:length(disp_str)){
+      K_ij = K[((i-1)*n_nodes+(j-1)*n_frames*n_nodes+1):(i*n_nodes+(j-1)*n_frames*n_nodes),]
+      # Also output model mean to the same json
+      mu_ij = mu_dt[((i-1)*n_nodes+(j-1)*n_frames*n_nodes+1):(i*n_nodes+(j-1)*n_frames*n_nodes)]
+      out_list$Frame[[i]]$Training_Data_Mean[[disp_str[j]]] = mu_ij
+      out_list$Frame[[i]]$Bases[[disp_str[j]]] = vector(mode ="list", length=n_nodes)
+      for (k in 1:n_nodes){
+        out_list$Frame[[i]]$Bases[[disp_str[j]]][[k]] = K_ij[k,]
+      }
     }
   }
   out_json = toJSON(out_list)
