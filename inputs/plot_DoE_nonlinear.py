@@ -53,7 +53,9 @@ n_frames = len(in_dict["Sample"][0]["Frame"]) # Number of frames
 increments = [frame["Increment"] for frame in in_dict["Sample"][0]["Frame"]]
 keep_ind = np.linspace(0,n_frames-1, 17, dtype="int")
 RFs = [frame["RFs"][2] for frame in in_dict["Sample"][0]["Frame"]]
+max_ind = 4164 # Index of node containing maximum absolute value across training data
 output_RP = np.empty((n_sam, n_frames)) # Reference point displacement
+output_u_max = np.empty((n_sam, n_frames)) # Maximum Vertical displacement
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
 for i, sample in enumerate(in_dict["Sample"]):
     for j, frame in enumerate(sample["Frame"]):
@@ -61,6 +63,7 @@ for i, sample in enumerate(in_dict["Sample"]):
         displacements = np.array(frame["Displacements"], dtype = "float")
         # Store RP displacement
         output_RP[i,j] = displacements[1,2]
+        output_u_max[i,j] = displacements[max_ind,0]
         for k, QoI in enumerate(["u","v","w"]):
             # Dictionary containing output
             if j in keep_ind:
@@ -78,16 +81,22 @@ for i, frame in enumerate(frame_dict):
     
     
 # Finally, plot the displacements at the reference point
-fig = plt.figure(figsize=(10,8))
-ax = fig.add_subplot(1, 1, 1)
+
+fig, ax = plt.subplots(figsize=(10,4))
 for sample in output_RP:
-    ax.plot(-sample, [250*inc for inc in increments])
+    ax.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
 
-label_font = {'family': 'serif', 'size': 16,}
-ax.set_ylabel("Force (kN)", fontdict = label_font)
-ax.set_xlabel("RP Displacement (mm)", fontdict = label_font)
+ax.set_ylabel("Force (kN)")
+ax.set_xlabel("RP Displacement (mm)")
 
+fig2, ax2 = plt.subplots(figsize=(10,4))
+print(output_u_max)
+for sample in output_u_max:
+    ax2.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
+
+plt.tight_layout(pad = 1.0)
 plt.show()
 
 # Write to a csv file
 np.savetxt(infile+"_RP_displacements.csv", output_RP, delimiter=',')
+np.savetxt(infile+"_u_max_displacements.csv", output_u_max, delimiter=',')

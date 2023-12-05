@@ -28,9 +28,9 @@ source("source/transform_input_output.R")
 
 # Set up parameters which govern the formulation
 
-p_eta = 11 # Number of basis functions retained for the emulator from SVD
+p_eta = 20 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
+disp_str = c("u","w") # String which identifies the displacement component of interest (u,v, or w)
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 # Define parameters of the gamma prior on the error associated with truncating
@@ -58,11 +58,11 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
 abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
-# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_sub.json", sep=""))
+# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
-sorted_data = extract_const_frame(abaqus_displacements,"w")
+sorted_data = extract_const_frame(abaqus_displacements, disp_str)
 dt_simulation = sorted_data[[1]]
 n_nodes = sorted_data[[2]] # Number of nodes
 n_frames = sorted_data[[3]] # Number of frames
@@ -112,9 +112,9 @@ eta = as.matrix(outlist[[1]]) # Convert to matrix for stan
 mu_dt = outlist[[2]]
 sd_dt = outlist[[3]]
 
-out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
-                      print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
-# out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
+# out_basis = svd_basis(eta, p_eta = p_eta, exp_tol = exp_tol, 
+#                       print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
+out_basis = svd_basis(eta, exp_tol = exp_tol, print_output = print_svd_output, csv_label = paste("nonlinear_",in_file,sep=""))
 
 K_eta = out_basis[[1]]
 p_eta = out_basis[[2]] # Used to determine p_eta automatically if not provided as an argument, otherwise this is unchanged
@@ -144,7 +144,7 @@ parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
 
 # List of arguments to pass to stan
-stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, a_eta_dash = a_eta_dash, 
+stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, linear_mean = 0, a_eta_dash = a_eta_dash, 
                  b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTK_inv)
 # Run stan
 fit = stan(file = "source/full_field_emulator.stan",
@@ -176,7 +176,8 @@ labels = colnames(XT_sim) # don't think I need this but keeping just in case
 # If required, estimate the modes of emulator hyperparameters and write to a csv
 if (export_modes){
   modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
-  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
+  # write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
+  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_downsam.csv", sep=""), row.names = FALSE)
 }
 
 # Plot correlation parameter histograms
@@ -222,4 +223,4 @@ for (i in 1:length(out_strings)){
 
 # Write json to file
 out_json = gp_pred_to_json(json_list, n_frames, n_nodes, n_pred=n_pred, n_post_sam = N_sam_pred)
-write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))
+write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,"_downsam.json",sep=""))
