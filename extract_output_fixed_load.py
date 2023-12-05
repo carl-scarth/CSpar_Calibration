@@ -2,7 +2,7 @@
 import json
 import pandas as pd
 
-specify_load = False
+specify_load = True
 if not specify_load:
     specify_inc = True
 else:
@@ -11,12 +11,12 @@ else:
 load = 200 # Desired applied load Value
 inc = 2
 
-file_str = "LHSDesign40x4"
+file_str = "LHSDesign100x9"
 with open("inputs\\" + file_str + "_output_struct.json",'r') as f:
     output_dict = json.loads(f.readline())
 
 if specify_load:
-    out_frame = pd.DataFrame() # Create empty dataframe, the fill by looping over samples
+    out_frame = pd.DataFrame() # Create empty dataframe, then fill by looping over samples
     for i, sample in enumerate(output_dict["Sample"]):
         disp_i = pd.DataFrame([frame for frame in sample["Frame"] if round(frame["RFs"][2]) == load][0]["Displacements"],columns=["u_"+str(i+1),"v_"+str(i+1),"w_"+str(i+1)])
         out_frame = pd.concat((out_frame, disp_i), axis=1)

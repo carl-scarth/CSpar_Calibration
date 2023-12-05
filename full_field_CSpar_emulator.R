@@ -25,7 +25,8 @@ source("source/gp_predictions.R")
 
 p_eta = 40 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w)
+# disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w)
+disp_str = "w"
 # Define parameters of the gamma prior on the error associated with truncating
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
@@ -41,7 +42,7 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 
 # Load in emulator training data input values from Design of Experiments. 
 # in_file = "LHSDesign50x3" # File identifier for input and output csvs
-in_file = "LHSDesign40x4" # File identifier string for input and output csvs
+in_file = "LHSDesign100x9" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 
@@ -76,7 +77,7 @@ n_eta = n_eta*length(disp_str) # update n_eta definition for stan input
 
 # Load in test points at which predictions are required
 # XT_pred = fread("inputs/LHSDesign50x3_1.csv")
-XT_pred = fread("inputs/LHSDesign40x4_1.csv")
+XT_pred = fread("inputs/LHSDesign100x9_1.csv")
 # Repeat the log transformation for the test data
 # XT_pred$K = log(XT_pred$K)
 # colnames(XT_pred)[3] = "log_K"
