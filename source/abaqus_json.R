@@ -91,7 +91,7 @@ basis_mean_to_json <- function(n_frames, n_nodes, K, mu_dt, disp_str) {
 # take values "eta_mu", "eta_sigma", "eta_sam", "eta_mu_mu", "eta_sigma_mu" and
 # "eta_sam_mu". The first three quantities are array containing multiple 
 # posterior samples, and have a subheading "Posterior_Samples" with length n_post_sam
-gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) {
+gp_pred_to_json <- function(in_list, n_frames, n_nodes, disp_str, n_pred=1, n_post_sam=1) {
   # Initialise list
   out_list <- list(list())
   names(out_list) = "Prediction"
@@ -105,7 +105,7 @@ gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) 
     out_list$Prediction[[i]]$Frame = vector(mode="list", length=n_frames)
     # Loop over frames
     for (j in 1:n_frames){
-      out_list$Prediction[[i]]$Frame[[j]] = vector(mode="list", length(in_list))
+      out_list$Prediction[[i]]$Frame[[j]] = vector(mode="list", length = length(in_list))
       names(out_list$Prediction[[i]]$Frame[[j]]) = names(in_list)
       for (k in 1:length(in_list)){
         # If output quantity contains multiple posterior samples, the list will
@@ -120,27 +120,40 @@ gp_pred_to_json <- function(in_list, n_frames, n_nodes, n_pred=1, n_post_sam=1) 
           out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample = vector(mode="list", length=n_post_sam)
           # Loop over posterior samples
           for (l in 1:n_post_sam){
-            if (n_pred > 1) {
-              out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l,i]
-            } else {
-              out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l]
+            for (m in 1:length(disp_str)){
+              out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = vector(mode="list", length = length(disp_str))
+              names(out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]]) = disp_str
+              if (n_pred > 1) {
+                # out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l,i]
+                out_ijlm = in_list[[k]][((j-1)*n_nodes+(m-1)*n_frames*n_nodes+1):(j*n_nodes+(m-1)*n_frames*n_nodes),l,i]
+              } else {
+                # out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l]
+                out_ijlm = in_list[[k]][((j-1)*n_nodes+(m-1)*n_frames*n_nodes+1):(j*n_nodes+(m-1)*n_frames*n_nodes),l]
+              }
+              # Extract output for relevant list entry
+              # out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = out_ijl
+              out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]][[disp_str[m]]] = out_ijlm
             }
-            # Extract output for relevant list entry
-            out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = out_ijl
           }
         } else {
-          if (n_pred > 1) {
-            out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),i]
-          } else {
-            out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes)]
+          out_list$Prediction[[i]]$Frame[[j]][[k]] = vector(mode="list", length = length(disp_str))
+          names(out_list$Prediction[[i]]$Frame[[j]][[k]]) = disp_str
+          for (l in 1:length(disp_str)){
+            if (n_pred > 1) {
+              # out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),i]
+              out_ijl = in_list[[k]][((j-1)*n_nodes+(l-1)*n_frames*n_nodes+1):(j*n_nodes+(l-1)*n_frames*n_nodes),i]
+            } else {
+              # out_ij = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes)]
+              out_ijl = in_list[[k]][((j-1)*n_nodes+(l-1)*n_frames*n_nodes+1):(j*n_nodes+(l-1)*n_frames*n_nodes)]
+            }
+            # Extract output for relevent list entry
+            # out_list$Prediction[[i]]$Frame[[j]][[k]] = out_ij
+            out_list$Prediction[[i]]$Frame[[j]][[k]][[disp_str[l]]] = out_ijl
           }
-          # Extract output for relevent list entry
-          out_list$Prediction[[i]]$Frame[[j]][[k]] = out_ij
         }
       }
     }
   }
-  # View(out_list$Prediction[[1]])
   # Collapse the first level of the list if there is only one prediction
   if (n_pred == 1){
     out_list = out_list$Prediction[[1]]
