@@ -19,7 +19,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-basis_file = "basis_nonlinear_" + infile + "_uw.json"
+basis_file = "basis_nonlinear_" + infile + ".json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -36,7 +36,7 @@ for frame in in_dict["Frame"]:
 
 # Get maximum mean displacement for plotting/exporting
 max_ind = {label : np.argmax(np.abs(value)) for label, value in in_dict["Frame"][-1]["Training_Data_Mean"].items()}
-# print(max_ind)
+print(max_ind)
 # Extract number of frames, number of bases, and number of outputs
 n_frames = len(in_dict["Frame"])
 out_str = list(in_dict["Frame"][0]["Bases"].keys())

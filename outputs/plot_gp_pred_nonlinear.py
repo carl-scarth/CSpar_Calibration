@@ -74,7 +74,7 @@ if "w" in out_str:
     output_RP = {} # Dictionary for storing reference point info
 
 output_max = {} # Dictionary for storing outputs at location of maximum displacement
-max_ind = {'u': 4164, 'w': 1299} # Index of node containing maximum absolute value across training data
+max_ind = {'u': 4164, 'v': 207,'w': 1299} # Index of node containing maximum absolute value across training data
 # Ideally I'd caluclate this here but it's a little too messy.
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
 for i, sample in sam_iter:
@@ -133,12 +133,12 @@ for i, sample in sam_iter:
                         output_max[QoI][coord][i,j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
                             output_RP[QoI][i,j] = predictions[coord][1]
-                        frame_dict[j]["_".join((QoI,coord,str(i)))] = predictions[coord][2:]
+                        frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][2:], dtype=float)
                     else:                        
                         output_max[QoI][coord][j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
                             output_RP[QoI][j] = predictions[1]
-                        frame_dict[j]["_".join((QoI, coord))] = predictions[2:]
+                        frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[2:], dtype=float)
 
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):

@@ -53,9 +53,10 @@ n_frames = len(in_dict["Sample"][0]["Frame"]) # Number of frames
 increments = [frame["Increment"] for frame in in_dict["Sample"][0]["Frame"]]
 keep_ind = np.linspace(0,n_frames-1, 17, dtype="int")
 RFs = [frame["RFs"][2] for frame in in_dict["Sample"][0]["Frame"]]
-max_ind = 4164 # Index of node containing maximum absolute value across training data
+max_ind = {"u" : 4164, "v" : 207, "w" : 1299} # Index of node containing maximum absolute value across training data
+# col_ind = {"u" : 0, "v" : 1, "w" : 2} # Column index for each displacement component
 output_RP = np.empty((n_sam, n_frames)) # Reference point displacement
-output_u_max = np.empty((n_sam, n_frames)) # Maximum Vertical displacement
+output_max = {key : np.empty((n_sam, n_frames)) for key in max_ind.keys()} # Maximum displacement
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
 for i, sample in enumerate(in_dict["Sample"]):
     for j, frame in enumerate(sample["Frame"]):
@@ -63,8 +64,11 @@ for i, sample in enumerate(in_dict["Sample"]):
         displacements = np.array(frame["Displacements"], dtype = "float")
         # Store RP displacement
         output_RP[i,j] = displacements[1,2]
-        output_u_max[i,j] = displacements[max_ind,0]
+        # for key, value in output_max.items():
+          #  value[i,j] = displacements[max_ind[key], col_ind[key]]
+            #output_max[i,j] = displacements[max_ind,0]
         for k, QoI in enumerate(["u","v","w"]):
+            output_max[QoI][i,j] = displacements[max_ind[QoI],k]
             # Dictionary containing output
             if j in keep_ind:
                 frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
@@ -89,14 +93,19 @@ for sample in output_RP:
 ax.set_ylabel("Force (kN)")
 ax.set_xlabel("RP Displacement (mm)")
 
-fig2, ax2 = plt.subplots(figsize=(10,4))
-print(output_u_max)
-for sample in output_u_max:
-    ax2.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
 
+fig2, axs2 = plt.subplots(1, 3, figsize=(10,4))
+for ax2, key in zip(axs2, ["u", "v", "w"]):
+    for sample in output_max[key]:
+        ax2.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
+    ax2.set_ylabel("Force (kN)")
+    ax2.set_xlabel("Displacement (mm)")
+    ax2.set_title(key+" at node "+str(max_ind[key]))
+fig2.suptitle("Displacements at location of maximum mean value across training data")
 plt.tight_layout(pad = 1.0)
 plt.show()
 
 # Write to a csv file
 np.savetxt(infile+"_RP_displacements.csv", output_RP, delimiter=',')
-np.savetxt(infile+"_u_max_displacements.csv", output_u_max, delimiter=',')
+for key in ["u","v","w"]:
+    np.savetxt("_".join((infile,key,"max_displacements.csv")), output_max[key], delimiter=',')
