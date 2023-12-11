@@ -31,12 +31,12 @@ DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coor
 # Define parameters for (gamma) prior distributions on the observation error
 a_y = 5.0  # Shape parameter for the lambda_y prior
 b_y = 0.05 # Rate parameter for the lambda_y prior
-iter = 4000 # Number of samples per chain
+iter = 4000 # Nuber of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
+in_file = "LHSDesign100x9" # File identifier string for input and output csvs for model
 exp_data_file = "Interpolated_DIC_200kN" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
-interp_model = FALSE # If true, we need to interpolate model outputs to experimental coordinates. Otherwise it is assumed this has already been done
+interp_model = TRUE # If true, we need to interpolate model outputs to experimental coordinates. Otherwise it is assumed this has already been done
 
 #-------------------------------------------------------------------------------
 
@@ -52,21 +52,46 @@ t_ply_cov = 5.0
 #K_lb = 100.0
 #K_ub = 1.0e9
 
+E22_mu = 9.24
+E22_cov = 6.0
+nu12_mu = 0.335
+nu12_cov = 12.123
+nu23_mu = 0.487
+nu23_cov = 12.0
+G12_mu = 4.826
+G12_cov = 6.0
+
+
 # Define data_frame of prior parameters (this could be done via csv?)
 # tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Loguniform"),
 #                       param_1 = c(E11_mu, t_ply_mu, log(K_lb)),
 #                       param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, log(K_ub)))
 # row.names(tf_param) <- c("E11","t_ply","log_K")
 
+log_K_mu = 16.0
+log_K_sd = 1.0
+
 # Additional pre-processing for flange-rotation example
 flange_theta_mu = 0.0
-flange_theta_sigma = 4.0
+flange_theta_sigma = 5.0/3.0
 # Define data_frame of prior parameters
-tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
-                      param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu ),
-                      param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
-row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
+# tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
+#                      param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu ),
+#                      param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
+# row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
+#tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
+#                                             param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu),
+#                                             param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
+#row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
 
+tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian"),
+  param_1 = c(E11_mu, E22_mu, nu12_mu, nu23_mu, G12_mu, t_ply_mu, flange_theta_mu, flange_theta_mu, log_K_mu),
+  param_2 = c(E11_mu*E11_cov/100, E22_mu*E22_cov/100, nu12_mu*nu12_cov/100, nu23_mu*nu23_cov/100, G12_mu*G12_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma, log_K_sd)
+  )
+row.names(tf_param) <- c("E11","E22","nu12","nu23","G12","t_ply","LFlange_theta","RFlange_theta","log_K")
+                       
+
+                       
 #-------------------------------------------------------------------------------
 
 # Set up simulation data (need to retain this for normalisation of inputs)
@@ -90,7 +115,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Each row of XT_sim corresponds to a block of three columns of displacement 
 # data, with a column for each component u,v,w 
 # abaqus_displacements = fread(paste("inputs/",in_file,"_displacements.csv", sep=""))
-abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN_interp.csv", sep=""))
+abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep=""))
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
@@ -193,6 +218,7 @@ if (interp_model) {
 } else {
   K_y = as.matrix(K_eta)
 }
+View(as.matrix(y))
 
 #-------------------------------------------------------------------------------
 
