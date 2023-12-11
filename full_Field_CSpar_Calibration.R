@@ -28,12 +28,13 @@ source("source/gp_predictions.R")
 # Might be able to delete some of these later
 disp_str = "w" # String which identifies the displacement component of interest (u,v, or w)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
+q_y = length(disp_str) # Number of observation error parameters to be inferred
 # Define parameters for (gamma) prior distributions on the observation error
 a_y = 5.0  # Shape parameter for the lambda_y prior
 b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Nuber of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign100x9" # File identifier string for input and output csvs for model
+in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
 exp_data_file = "Interpolated_DIC_200kN" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 interp_model = TRUE # If true, we need to interpolate model outputs to experimental coordinates. Otherwise it is assumed this has already been done
@@ -54,12 +55,12 @@ t_ply_cov = 5.0
 
 E22_mu = 9.24
 E22_cov = 6.0
-nu12_mu = 0.335
-nu12_cov = 12.123
-nu23_mu = 0.487
-nu23_cov = 12.0
-G12_mu = 4.826
-G12_cov = 6.0
+#nu12_mu = 0.335
+#nu12_cov = 12.123
+#nu23_mu = 0.487
+#nu23_cov = 12.0
+#G12_mu = 4.826
+#G12_cov = 6.0
 
 
 # Define data_frame of prior parameters (this could be done via csv?)
@@ -68,27 +69,28 @@ G12_cov = 6.0
 #                       param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, log(K_ub)))
 # row.names(tf_param) <- c("E11","t_ply","log_K")
 
-log_K_mu = 16.0
-log_K_sd = 1.0
+#log_K_mu = 16.0
+#log_K_sd = 1.0
 
 # Additional pre-processing for flange-rotation example
 flange_theta_mu = 0.0
-flange_theta_sigma = 5.0/3.0
+flange_theta_sigma = 4.0
+#flange_theta_sigma = 5.0/3.0
 # Define data_frame of prior parameters
 # tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
 #                      param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu ),
 #                      param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
 # row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
-#tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
-#                                             param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu),
-#                                             param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
-#row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
+tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
+                                             param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu),
+                                             param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
+row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
 
-tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian"),
-  param_1 = c(E11_mu, E22_mu, nu12_mu, nu23_mu, G12_mu, t_ply_mu, flange_theta_mu, flange_theta_mu, log_K_mu),
-  param_2 = c(E11_mu*E11_cov/100, E22_mu*E22_cov/100, nu12_mu*nu12_cov/100, nu23_mu*nu23_cov/100, G12_mu*G12_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma, log_K_sd)
-  )
-row.names(tf_param) <- c("E11","E22","nu12","nu23","G12","t_ply","LFlange_theta","RFlange_theta","log_K")
+#tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian","Gaussian"),
+#  param_1 = c(E11_mu, E22_mu, nu12_mu, nu23_mu, G12_mu, t_ply_mu, flange_theta_mu, flange_theta_mu, log_K_mu),
+#  param_2 = c(E11_mu*E11_cov/100, E22_mu*E22_cov/100, nu12_mu*nu12_cov/100, nu23_mu*nu23_cov/100, G12_mu*G12_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma, log_K_sd)
+#  )
+#row.names(tf_param) <- c("E11","E22","nu12","nu23","G12","t_ply","LFlange_theta","RFlange_theta","log_K")
                        
 
                        
@@ -119,10 +121,19 @@ abaqus_displacements = fread(paste("inputs/",in_file,"_fixed_200kN.csv", sep="")
 n_eta = nrow(abaqus_displacements) # number of output points per simulation
 
 # Extract the displacement for the component of interest and store in a matrix
-dt_simulation = matrix(NA,nrow = n_eta, ncol = m)
+#dt_simulation = matrix(NA,nrow = n_eta, ncol = m)
+#for (i in 1:m){
+#  dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
+#}
+
+# Extract the displacement for the component(s) of interest and store in a matrix
+dt_simulation = matrix(NA,nrow = length(disp_str)*n_eta, ncol = m)
 for (i in 1:m){
-  dt_simulation[,i] = abaqus_displacements[[as.name(paste(disp_str,sprintf("_%d", i),sep=""))]]
+  for (j in 1:length(disp_str)) {
+    dt_simulation[((j-1)*n_eta+1):(j*n_eta),i] = abaqus_displacements[[as.name(paste(disp_str[j],sprintf("_%d", i),sep=""))]]
+  }
 }
+n_eta = n_eta*length(disp_str) # update n_eta definition for stan input
 
 #-------------------------------------------------------------------------------
 
@@ -171,7 +182,8 @@ mu_dt = outlist[[2]]
 sd_dt = outlist[[3]]
 
 # Load in basis vectors previously generated by emulator code
-K_eta = as.matrix(fread(paste("outputs/basis_",in_file,".csv", sep = "")))
+# K_eta = as.matrix(fread(paste("outputs/basis_",in_file,".csv", sep = "")))
+K_eta = as.matrix(fread(paste("outputs/basis_",in_file,"_w.csv", sep = "")))
 p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from SVD
 
 #-------------------------------------------------------------------------------
@@ -183,42 +195,71 @@ p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from S
 # measurement has been matched, and its natural coordinates within the element
 experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
 n_y = nrow(experimental_data)# Number of observations
-exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
+exp_str = paste(disp_str, "_rot", sep="")
+exp_displacement = experimental_data[[as.name(exp_str)]] # Displacement component
+
+# exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
 if (interp_model) {
   y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
   hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
   # Interpolate the training data mean. Skip the first two nodes in the output as 
   # these are reference points which are not referenced by the connectivity file.
-  mu_y = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+  # mu_y = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+  mu_y = rep(NA, q_y*n_y)
+  for (i in 1:length(disp_str)){
+    mu_dt_i = mu_dt[((i-1)*n_eta/q_y+1):(i*n_eta/q_y)]
+    mu_y[((i-1)*n_y+1):(i*n_y)] = as.vector(intp_nodes_to_cloud(y_element, hr, as.matrix(mu_dt_i), conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+  }
 } else {
   mu_y = mu_dt
 }
 
 # Calculate residuals of experimental error
-residual = exp_displacement - mu_y
+residual = as.vector(exp_displacement) - mu_y
 rel_error = (abs(residual)/abs(mu_y))*100
 # Write to CSV
-write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error), paste("outputs/",in_file,"_mean_error.csv", sep = ""), row.names = FALSE)
+if (q_y == 1) {
+  out_frame = cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error)
+} else {
+  out_frame = experimental_data[DIC_coord_labels]
+  for (i in 1:q_y) {
+    out_frame[paste("training_data_mean_", disp_str[i], sep="")] = mu_y[((i-1)*n_y+1):(i*n_y)]
+    out_frame[paste("residual_", disp_str[i], sep="")] = residual[((i-1)*n_y+1):(i*n_y)]
+    out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[((i-1)*n_y+1):(i*n_y)])
+    out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[((i-1)*n_y+1):(i*n_y)]
+  }
+}
+write.csv(out_frame, paste("outputs/",in_file,"_mean_error.csv", sep = ""), row.names = FALSE)
 
 # Centre the experimental data and convert to vector to pass to stan
-exp_displacement_cen = (exp_displacement - mu_y)/sd_dt
+# as.vector reshapes from matrix to column vector
+exp_displacement_cen = (as.vector(exp_displacement) - mu_y)/sd_dt
 y = as.vector(exp_displacement_cen)
 
-# We also need to interpolate the basis fuctions, K, (determined above using 
+# We also need to interpolate the basis functions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
 if (interp_model) {
-  K_y = intp_nodes_to_cloud(y_element, hr, K_eta, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
-  out_frame = as.data.frame(K_y)
-  for (i in 1:p_eta) {
-    colnames(out_frame)[i] = sprintf("K_y,%d",i)
+  K_y = matrix(NA, nrow = n_y*q_y, ncol = p_eta)
+  for (i in 1:q_y){
+    K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud(y_element, hr, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),], conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
   }
-  out_frame = cbind(experimental_data[DIC_coord_labels],out_frame)
+  if (q_y == 1) {
+    out_frame = as.data.frame(K_y)
+    for (i in 1:p_eta) {colnames(out_frame)[i] = sprintf("K_y,%d",i)} 
+  } else {
+    out_frame = as.data.frame(matrix(NA, nrow = n_y, ncol = 0))
+    for (i in 1:q_y) {
+      for (j in 1:p_eta) {
+        out_frame[[as.name(sprintf("K_y_%s_%d",disp_str[i],j))]] = K_y[((i-1)*n_y+1):(i*n_y),j]
+      }
+    }
+  }
+  out_frame = cbind(experimental_data[DIC_coord_labels], out_frame)
   # output interpolated bases for plotting
   write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis.csv", sep = ""), row.names = FALSE)
 } else {
   K_y = as.matrix(K_eta)
 }
-View(as.matrix(y))
 
 #-------------------------------------------------------------------------------
 
@@ -242,7 +283,8 @@ View(as.matrix(y))
 # other types of precision matrix
 # Directly pass the identity matrix
 # W_y = diag(rep(1.0,n_y))
-W_y = rep(1.0,n_y)
+W_y = rep(1.0,n_y*q_y)
+
 #-------------------------------------------------------------------------------
 
 # Reduce the dimension of the output data and calculate associated quantities 
@@ -253,11 +295,12 @@ processed_data = reduce_dimension_emulator(eta, K_eta)
 w_hat = processed_data[[1]] # Reduced-dimensional outputs
 KTKinv = processed_data[[2]] # Inverse of the product of basis matrices
 
-processed_data = reduce_dimension_calibration(y, K_y, W_y, a_y=a_y, b_y=b_y)
+processed_data = reduce_dimension_calibration(y, K_y, W_y, q_y=q_y, a_y=a_y, b_y=b_y)
 a_y_dash = processed_data[[1]]
 b_y_dash = processed_data[[2]]
 u_hat = processed_data[[3]]
-BTWyBinv = processed_data[[4]]
+# BTWyBinv = processed_data[[4]]
+BTWyB = processed_data[[4]]
 
 # Group together coefficient samples from experimental data and model into a 
 # single vector
@@ -266,14 +309,15 @@ z_hat = c(u_hat,w_hat)
 
 # Force the adjusted parameters of the observation error prior to specified 
 # values to overcome over-constraint issues
-a_y_dash = a_y
-b_y_dash = b_y
+a_y_dash = array(rep(a_y, q_y), dim=1) # Have to use array to prevent errors in stan with q_y = 1
+b_y_dash = array(rep(b_y, q_y), dim=1)
 
 #-------------------------------------------------------------------------------
 
 # Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
-emulator_parameters = c(as.matrix(read.table(paste("outputs/emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
+# emulator_parameters = c(as.matrix(read.table(paste("outputs/emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
+emulator_parameters = c(as.matrix(read.table(paste("outputs/emulator_modes_",in_file,"_w.csv", sep=""), sep = ",", header = TRUE)))
 rho_w = emulator_parameters[1:(p_eta*q)]
 lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
 lambda_eta = emulator_parameters[p_eta*(q+1)+1]
@@ -286,11 +330,12 @@ parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
 
 # List of arguments to pass to stan
-stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, a_y_dash = a_y_dash,
+stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=q_y, a_y_dash = a_y_dash,
                  b_y_dash = b_y_dash, lambda_eta = lambda_eta, z_hat = z_hat,
                  tf_param_1=tf_param$p1_trans, tf_param_2=tf_param$p2_trans, 
                  rho_w = rho_w, lambda_w = lambda_w, tc = tc, KTKinv = KTKinv, 
-                 BTWyBinv = BTWyBinv)
+                 BTWyB = BTWyB)
+                 # BTWyBinv = BTWyBinv)
 
 # Set via variable as in emulator case
 fit = stan(file = "source/full_field_calibration_fixed_em.stan",

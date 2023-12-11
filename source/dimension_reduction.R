@@ -2,6 +2,7 @@
 # calibration method published in:
 # D. Higdon et al, "Computer Model Calibration Using High-Dimensional Output",
 # Journal of the American Statistical Association, 2008.
+library(abind)
 
 svd_basis <- function(eta, p_eta = NULL, exp_tol = NULL, print_output = FALSE, export_basis = TRUE, csv_label = NULL){
   
@@ -171,7 +172,7 @@ reduce_dimension_emulator <- function(eta, K, a_eta = NULL, b_eta = NULL, orthog
   
 }
 
-reduce_dimension_calibration <- function(y, B, W_y, a_y = NULL, b_y = NULL){
+reduce_dimension_calibration <- function(y, B, W_y, q_y = 1, a_y = NULL, b_y = NULL){
   
   # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
   # the necessary quantities for passing to Stan. Focus on quantities relating
@@ -179,23 +180,32 @@ reduce_dimension_calibration <- function(y, B, W_y, a_y = NULL, b_y = NULL){
   
   # y = n_y-vector of experimental measurements, where n_y is the number of data
   #     points
-  # B = n_eta x p_B matrix of basis functions used to decompose eta, where p_B
+  # B = n_y x p_B matrix of basis functions used to decompose eta, where p_B
   #     depends upon whether, and how the discrepancy is included. For the most 
   #     general implementation of Higdon et al. this will equal p_eta + p_delta
   # W_y = Prior precision of observation error, which can be passed as an n_y x
   #     n_y matrix, or if the precision is diagonal, as a n_y vector of 
   #     the diagonal
+  # q_y = Number of output components (if output is a vector field)
   # a_y = Shape parameter of the gamma prior on the observation error
   # b_y = Rate parameter of the gamma prior on the observation error
   
-  # Calculate inverse of K^T*K. K is the matrix of emulator basis functions for 
-  # the full model output arranged as in Section 2.2.2 of Higdon et al. The 
-  # inverse is calculated via closed-form expressions for K^T*K.
   # Calculate B'*W_y*B
-  if (is.vector(W_y)){
-    BTWyB = t(K_y)%*%(W_y*K_y) # For diagonal W_y 
-  } else {
-    BTWyB = t(K_y)%*%W_y%*%K_y
+  p_B = ncol(B)
+  n_y = length(y)/q_y
+  BTWyB = matrix(0, nrow = p_B, ncol = p_B) # Total matrix product
+  BTWyB_sep = array(NA, dim = c(0, p_B, p_B)) # matrix product separated into different vector components
+  for (i in 1:q_y) {
+    inds_i = ((i-1)*n_y+1):(i*n_y)
+    if (is.vector(W_y)){
+      # BTWyB = t(K_y)%*%(W_y*K_y) # For diagonal W_y 
+      BTWyB_i = t(K_y[inds_i,])%*%(W_y[inds_i]*K_y[inds_i,]) # For diagonal W_y 
+    } else {
+      # BTWyB = t(K_y[inds_i,])%*%W_y[inds_i,inds_i]%*%K_y[inds_i,]
+      BTWyB_i = t(K_y[inds_i,])%*%W_y[inds_i,inds_i]%*%K_y[inds_i,]
+    }
+    BTWyB = BTWyB + BTWyB_i
+    BTWyB_sep = abind(BTWyB_sep, array(BTWyB_i, dim = c(1, p_B, p_B)), along=1)
   }
   BTWyBinv = solve(BTWyB)
   
@@ -208,8 +218,9 @@ reduce_dimension_calibration <- function(y, B, W_y, a_y = NULL, b_y = NULL){
   
   u_hat = as.vector(BTWyBinv%*%BTWyy)
   
-  # If required, adjust prior parameters of the observation error to  account 
+  # If required, adjust prior parameters of the observation error to account 
   # for the dimension reduction
+  # I'M NOT SURE IF THESE EXPRESSIONS ARE CORRECT WITH q_y > 0
   if (!is.null(a_y) & !is.null(b_y)){
     a_y_dash = a_y+(0.5*(n_y-p_eta)) # Adjusted shape parameter for the lambda_y prior.
     # Re-arraged version of b_y_dash from that in Eq. (11) for efficiency.
@@ -218,9 +229,11 @@ reduce_dimension_calibration <- function(y, B, W_y, a_y = NULL, b_y = NULL){
     } else {
       b_y_dash = as.numeric(b_y + (0.5*(t(y)%*%W_y%*%y - t(BTWyy) %*% u_hat)))
     }
-    return(list(a_y_dash, b_y_dash, u_hat, BTWyBinv))
+    # return(list(a_y_dash, b_y_dash, u_hat, BTWyBinv))
+    return(list(a_y_dash, b_y_dash, u_hat, BTWyB_sep))
   } else {
-    return(list(u_hat, BTWyBinv))
+    # return(list(u_hat, BTWyBinv))
+    return(list(u_hat, BTWyB_sep))
   }
 }
 

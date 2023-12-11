@@ -7,22 +7,24 @@
 
 #include /covariance_matrices.stan
 data {
-  int<lower=0> m;               // number of computer simulations
-  int<lower=0> q;               // number of uncontrolled inputs, t
-  int<lower=0> n_eta;           // number of output values per simulation
-  int<lower=0> n_y;             // number of experimental observations (per test)
-  int<lower=0> p_eta;           // number of emulator basis functions
-  real<lower=0> a_y_dash;       // Adjusted value of the shape parameter for the lambda_y prior
-  real<lower=0> b_y_dash;       // Adjusted value of the rate parameter for the lambda_y prior
-  real<lower=0> lambda_eta;     // Precision of truncation error
-  vector[(m+1)*p_eta] z_hat;    // Vector of regression weights representing model output for the experimental data and emulator training data
-  vector[q] tf_param_1;         // First parameter of calibration parameter priors
-  vector[q] tf_param_2;         // Second parameter of calibration parameter priors
+  int<lower=0> m;                // number of computer simulations
+  int<lower=0> q;                // number of uncontrolled inputs, t
+  int<lower=0> n_eta;            // number of output values per simulation
+  int<lower=0> n_y;              // number of experimental observations (per test)
+  int<lower=0> p_eta;            // number of emulator basis functions
+  int<lower=0> q_y;              // number of components of output vector
+  real<lower=0> a_y_dash[q_y];   // Adjusted value of the shape parameter for the lambda_y prior
+  real<lower=0> b_y_dash[q_y];   // Adjusted value of the rate parameter for the lambda_y prior
+  real<lower=0> lambda_eta;      // Precision of truncation error
+  vector[(m+1)*p_eta] z_hat;     // Vector of regression weights representing model output for the experimental data and emulator training data
+  vector[q] tf_param_1;          // First parameter of calibration parameter priors
+  vector[q] tf_param_2;          // Second parameter of calibration parameter priors
   vector<lower=0,upper=1>[q*p_eta] rho_w; // Emulator correlation parameters
   vector<lower=0>[p_eta] lambda_w;        // Emulator precision parameters
   matrix[m, q] tc;                        // Matrix of uncontrolled inputs at the training data points
   matrix[m*p_eta,m*p_eta] KTKinv;         // Inverse of the inner product of the emulator basis matrix
-  matrix[p_eta,p_eta] BTWyBinv;           // Inverse of B'*W_y*B, where B is the emulator basis matrix interpolated to the experimental data points, and W_y is the observation error precision
+  matrix[p_eta,p_eta] BTWyB[q_y];         // Product B'*W_y*B, where B is the emulator basis matrix interpolated to the experimental data points, and W_y is the observation error precision
+  // matrix[p_eta,p_eta] BTWyBinv;           // Inverse of B'*W_y*B, where B is the emulator basis matrix interpolated to the experimental data points, and W_y is the observation error precision
 }
 
 transformed data {
@@ -35,7 +37,7 @@ transformed data {
 
 parameters {
   // lambda_y: precision parameter associated with experimental error
-  real<lower=0> lambda_y;
+  vector<lower=0>[q_y] lambda_y;
   // For now, define calibration parameters via an external stan file, which
   // can be written in R depending on the required priors. An alternative method
   // would be via optional variables, though this seems too rigid
@@ -57,6 +59,7 @@ model {
   matrix[p_eta, m*p_eta] sigma_uw;              // Emulator cross-covariance  training data and experimental data points
   matrix[(m+1)*p_eta, (m+1)*p_eta] sigma_z;     // Joint covariance matrix for joint experimental and model data
   matrix[(m+1)*p_eta, (m+1)*p_eta] sigma_z_hat; // Covariance matrix for joint experimental and model data, adjusted with model and emulator error terms transformed into low-dimensional space
+  matrix[p_eta, p_eta] prec_y;                  // Observation error precision in the reduced dimensional space
   matrix[(m+1)*p_eta, (m+1)*p_eta] L_z_hat;     // Cholesky decomposition of covariance
   
   // Calculate the emulator auto-covariance for the experimental data.
@@ -85,20 +88,31 @@ model {
 
   // Adjust the covariance matrix to include transformed emulator and 
   // experimental error terms
+  
+  prec_y = rep_matrix(0,p_eta,p_eta);
   sigma_z_hat = rep_matrix(0,(m+1)*p_eta, (m+1)*p_eta);
-  sigma_z_hat[1:p_eta,1:p_eta] = BTWyBinv/lambda_y;
+  // Add contribution to observation error for the ith vector component
+  for (i in 1:q_y){
+    prec_y = prec_y + lambda_y[i]*BTWyB[i];
+  }
+  prec_y = inverse_spd(prec_y);
+  sigma_z_hat[1:p_eta,1:p_eta] = prec_y;
   sigma_z_hat[p_eta+1:,p_eta+1:] = KTKinv/lambda_eta;
   sigma_z_hat = sigma_z_hat + sigma_z;
 
   // Add small nugget
-  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-4,(m+1)*p_eta));
+  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-6,(m+1)*p_eta));
   
   // Specify prior distribution of z_hat
   L_z_hat = cholesky_decompose(sigma_z_hat);
   z_hat ~ multi_normal_cholesky(mu_z_hat, L_z_hat);
   
   // Specify priors on model hyperparameters
-  lambda_y ~ gamma(a_y_dash, b_y_dash); // Precision of observation error, gamma (shape, rate)
+  // Precision of observation error, gamma (shape, rate)
+  for (i in 1:q_y){
+    lambda_y[i] ~ gamma(a_y_dash[i], b_y_dash[i]);
+    //lambda_y[i] ~ gamma(a_y_dash, b_y_dash);
+  }
   // define priors on calibration parameters
 #include calibration_priors.stan
 }
