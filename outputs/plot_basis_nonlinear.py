@@ -10,7 +10,6 @@ import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
 infile = "LHSDesign40x4"
-# out_str = ["u", "w"] # Strings for labelling output components. Used to determine number of quantities in output vector
 
 # Open the output files
 if shell_mesh:
@@ -37,6 +36,7 @@ for frame in in_dict["Frame"]:
 
 # Get maximum mean displacement for plotting/exporting
 max_ind = {label : np.argmax(np.abs(value)) for label, value in in_dict["Frame"][-1]["Training_Data_Mean"].items()}
+print(max_ind)
 # Extract number of frames, number of bases, and number of outputs
 n_frames = len(in_dict["Frame"])
 out_str = list(in_dict["Frame"][0]["Bases"].keys())
@@ -108,36 +108,37 @@ rcParams.update({'figure.figsize' : (8,6),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
-adsad
-# WORKS UP TO THIS POINT - JUST GET THE PLOTS CORRECTED GIVEN THAT THE QUANTITIES
-# ARE ALL LISTS
-# THE PREDICITON R CODE AND PYTHON CODE WILL NEED UPDATING ACCORDINGLY
-fig, ax = plt.subplots()
-for base in basis_RP.T:
-    ax.plot(range(n_frames), base)
+if "w" in out_str:
+    fig, ax = plt.subplots()
+    for base in basis_RP.T:
+        ax.plot(range(n_frames), base)
+    ax.set_xlabel("Increment")
+    ax.set_ylabel("K_i")
+    ax.set_title("Basis values in w at reference point")
 
-ax.set_xlabel("Increment")
-ax.set_ylabel("K_i")
-ax.set_title("Basis values at reference point")
-
-fig2, ax2 = plt.subplots()
-ax2.plot(range(n_frames), mean_RP)
-ax2.set_xlabel("Increment")
-ax2.set_ylabel("Training Data Mean")
-ax2.set_title("Training data mean at reference point")
+    fig2, ax2 = plt.subplots()
+    ax2.plot(range(n_frames), mean_RP)
+    ax2.set_xlabel("Increment")
+    ax2.set_ylabel("Training Data Mean w")
+    ax2.set_title("Training data mean w at reference point")
 
 # Plot output at location of maximum absolute mean displacement (across training data)
 # in final frame (useful for vertical displacement)
-fig3, ax3 = plt.subplots()
-for base in basis_max.T:
-    ax3.plot(range(n_frames),base)
-ax3.set_xlabel("Increment")
-ax3.set_ylabel("K_i")
-ax3.set_title("Basis at location of maximum absolute displacement across training data")
+fig3, axes3 = plt.subplots(1,n_out, sharey=True)
+for i, ax3 in enumerate(axes3):
+    for base in basis_max[out_str[i]].T:
+        ax3.plot(range(n_frames),base)
+        ax3.set_title(out_str[i])
+        ax3.set_xlabel("Increment")
+        if i == 0:
+            ax3.set_ylabel("K_i")
+fig3.suptitle("Basis at location of maximum absolute displacement across training data")
 
 fig4, ax4 = plt.subplots()
-ax4.plot(range(n_frames), mean_max)
+for label, value in mean_max.items():
+    ax4.plot(range(n_frames), value, label = label)
 ax4.set_xlabel("Increment")
 ax4.set_ylabel("Training Data Mean")
 ax4.set_title("Mean displacement at location of maximum absolute value across training data")
+ax4.legend()
 plt.show()

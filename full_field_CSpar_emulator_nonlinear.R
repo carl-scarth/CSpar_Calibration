@@ -30,7 +30,7 @@ source("source/transform_input_output.R")
 
 p_eta = 20 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("u","w") # String which identifies the displacement component of interest (u,v, or w)
+disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
 export_modes = TRUE # Calculate modes of emulator hyperparameters and write to file?
 # Define parameters of the gamma prior on the error associated with truncating
@@ -177,7 +177,7 @@ labels = colnames(XT_sim) # don't think I need this but keeping just in case
 if (export_modes){
   modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
   # write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
-  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_downsam.csv", sep=""), row.names = FALSE)
+  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_uvw.csv", sep=""), row.names = FALSE)
 }
 
 # Plot correlation parameter histograms
@@ -192,7 +192,7 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 # Make predictions from fitted Gaussian process emulator, and write these
 # predictions to a .json file
 
-N_sam_pred = 500 # Required number of prediction samples
+N_sam_pred = 200 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
 out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTK_inv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
@@ -222,5 +222,5 @@ for (i in 1:length(out_strings)){
 }
 
 # Write json to file
-out_json = gp_pred_to_json(json_list, n_frames, n_nodes, n_pred=n_pred, n_post_sam = N_sam_pred)
-write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,"_downsam.json",sep=""))
+out_json = gp_pred_to_json(json_list, n_frames, n_nodes, disp_str, n_pred=n_pred, n_post_sam = N_sam_pred)
+write(out_json, paste("outputs/gp_predictions_nonlinear_",in_file,".json",sep=""))
