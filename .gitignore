@@ -33,6 +33,7 @@
 *.sta
 Abaqus/
 Dune/
+Test/
 source/__pycache__/
 parameters.txt
 input.txt
