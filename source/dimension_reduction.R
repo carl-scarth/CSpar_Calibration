@@ -237,20 +237,28 @@ reduce_dimension_calibration <- function(y, B, W_y, q_y = 1, a_y = NULL, b_y = N
   }
 }
 
-adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyBinv, lambda_eta, lambda_y) {
+adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y) {
   # Adust covariance matrix Sigma_z of the calibration statistical model for the
   # effect of dimension-reduction upon the model decomposition truncation error,
   # and experimental observation error, which are defined for full-field output
   # Sigma_z = joint emulator covariance matrix for training data and experiment
   # KTKinv = inverse of the inner product of the basis matrix used to decompose
   # full-field model output
-  # BTWy_Binv = inverse of matrix product of basis matrix at experimental data 
+  # BTWyB = Inner product of basis matrix at experimental data points
   # points, and prior observation error precision
   # lambda_eta = scalar sample of truncation error precision
-  # lambda_y = scalar sample of observation error precision
-  n_exp = nrow(BTWyBinv)
+  # lambda_y = scalar sample of observation error precision, or vector if there 
+  # are multiple values
+  n_lambday = length(lambda_y)
+  n_exp = ncol(BTWyB)
   Sigma_z_hat = matrix(0, nrow(Sigma_z), ncol(Sigma_z))
-  Sigma_z_hat[1:n_exp,1:n_exp] = BTWyBinv/lambda_y
+  for (i in 1:n_lambday) {
+    # Add contribution from each observation error term
+    Sigma_z_hat[1:n_exp,1:n_exp] = Sigma_z_hat[1:n_exp,1:n_exp] + BTWyB[i,,]*lambda_y[i]
+  }
+  # Take inverse
+  Sigma_z_hat[1:n_exp,1:n_exp] = solve(Sigma_z_hat[1:n_exp,1:n_exp])
+  # Sigma_z_hat[1:n_exp,1:n_exp] = BTWyBinv/lambda_y
   Sigma_z_hat[-(1:n_exp),-(1:n_exp)] = KTKinv/lambda_eta
   Sigma_z_hat = Sigma_z_hat + Sigma_z
   

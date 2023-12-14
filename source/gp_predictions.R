@@ -141,7 +141,7 @@ full_field_gp_pred <- function(N_subsam, x_train, z_train, x_pred, beta_w, lambd
   return(out_list)
 }
 
-full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyBinv, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F) { 
+full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyB, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F) { 
   # Make N_post_pred predictions replicating the full-field test data for a 
   # single condition using a calibrated Gaussian process, with emulator 
   # parameters fixed to constant values. Sub-sampling from the posterior helps
@@ -156,7 +156,7 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
   # lambda_eta = scalar-valued expansion truncation error
   # lambda_y = N_sam_post vector of observation error posterior samples
   # KTKinv = inverse of inner product of emulator basis matrix with itself
-  # BTWyBinv = inverse of matrix product of basis matrix of experimental data 
+  # BTWyB = Matrix product of basis matrix of experimental data points 
   # and prior observation error precision
   # sam_gp = Boolean which dictates whether to sample from the GP
   # nugget = Boolean which dictates whether to add a nugget to the covariance
@@ -195,7 +195,7 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
     # Calculate emulator auto-covariance for training data points
     Sigma_z = ff_calibration_cov(Sigma_u, Sigma_w, Sigma_uw)
     # Adjust to account for the expansion truncation and observation error
-    Sigma_z_hat = adjust_error_covariance(Sigma_z, KTKinv, BTWyBinv, lambda_eta, lambda_y[i])
+    Sigma_z_hat = adjust_error_covariance(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y[i])
     # Calculate cross-covariance of prediction with (model) training data. This 
     # is given by sigma_u_w' as the prediction has the controlled input value x 
     # as the training data, though this does not hold in general
