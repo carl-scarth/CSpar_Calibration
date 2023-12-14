@@ -171,44 +171,46 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, label = "la
   if (new_window){
     dev.new(noRStudioGD = TRUE)
   }
+  n_lambda = ncol(lambda)
   
+  par(mfrow = c(1,n_lambda))
   # Get maximum and minimum x-limit for plots
-  max_x_prior <- qgamma(0.9999, prior_shape, prior_rate)
-  min_x_prior <- qgamma(0.0001, prior_shape, prior_rate)
+  max_x_prior <- qgamma(0.99, prior_shape, prior_rate)
+  min_x_prior <- qgamma(0.01, prior_shape, prior_rate)
   max_x <- max_x_prior
   if (!is.null(adj_prior_shape)){
-    max_x_adj_prior <- qgamma(0.9999, adj_prior_shape, adj_prior_rate)
-    min_x_adj_prior <- qgamma(0.0001, adj_prior_shape, adj_prior_rate)
+    max_x_adj_prior <- qgamma(0.99, adj_prior_shape, adj_prior_rate)
+    min_x_adj_prior <- qgamma(0.01, adj_prior_shape, adj_prior_rate)
     if (max_x < max_x_adj_prior){
       max_x = max_x_adj_prior
     }
   }
-  
-  #plot posterior
-  hist(lambda,
-     main = label,
-     xlab = label,
-     col = "firebrick1",
-     breaks = 25,
-     freq = FALSE,
-     xlim = c(0,2^ceiling(log(max_x,2))), # round up upper limit
-     cex.axis=1.5,
-     cex.lab=1,5)
-  lambda_plot <- seq(min_x_prior, max_x_prior, length.out = 1000) # set of x values for prior plot
-  prior_plot = dgamma(lambda_plot, shape=prior_shape, rate=prior_rate)
-  lines(lambda_plot,prior_plot,lwd=3,col="blue")
-  # Produce additional prior plot if needed
-  if (!is.null(adj_prior_shape)){
-    adj_lambda_plot <- seq(min_x_adj_prior, max_x_adj_prior, length.out = 1000) # set of x values for prior plot
-    adj_prior_plot = dgamma(adj_lambda_plot,shape=adj_prior_shape,rate=adj_prior_rate)
-    lines(adj_lambda_plot,adj_prior_plot,lwd=3,col="green")
+  for (i in 1:n_lambda) {
+    if (n_lambda > 1){
+      header = paste(label, i, sep="_")
+    } else {
+      header = label
+    }
+    #plot posterior
+    hist(lambda[,i],
+      main = header,
+      xlab = label,
+      col = "firebrick1",
+      breaks = 25,
+      freq = FALSE,
+      xlim = c(0,2^ceiling(log(max_x,2))), # round up upper limit
+      cex.axis=1.5,
+      cex.lab=1,5)
+    lambda_plot <- seq(min_x_prior, max_x_prior, length.out = 1000) # set of x values for prior plot
+    prior_plot = dgamma(lambda_plot, shape=prior_shape, rate=prior_rate)
+    lines(lambda_plot,prior_plot,lwd=3,col="blue")
+    # Produce additional prior plot if needed
+    if (!is.null(adj_prior_shape)){
+      adj_lambda_plot <- seq(min_x_adj_prior, max_x_adj_prior, length.out = 1000) # set of x values for prior plot
+      adj_prior_plot = dgamma(adj_lambda_plot,shape=adj_prior_shape,rate=adj_prior_rate)
+      lines(adj_lambda_plot,adj_prior_plot,lwd=3,col="green")
+    }
   }
-  # Add a legend to the plot. Not sure how to do this for mix of bar and line
-  #if (is.null(adj_prior_shape)){
-  #  legend(x = "topright", c("Posterior","Prior"), fill = c("Firebrick1",NULL))
-  #} else {
-  #  legend(x = "topright", c("Posterior","Prior","Adjusted Prior"), fill = c("Firebrick1",NULL,NULL))
-  #}
 }
 
 # If modelling discrepancy consider re-using the above code? It could be that the
