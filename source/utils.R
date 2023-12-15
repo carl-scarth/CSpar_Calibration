@@ -35,10 +35,10 @@ full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta) {
    return(R_ind)
 }
 
-write_output <- function(data, out_string, label_string){
+write_output <- function(data, out_string, label_string, disp_str = NULL){
   # Formats data and writes to a csv file with name, and column headings given 
   # in out_string, and label label_string.
-  if (is.vector(data)){
+  if (length(dim(data))<2){
     # Convert vectors to arrays
     data = matrix(data, nrow = length(data), ncol = 1)
   }
@@ -46,13 +46,34 @@ write_output <- function(data, out_string, label_string){
   if (length(dim(data)) > 2) {
     write_output_samples(data, out_string, label_string)
   } else {
-    data = as.data.frame(data)
-    # If only one column, don't need to append header with sample number
-    if (ncol(data) == 1){
-      colnames(data) = c(out_string)
+    # Split into different displacement components if needed
+    if ((!is.null(disp_str)) & (length(disp_str) > 1)) {
+      n_out = length(disp_str)
+      data_split = matrix(0, nrow = nrow(data)/n_out, ncol = ncol(data)*n_out)
+      for (i in 1:n_out) {
+        data_split[,((i-1)*ncol(data)+1):(i*ncol(data))] = data[((i-1)*nrow(data)/n_out+1):(i*nrow(data)/n_out),]
+      }
+      data = as.data.frame(data_split)
+      # If only one column, don't need to append header with sample number
+      if (ncol(data) == n_out){
+        # colnames(data) = c(out_string)
+        colnames(data) = paste(out_string, disp_str, sep="_")
+      } else {
+        for (i in 1:n_out){ 
+          for (j in 1:(ncol(data)/n_out)){
+            colnames(data)[i] = sprintf("%s_%s_%d",out_string,disp_str[i],j)
+          }
+        }
+      }
     } else {
-      for (i in 1:ncol(data)){
-        colnames(data)[i] = sprintf("%s_%d",out_string, i)
+      data = as.data.frame(data)
+      # If only one column, don't need to append header with sample number
+      if (ncol(data) == 1){
+        colnames(data) = c(out_string)
+      } else {
+        for (i in 1:ncol(data)){
+          colnames(data)[i] = sprintf("%s_%d",out_string, i)
+        }
       }
     }
     write.csv(data, sprintf("outputs/%s_%s.csv", out_string, label_string), row.names = FALSE)

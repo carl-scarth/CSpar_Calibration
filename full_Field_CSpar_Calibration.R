@@ -36,7 +36,7 @@ iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign40x4" # File identifier string for input and output csvs for model
 # exp_data_file = "Interpolated_DIC_200kN" # File identifier string for experimental data
-exp_data_file = "subsampled_data_200kN_sort" # File identifier string for experimental data
+exp_data_file = "subsampled_data_200kN_8" # File identifier string for experimental data
 surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 interp_model = TRUE # If true, we need to interpolate model outputs to experimental coordinates. Otherwise it is assumed this has already been done
 
@@ -400,7 +400,7 @@ N_sam_plot = 100
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
 # Make predictions using the calibrated Gaussian process # NEED TO UPDATE THIS WITH PREDICTION CODE AND BTwYB RATHER THAN THE INVERSE
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyB, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
+out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyB, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
 
 # Loop over each output,transform onto the correct scale, then write to csv for
 # plotting outside of R
@@ -426,7 +426,7 @@ for (i in 1:length(out_list)){
   # than two dimensions
   if (length(dim(out_i)) <= 2) {
     print(paste("writing outputs\\", out_string, "_", in_file, ".csv", sep=""))
-    write_output(out_i, out_string, in_file)
+    write_output(out_i, out_string, in_file, disp_str=disp_str)
   }
 }
 
