@@ -171,8 +171,10 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, label = "la
   if (new_window){
     dev.new(noRStudioGD = TRUE)
   }
+  if (!is.matrix(lambda)){
+    lambda = as.matrix(lambda)
+  }
   n_lambda = ncol(lambda)
-  
   par(mfrow = c(1,n_lambda))
   # Get maximum and minimum x-limit for plots
   max_x_prior <- qgamma(0.99, prior_shape, prior_rate)
