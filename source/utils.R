@@ -30,7 +30,7 @@ full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta) {
 }
 
 # Convert a list of indices from the python convention to R
- py_to_R <- function(py_ind){
+py_to_R <- function(py_ind){
    R_ind = py_ind + 1
    return(R_ind)
 }
@@ -44,6 +44,7 @@ write_output <- function(data, out_string, label_string, disp_str = NULL){
   }
   # If an array of multiple predictions, pass to the relevant code
   if (length(dim(data)) > 2) {
+    print("HAVEN'T UPDATED CODE YET - VALUES WILL BE WRONG")
     write_output_samples(data, out_string, label_string)
   } else {
     # Split into different displacement components if needed

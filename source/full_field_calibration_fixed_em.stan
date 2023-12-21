@@ -101,7 +101,7 @@ model {
   sigma_z_hat = sigma_z_hat + sigma_z;
 
   // Add small nugget
-  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-6,(m+1)*p_eta));
+  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-4,(m+1)*p_eta));
   
   // Specify prior distribution of z_hat
   L_z_hat = cholesky_decompose(sigma_z_hat);
