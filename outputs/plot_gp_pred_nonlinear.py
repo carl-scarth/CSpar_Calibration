@@ -22,7 +22,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-output_file = "gp_predictions_nonlinear_" + infile + ".json"
+output_file = "gp_predictions_nonlinear_" + infile + "_w_cal.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -107,7 +107,7 @@ for i, sample in sam_iter:
                             
                             output_max[QoI][coord][j,k] = post_sam[max_ind[coord]]
                             if coord == "w":
-                                output_RP[QoI][coord][j,k] = post_sam[1]
+                                output_RP[QoI][j,k] = post_sam[1]
                     
                     # Dictionary containing output
                     if n_pred > 1:
@@ -137,8 +137,8 @@ for i, sample in sam_iter:
                     else:                        
                         output_max[QoI][coord][j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
-                            output_RP[QoI][j] = predictions[1]
-                        frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[2:], dtype=float)
+                            output_RP[QoI][j] = predictions[coord][1]
+                        frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][2:], dtype=float)
 
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
@@ -227,6 +227,8 @@ elif "eta_mu" in output_max.keys():
         ax3.set_title("Posterior sample of longitudinal displacement at reference point")
     
     fig4, axs4 = plt.subplots(1, n_out)
+    if n_out == 1:
+        axs4 = [axs4]
     for key, disp_dict in output_max.items():
         for i, (disp_key, value) in enumerate(disp_dict.items()):
             if key == "eta_mu":
@@ -298,6 +300,8 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
 
 if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
     fig6, axs6 = plt.subplots(1, n_out)
+    if n_out == 1:
+        axs6 = [axs6]
     for key, disp_dict in output_max.items():
         for i, (disp_key, value) in enumerate(disp_dict.items()):
             if "eta_mu_mu" in key:
