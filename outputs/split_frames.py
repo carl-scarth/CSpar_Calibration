@@ -8,8 +8,8 @@ file_str = "LHSDesign40x4"
 # quantity = "mean_error"
 quantity = "interpolated_basis"
 
-# cloud_file = "_".join((file_str, quantity, "nonlinear.csv"))
-cloud_file = "Interpolated_DIC_inc2_downsam4.csv"
+cloud_file = "_".join((file_str, quantity, "nonlinear.csv"))
+#cloud_file = "Interpolated_DIC_inc2_downsam4.csv"
 out_folder = "_".join((quantity, file_str))
 if out_folder not in os.listdir(os.getcwd()):
     os.makedirs(out_folder)
