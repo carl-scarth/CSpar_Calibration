@@ -22,7 +22,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-output_file = "gp_predictions_nonlinear_" + infile + "_w_cal.json"
+output_file = "gp_predictions_nonlinear_" + infile + ".json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -85,7 +85,7 @@ for i, sample in sam_iter:
                 for k, post_sam in enumerate(predictions["Posterior_Sample"]):
                     # Convert from list to numpy
                     for coord in out_str:
-                        post_sam = np.array(post_sam[coord], dtype="float")
+                        post_sam_k = np.array(post_sam[coord], dtype="float")
                         # Initialise entry in the reference point dictionary if it doesn't exist already
                         # (not necessary if doing RP cross-val separately)
                         # Consider trying to condense the below by squeezing an array?/re-naming below
@@ -95,25 +95,25 @@ for i, sample in sam_iter:
                                 if "w" in out_str:
                                     output_RP[QoI+"_sam_"+str(k)] = np.empty((n_pred, n_frames))
                             
-                            output_max[QoI+"_sam_"+str(k)][coord][i, j] = post_sam[max_ind[coord]]
+                            output_max[QoI+"_sam_"+str(k)][coord][i, j] = post_sam_k[max_ind[coord]]
                             if "w" in out_str:
-                                output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam[1]
+                                output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[1]
                         
                         else:
                             if QoI not in output_max:
                                 output_max[QoI] = {key : np.empty((n_frames, n_post_sam)) for key in out_str}
-                                if coord == "w":
+                                if "w" in out_str:
                                     output_RP[QoI] = np.empty((n_frames, n_post_sam))
                             
-                            output_max[QoI][coord][j,k] = post_sam[max_ind[coord]]
+                            output_max[QoI][coord][j,k] = post_sam_k[max_ind[coord]]
                             if coord == "w":
-                                output_RP[QoI][j,k] = post_sam[1]
+                                output_RP[QoI][j,k] = post_sam_k[1]
                     
                     # Dictionary containing output
                     if n_pred > 1:
-                        frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam[2:]
+                        frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[2:]
                     else:
-                        frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam[2:]
+                        frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[2:]
         
             else:
                 # Otherwise the prediction is an average across the posterior
@@ -134,7 +134,7 @@ for i, sample in sam_iter:
                         if coord == "w":
                             output_RP[QoI][i,j] = predictions[coord][1]
                         frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][2:], dtype=float)
-                    else:                        
+                    else:
                         output_max[QoI][coord][j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
                             output_RP[QoI][j] = predictions[coord][1]
@@ -210,22 +210,24 @@ if n_pred > 1:
 
 # Different naming convention used if only one prediction
 elif "eta_mu" in output_max.keys():
+    # plot reference point displacement posterior samples
     if "w" in out_str:
         fig3, ax3 = plt.subplots()
         for key, value in output_RP.items():
             if key == "eta_mu":
                 ax3.plot(-value, np.linspace(0,force,n_frames), "r")
-                if key == "eta_sam":
-                    ax3.plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
-                    if key == "eta_sigma":
-                        mu = output_RP["eta_mu"]
-                        ax3.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
-                        ax3.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
+            if key == "eta_sam":
+                ax3.plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+            if key == "eta_sigma":
+                mu = output_RP["eta_mu"]
+                ax3.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
+                ax3.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
             
         ax3.set_ylabel("Force (kN)")
         ax3.set_xlabel("Displacement (mm)")
         ax3.set_title("Posterior sample of longitudinal displacement at reference point")
     
+    # Plot posterior samples at node of maximum displacement
     fig4, axs4 = plt.subplots(1, n_out)
     if n_out == 1:
         axs4 = [axs4]
@@ -233,19 +235,19 @@ elif "eta_mu" in output_max.keys():
         for i, (disp_key, value) in enumerate(disp_dict.items()):
             if key == "eta_mu":
                 axs4[i].plot(-value, np.linspace(0,force,n_frames), "r")
-        if key == "eta_sam":
-            axs4[i].plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
-        if key == "eta_sigma":
-            mu = output_max["eta_mu"][disp_key]
-            axs4[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
-            axs4[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
+            if key == "eta_sam":
+                axs4[i].plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+            if key == "eta_sigma":
+                mu = output_max["eta_mu"][disp_key]
+                axs4[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
+                axs4[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
     
-        axs4[i].set_ylabel("Force (kN)")
-        axs4[i].set_xlabel("Displacement (mm)")
-        axs4[i].set_title(disp_key + " at node " + str(max_ind[disp_key]))
+            axs4[i].set_ylabel("Force (kN)")
+            axs4[i].set_xlabel("Displacement (mm)")
+            axs4[i].set_title(disp_key + " at node " + str(max_ind[disp_key]))
     fig4.suptitle("Posterior sample predictions at location of maximum displacement across training data")
     
-# Plot mean values
+# Plot summaray statistics at reference point
 if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
     if "w" in out_str:
         fig5, ax5 = plt.subplots()
@@ -257,12 +259,11 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
                 else:
                     ax5.plot(-value, np.linspace(0,force,n_frames), "r")
             if "eta_sam_mu" in key:
-                print(value.ndim)
                 if value.ndim > 1:
                     for displacement in value:
                         ax5.plot(-displacement, np.linspace(0,force,n_frames), "g")
-                    else:
-                        ax5.plot(-value, np.linspace(0,force,n_frames), "g")
+                else:
+                    ax5.plot(-value, np.linspace(0,force,n_frames), "g")
             if "eta_sigma_mu" in key:
                 mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
                 mu = output_RP[mu_key]#[ind,:]
@@ -273,31 +274,32 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
                 else:
                     ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
                     ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")
-                if "eta_mu_sigma" in key:
-                    mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
-                    mu = output_RP[mu_key]
-                    if value.ndim > 1: 
-                        for i, sd in enumerate(value):
-                            ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "c")
-                            ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "c")
-                    else:
-                        ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "c")
-                        ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "c")
-                if "eta_sam_sigma" in key:
-                    mu_key = "eta_sam_mu" + key.strip("eta_sigma_mu_")
-                    mu = output_RP[mu_key]
-                    if value.ndim > 1: 
-                        for i, sd in enumerate(value):
-                            ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "m")
-                            ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "m")
-                    else:
-                        ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
-                        ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "m")
+            if "eta_mu_sigma" in key:
+                mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
+                mu = output_RP[mu_key]
+                if value.ndim > 1: 
+                    for i, sd in enumerate(value):
+                        ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "c")
+                        ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "c")
+                else:
+                    ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "c")
+                    ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "c")
+            if "eta_sam_sigma" in key:
+                mu_key = "eta_sam_mu" + key.strip("eta_sigma_mu_")
+                mu = output_RP[mu_key]
+                if value.ndim > 1: 
+                    for i, sd in enumerate(value):
+                        ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "m")
+                        ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "m")
+                else:
+                    ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
+                    ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "m")
             
         ax5.set_ylabel("Force (kN)")
         ax5.set_xlabel("Displacement (mm)")
         ax5.set_title("Summary statistics across posterior of reference point longitudinal displacement")
 
+# Summary statistics for node with maximum displacement
 if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
     fig6, axs6 = plt.subplots(1, n_out)
     if n_out == 1:
@@ -307,24 +309,24 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
             if "eta_mu_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "r")
+                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "r", label="emulator mean")
                 else:
-                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "r")
+                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "r", label="emulator mean")
             if "eta_sam_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "g")
+                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "g", label="posterior mean")
                 else:
-                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "g")
+                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "g", label="posterior mean")
             if "eta_sigma_mu" in key:
                 mu_key = "eta_mu_mu" # + key.strip("eta_sigma_mu_")
                 mu = output_max[mu_key][disp_key]
                 if value.ndim > 1: 
                     for j, sd in enumerate(value):
-                        axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "b")
+                        axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "b", label="95% interval (emulator)")
                         axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "b")
                 else:
-                    axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
+                    axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b", label="95% interval (emulator)")
                     axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "b")
             if "eta_mu_sigma" in key:
                 mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
@@ -343,15 +345,16 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
                 if value.ndim > 1: 
                     for j, sd in enumerate(value):
                         axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "m")
-                        axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "m")
+                        axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "m", label="95% interval (posterior)")
                 else:
                     axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
-                    axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "m")
+                    axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "m", label="95% interval (posterior)")
             
             axs6[i].set_ylabel("Force (kN)")
             axs6[i].set_xlabel("Displacement (mm)")
             axs6[i].set_title(disp_key + " at node " + str(max_ind[disp_key]))
-        fig6.suptitle("Posterior sample predictions at location of maximum displacement across training data")
+        [ax6.legend() for ax6 in axs6]
+        fig6.suptitle("Summary statistics at location of maximum displacement across training data")
             
 #if n_pred == 1:
 #    # output_RP = {key : value.flatten() for key, value in output_RP.items()}
