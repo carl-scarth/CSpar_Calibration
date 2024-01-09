@@ -120,9 +120,9 @@ gp_pred_to_json <- function(in_list, n_frames, n_nodes, disp_str, n_pred=1, n_po
           out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample = vector(mode="list", length=n_post_sam)
           # Loop over posterior samples
           for (l in 1:n_post_sam){
+            out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = vector(mode="list", length = length(disp_str))
+            names(out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]]) = disp_str
             for (m in 1:length(disp_str)){
-              out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]] = vector(mode="list", length = length(disp_str))
-              names(out_list$Prediction[[i]]$Frame[[j]][[k]]$Posterior_Sample[[l]]) = disp_str
               if (n_pred > 1) {
                 # out_ijl = in_list[[k]][((j-1)*n_nodes+1):(j*n_nodes),l,i]
                 out_ijlm = in_list[[k]][((j-1)*n_nodes+(m-1)*n_frames*n_nodes+1):(j*n_nodes+(m-1)*n_frames*n_nodes),l,i]
