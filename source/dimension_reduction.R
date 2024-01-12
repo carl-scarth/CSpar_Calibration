@@ -237,6 +237,40 @@ reduce_dimension_calibration <- function(y, B, W_y, q_y = 1, a_y = NULL, b_y = N
   }
 }
 
+reduce_dimension_calibration_multi <- function(y, B, W_y, q_y){
+  
+  # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
+  # the necessary quantities for passing to Stan. Focus on quantities relating
+  # to the experimental data
+  # Modified for different covariance structure with different precision for
+  # different displacement components
+  
+  # y = n_y-vector of experimental measurements, where n_y is the number of data
+  #     points
+  # B = n_y x p_B matrix of basis functions used to decompose eta, where p_B
+  #     depends upon whether, and how the discrepancy is included. For the most 
+  #     general implementation of Higdon et al. this will equal p_eta + p_delta
+  # W_y = Prior precision of observation error, which can be passed as an n_y x
+  #     n_y matrix, or if the precision is diagonal, as a n_y vector of 
+  #     the diagonal
+  # q_y = Number of output components (if output is a vector field)
+
+  
+  # Calculate B'*W_y*B
+  p_B = ncol(B)
+  n_y = length(y)/q_y
+  BTB_sep = array(NA, dim = c(0, p_B, p_B)) # matrix product separated into different vector components
+  BTy_sep = matrix(NA, nrow = p_B, ncol = q_y)
+  for (i in 1:q_y) {
+    inds_i = ((i-1)*n_y+1):(i*n_y)
+    BTB_i = t(B[inds_i,])%*%B[inds_i,]
+    BTy_sep[,i] = t(B[inds_i,])%*%y[inds_i]
+    BTB_sep = abind(BTB_sep, array(BTB_i, dim = c(1, p_B, p_B)), along=1)
+  }
+  
+  return(list(BTB_sep, BTy_sep))
+}
+
 adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y) {
   # Adust covariance matrix Sigma_z of the calibration statistical model for the
   # effect of dimension-reduction upon the model decomposition truncation error,
@@ -264,3 +298,4 @@ adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y
   
   return(Sigma_z_hat)
 }
+
