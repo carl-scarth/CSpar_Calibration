@@ -281,8 +281,8 @@ stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=q_y, a_y_dash 
 # Set via variable as in emulator case
 fit = stan(file = "source/full_field_calibration_fixed_em_multi.stan",
            data = stan_data,
-           # iter = iter,
-           # chains = chains,
+           iter = iter,
+           chains = chains,
            # chains = 1,
            # iter = 1,
            model_name = "full_field_calibration")
@@ -290,6 +290,8 @@ fit = stan(file = "source/full_field_calibration_fixed_em_multi.stan",
 #-------------------------------------------------------------------------------
 
 # Post-process and plot the simulation data
+
+# CHECK IF PREDICTION CODE NEEDS TO BE MODIFIED 
 
 # plot trace plots
 stan_trace(fit, pars = c("tf", "lambda_y"))
@@ -334,11 +336,11 @@ N_sam_plot = 2500
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
 # Take averages across posterior predictions of the calibrated Gaussian process
-out_list = full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyB, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
+out_list = full_field_calibration_pred_fixed_em_multi(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTB, BTy, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_coeff_sam = T, output_coeff_mean = F, output_ff_mean = T, output_ff_std = T)
 # It is too expensive to store a large number of posterior samples. Instead 
 # output a fewer number of samples and append to output list
 N_sam_plot = 25
-out_list = c(out_list, full_field_calibration_pred_fixed_em(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTWyB, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = F))
+out_list = c(out_list, full_field_calibration_pred_fixed_em_multi(N_sam_plot, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTB, BTy, K = K_eta, K_y = K_y, nugget = F, sam_gp = T, output_ff_sam = T, output_coeff_mean = F, output_ff_mean = F))
 
 # On next iteration, tidy up prediction code as follows:
 # First package up all the w_star prediction into one function then do loop first
