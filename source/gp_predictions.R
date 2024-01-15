@@ -311,6 +311,191 @@ full_field_calibration_pred_fixed_em <- function(N_subsam, tc, tf, z_hat, beta_w
   
 }
 
+full_field_calibration_pred_fixed_em_multi <- function(N_subsam, tc, tf, z_hat, beta_w, lambda_w, lambda_eta, lambda_y, KTKinv, BTB, BTy, K = NULL, K_y = NULL, sam_gp = F, nugget = F, output_coeff_sam = F, output_ff_sam = F, output_coeff_mean = T, output_ff_mean = T, output_ff_std = F) { 
+  # Make N_post_pred predictions replicating the full-field test data for a 
+  # single condition using a calibrated Gaussian process, with emulator 
+  # parameters fixed to constant values. Sub-sampling from the posterior helps
+  # reduce memory requirement, preventing errors when dealing with very 
+  # high-dimensional output
+  # tc = m x q matrix of calibration input training data values
+  # tf = N_sam_post x q matrix of posterior samples of calibration inputs
+  # z_hat = (m+1)*p_eta vector of emulator coefficients for experimental and 
+  # model training data
+  # beta_w = p_eta*q vector of correlation lengths
+  # lambda_w = p*q vector of emulator precisions
+  # lambda_eta = scalar-valued expansion truncation error
+  # lambda_y = N_sam_post vector of observation error posterior samples
+  # KTKinv = inverse of inner product of emulator basis matrix with itself
+  # BTWyB = Matrix product of basis matrix of experimental data points 
+  # and prior observation error precision
+  # sam_gp = Boolean which dictates whether to sample from the GP
+  # nugget = Boolean which dictates whether to add a nugget to the covariance
+  # output_coeff_sam = Boolean on whether to output info for the basis coefficients
+  # output_ff_sam = Boolean on whether to output info for the full-field response
+  # output_coeff_mean = Boolean on whether to average across posterior predictions for the basis coefficients
+  # output_ff_mean = Boolean on whether to average across posterior predictions for the full-field
+  # output_ff_std = Boolean on whether to output standard deviation across posterior predictions
+  
+  N_post = nrow(tf) # Determine overall number of posterior samples
+  if (!is.null(K)){N_eta = nrow(K)} else {N_eta = NULL} # Determine number of output values per simulation
+  if (!is.null(K_y)){N_y = nrow(K_y)} else {N_y = NULL} # Determine number of experimental data points
+  p_eta = length(lambda_w) # Determine number of bases (this might not work for fixed point)
+  
+  # Sub-sample from the posterior distribution
+  subsam_ind = sample.int(N_post, N_subsam) # Determine index of posterior samples
+  tf = tf[subsam_ind,]
+  lambda_y = lambda_y[subsam_ind,]
+  q_y = ncol(lambda_y)
+  
+  # Initialise output arrays
+  if (!is.null(K)){has_K = TRUE} else {has_K = FALSE}
+  if (!is.null(K_y)){has_K_y = TRUE} else {has_K_y = FALSE}
+  out_list = initialise_out_list(p=p_eta, N_eta = N_eta, N_y = N_y, N_post=N_subsam, K=has_K, K_y=has_K_y, sam_gp = sam_gp, output_coeff_sam = output_coeff_sam, output_ff_sam = output_ff_sam, output_coeff_mean = output_coeff_mean, output_ff_mean = output_ff_mean, output_ff_std = output_ff_std)
+  
+  # Covariance matrix for the emulator at the experimental data points. This 
+  # reduces to a diagonal matrix for a single experiment
+  Sigma_u = diag(1/lambda_w, nrow=p_eta, ncol=p_eta)
+  # Define the emulator covariance matrix evaluated at the training data points
+  Sigma_w = full_field_cov(tc, lambda_w, beta_w)
+  # Loop over selected posterior samples
+  for (i in 1:N_subsam){
+    print(i) # Print count of loop
+    # Construct covariance matrices for making predictions
+    # Calculate emulator cross-covariance between training data and experimental data points
+    Sigma_uw = full_field_cov_non_sym(tf[i,,drop=FALSE], tc, lambda_w, beta_w)
+    # Calculate emulator auto-covariance for training data points
+    Sigma_z = ff_calibration_cov(Sigma_u, Sigma_w, Sigma_uw)
+    # Adjust to account for the expansion truncation and observation error
+    Sigma_z_hat = adjust_error_covariance(Sigma_z, KTKinv, BTB, lambda_eta, lambda_y[i,])
+    # Calculate cross-covariance of prediction with (model) training data. This 
+    # is given by sigma_u_w' as the prediction has the controlled input value x 
+    # as the training data, though this does not hold in general
+    Sigma_w_w_star = t(Sigma_uw)
+    # Define cross-covariance for joint data z with prediction w_star
+    Sigma_z_w_star = rbind(Sigma_u, Sigma_w_w_star)
+    # Determine auto-covariance of the prediction
+    Sigma_w_star = Sigma_u
+    # Calculate z_hat for the current sample
+    BTeps_yy = rep(0,p_eta)
+    prec_y = matrix(0,p_eta,p_eta)
+    # Calculate inner product sum of B_iT*B_i*lambda_i and take inverse
+    # Also sum of B_iT*y_i*lambda_i
+    for (j in 1:q_y){
+      BTeps_yy = BTeps_yy + lambda_y[i,j]*BTy[,j]
+      prec_y = prec_y + lambda_y[i,j]*BTB[j,,]
+    }
+    # Calculate reduced dimensional term for experimental data
+    u_hat = solve(prec_y,BTeps_yy)
+    z_hat = c(u_hat, w_hat)
+    
+    # Determine GP mean and covariance in reduced-dimensional space, and if 
+    # required sample from the GP
+    pred = zero_mean_gp_pred(z_hat, Sigma_z_hat, Sigma_z_w_star, Sigma_w_star, sam_gp = sam_gp, nugget = nugget)
+    w_star_mu = pred[[1]]
+    w_star_sigma = pred[[2]]
+    w_star = pred[[3]]
+    
+    # The rest of this could be packaged maybe?
+    # Store emulator posterior samples of basis coefficients if requested
+    if (output_coeff_sam){
+      out_list$w_star_mu[,i] = w_star_mu
+      out_list$w_star_sigma[,,i] = w_star_sigma
+      if (sam_gp) {
+        out_list$w_star[,i] = w_star
+      }
+    }
+    
+    # Convert from reduced-dimensional space to full-field, output at 
+    # experimental data points, or both, depending upon which basis matrices
+    # have been provided
+    if (!is.null(K)){
+      eta_mu = c(K %*% w_star_mu)
+      eta_sigma = sqrt((rowSums((K %*% w_star_sigma) * K)))
+      if (sam_gp) {
+        eta_sam = c(K %*% w_star)
+      }
+    }
+    if (!is.null(K_y)){
+      eta_mu_y = c(K_y %*% w_star_mu)
+      eta_sigma_y = sqrt((rowSums((K_y %*% w_star_sigma) * K_y)))
+      if (sam_gp) {
+        eta_sam_y = c(K_y %*% w_star)
+      }
+    }
+    if (output_ff_sam & !is.null(K)){
+      out_list$eta_mu[,i] = eta_mu
+      # Only output diagonals of covariance as full matrix is too high-
+      # dimensional. Take square-root for standard
+      out_list$eta_sigma[,i] = eta_sigma
+      if (sam_gp) {
+        out_list$eta_sam[,i] = eta_sam
+      }
+    }
+    if (output_ff_sam & !is.null(K_y)) {
+      out_list$eta_mu_y[,i] = eta_mu_y
+      # Only output diagonals of covariance as full matrix is too high-
+      # dimensional. Take square-root for standard
+      out_list$eta_sigma_y[,i] = eta_sigma_y
+      if (sam_gp) {
+        out_list$eta_sam_y[,i] = eta_sam_y
+      }
+    }
+    
+    # If averages are required across posterior samples, keep a running total
+    # to reduce memory requirements, compared with calculating mean at the end
+    if (output_coeff_mean) {
+      out_list$w_star_mu_mu = out_list$w_star_mu_mu + w_star_mu/N_subsam
+      out_list$w_star_sigma_mu = out_list$w_star_sigma_mu + w_star_sigma/N_subsam
+      if (sam_gp) {
+        out_list$w_star_sam_mu = out_list$w_star_sam_mu + w_star/N_subsam
+      }
+    }
+    # Add to average across full-field posterior samples if required
+    if ((output_ff_mean | output_ff_std) & !is.null(K)){
+      out_list$eta_mu_mu = out_list$eta_mu_mu + eta_mu/N_subsam
+      out_list$eta_sigma_mu = out_list$eta_sigma_mu + eta_sigma/N_subsam
+      if (sam_gp) {
+        out_list$eta_sam_mu = out_list$eta_sam_mu + eta_sam/N_subsam
+      }
+    }
+    if ((output_ff_mean | output_ff_std) & !is.null(K_y)){
+      out_list$eta_mu_y_mu = out_list$eta_mu_y_mu + eta_mu_y/N_subsam
+      out_list$eta_sigma_y_mu = out_list$eta_sigma_y_mu + eta_sigma_y/N_subsam
+      if (sam_gp) {
+        out_list$eta_sam_y_mu = out_list$eta_sam_y_mu + eta_sam_y/N_subsam
+      }
+    }
+    if (output_ff_std & !is.null(K)){
+      out_list$eta_mu_sigma = out_list$eta_mu_sigma + (eta_mu^2)/N_subsam
+      if (sam_gp) {
+        out_list$eta_sam_sigma = out_list$eta_sam_sigma + (eta_sam^2)/N_subsam
+      }
+    }
+    if (output_ff_std & !is.null(K_y)){
+      out_list$eta_mu_y_sigma = out_list$eta_mu_y_sigma + (eta_mu_y^2)/N_subsam
+      if (sam_gp) {
+        out_list$eta_sam_y_sigma = out_list$eta_sam_y_sigma + (eta_sam_y^2)/N_subsam
+      }
+    }
+  }
+  
+  if (output_ff_std & !is.null(K)){
+    out_list$eta_mu_sigma = sqrt(out_list$eta_mu_sigma - (out_list$eta_mu_mu^2))
+    if (sam_gp){
+      out_list$eta_sam_sigma = sqrt(out_list$eta_sam_sigma - (out_list$eta_sam_mu^2))
+    }
+  }
+  if (output_ff_std & !is.null(K_y)){
+    out_list$eta_mu_y_sigma = sqrt(out_list$eta_mu_y_sigma - (out_list$eta_mu_y_mu^2))
+    if (sam_gp){
+      out_list$eta_sam_y_sigma = sqrt(out_list$eta_sam_y_sigma - (out_list$eta_sam_y_mu^2))
+    }
+  }
+  
+  return(out_list)
+  
+}
+
 # The below functions deal with initialising, and updating output lists used to
 # pass the requested predictions to the main R code. The contents of this list
 # will depend upon values of the Boolean variables passed to the prediction code
