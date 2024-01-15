@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
+# Used to produce force displacement plots for validating emulator
+
 rcParams.update({'figure.figsize' : (12,9),
                 'font.size' : 14,
                 'font.family' : 'serif',
@@ -17,6 +19,8 @@ disp_str = ["u", "v", "w"]
 # Load training data
 RP_DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
 max_DoE = {key : np.loadtxt("_".join((infile,key,"max_displacements.csv")),delimiter=",", skiprows=0) for key in disp_str}
+print(max_DoE)
+asdsa
 # DoE = np.loadtxt(infile + "_u_max_displacements.csv", delimiter=",", skiprows=0)
 # Load gp mean and standard deviation (used a different name for training gp - fix later)
 gp_mean_RP = np.loadtxt(gpfile + "_RP_eta_mu_mu.csv", delimiter=",", skiprows=0)
