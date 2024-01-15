@@ -11,10 +11,10 @@ if __name__ == "__main__":
 
     # Set up for output across multiple frames, input via json
     infile = "LHSDesign40x4"
-    output_file = "gp_predictions_nonlinear_b" + infile + ".json"
+    output_file = "gp_predictions_nonlinear_" + infile + ".json"
     conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
     # Load inputs from file
-    exp_data_file = "Interpolated_DIC" # Csv containing experimental data, including increment index and point index
+    exp_data_file = "Interpolated_DIC_inc2" # Csv containing experimental data, including increment index and point index
     # Read in prediction data
     with open(output_file, "r") as f:
         # Load in string from file
@@ -28,12 +28,20 @@ if __name__ == "__main__":
     # Convert increment to python indexing
     exp_data.Increment = exp_data.Increment - 1
 
-    # Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
+    # Get number of predictions and number of frames.
     n_frames = len(in_dict["Frame"])
-    
+    # Get labels of outputs and number of nodes
+    if "Posterior_Sample" in list(in_dict["Frame"][0].values())[0]:
+        out_str = list(list(in_dict["Frame"][0].values())[0]["Posterior_Sample"][0].keys())
+        n_nodes = len(list(list(in_dict["Frame"][0].values())[0]["Posterior_Sample"][0].values())[0])
+    else:
+        out_str = list(list(in_dict["Frame"][0].values())[0].keys())
+        n_nodes = len(list(list(in_dict["Frame"][0].values())[0].values())[0])
+    d_y = len(out_str) # Number of y components
+
     # Loop over the entries of in_dict and interpolate the data to a point cloud
-    if "interp_output2" not in os.listdir(os.getcwd()):
-        os.mkdir("interp_output2")
+    if "interp_gp_output" not in os.listdir(os.getcwd()):
+        os.mkdir("interp_gp_output")
 
     for i, frame in enumerate(in_dict["Frame"]):
         print(i)
@@ -48,24 +56,28 @@ if __name__ == "__main__":
             # Does output have multiple posterior samples?
             if "Posterior_Sample" in predictions:
                 n_post_sam = len(predictions["Posterior_Sample"])
-                output = np.empty((len(predictions["Posterior_Sample"][0]),n_post_sam), dtype=float)
+                # output = np.empty((len(predictions["Posterior_Sample"][0]),n_post_sam*d_y), dtype=float)
+                output = np.empty((n_nodes,0), dtype = float)
+                output_names = []
                 for j, post_sam in enumerate(predictions["Posterior_Sample"]):
                     # Convert from list to numpy
-                    post_sam = np.array(post_sam, dtype="float")
-                    output[:,j] = post_sam
+                    output = np.concatenate((output, np.array([component for component in post_sam.values()],ndmin=2, dtype="float").T), axis=1)
+                    output_names.extend(["_".join((QoI, coord, str(j))) for coord in post_sam.keys()])
+
                 interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=2)
-                interp_output = pd.DataFrame(interp_output, columns=[QoI+"_"+str(k) for k in range(n_post_sam)])
+                interp_output = pd.DataFrame(interp_output, columns=output_names)
             else:
                 # Otherwise the prediction is an average across the posterior
-                interp_output = intp_nodes_to_cloud(el_ind, gh, np.array(predictions,ndmin=2).T, conn, GH = [], skip_nodes=2)
-                interp_output = pd.DataFrame(interp_output, columns=[QoI])
+                output = np.array([component for component in predictions.values()],ndmin=2).T
+                interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=2)
+                interp_output = pd.DataFrame(interp_output, columns=["_".join((QoI,coord)) for coord in predictions.keys()])
                 interp_output.reset_index(drop=True, inplace=False)
 
             # Problem with index here
             out_frame.reset_index(drop=True, inplace=True)
             out_frame = pd.concat((out_frame,interp_output), axis=1)
-        
+
         # Write to csv
-        out_frame.to_csv("interp_output2\\Frame_"+str(i)+".csv",sep=",",index=False)
+        out_frame.to_csv("interp_gp_output\\Frame_"+str(i)+".csv",sep=",",index=False)
         # Add residuals if need be, though leave till next time - doesn't matter for this first run and
         # may not downsample in same way in future
