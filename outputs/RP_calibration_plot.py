@@ -5,9 +5,69 @@ from matplotlib import rcParams
 import os
 
 # Produces force-displacement plots comparing DIC data with calibrated model
-
 # Thoughts - could be better to load in actual force disp rather than a large time steps
 # Bit of a mess. Commented unused code. Delete later if not needed
+
+# First attempt at coding a general purpose plotting function - place in separate header if useful
+def gp_plot(fig = [], ax = [], n_row = 1, n_col = 1, gp_force = [], gp_mean = [], gp_sd = [], gp_sam = [], xval_force = [], xval_y = [], add_legend = False):
+    # Individual plot of Gaussian process mean and standard deviation, and samples
+    # ax = list of axes on the figure
+    if not fig:
+        fig = plt.figure()
+    ax.append(fig.add_subplot(n_row, n_col, len(ax)+1))
+    if len(gp_sam) > 0:
+        ax[-1].plot(gp_sam, get_force(gp_sam, force=gp_force), "c", linewidth = 0.25, label = "sample")
+    if len(gp_mean) > 0:
+        ax[-1].plot(gp_mean, get_force(gp_mean, force=gp_force), "r", linewidth = 1.5, label = "mean")
+    if len(gp_sd) > 0 and len(gp_mean) > 0:
+        ax[-1].plot(gp_mean-2*gp_sd, get_force(gp_mean, force=gp_force), "b", linewidth = 1.0, label = "-2 standard deviations")
+        ax[-1].plot(gp_mean+2*gp_sd, get_force(gp_mean, force=gp_force), "b", linewidth = 1.0, label = "+2 standard deviations")
+    print(xval_y)
+    if len(xval_y) > 0:
+        ax[-1].plot(xval_y, get_force(xval_y, force = xval_force), "k", linewidth=1.5, label="DIC")
+    ax[-1].set_ylabel("Force (kN)")
+    ax[-1].set_xlabel("Displacement (mm)")
+    if add_legend:
+        ax.legend()
+    return(ax)
+
+def get_force(y, force = []):
+    # Check if force is given, if not return range length of y QoI
+    if len(force) < 1:
+        force = np.arange(y.shape[0])
+    return(force)
+
+def subplots_loop(point_inds, DIC, GP_DIC, force_inc, disp_str, n_row, n_col, minus = False):
+    # Wrapper function
+    # coord_list = []
+    fig = plt.figure()
+    ax = []
+    # for i, point in enumerate(point_inds):
+    for point in point_inds:
+        # Extract DIC data (across all increments) at current point
+        DIC_point = DIC[DIC["point_ind"] == point]
+        # Also extract values from training data
+        gp_point = GP_DIC[GP_DIC["point_ind"] == point].sort_values(["Increment"])
+        gp_force = gp_point["Increment"].to_numpy()*force_inc
+        # Extract samples, mean and standard deviation from gp predictions
+        gp_point_sam = gp_point[[column for column in GP_DIC.columns.values if "_".join(("eta_sam",disp_str)) in column and column != "_".join(("eta_sam_mu",disp_str)) and column != "_".join(("eta_sam_sigma",disp_str))]]
+        gp_point_mu = gp_point[["_".join(("eta_sam_mu", disp_str))]]
+        gp_point_sigma = gp_point[["_".join(("eta_sam_sigma", disp_str))]]
+        if minus:
+            gp_point_sam = -gp_point_sam
+            gp_point_mu = -gp_point_mu
+        # Extract force and displacemnt data from DIC 
+        force_disp = DIC_point[["Force", "_".join((disp_str,"rot"))]].to_numpy()
+        force_disp[:,0] = - force_disp[:,0]
+        if minus:
+            force_disp[:,1] = -force_disp[:,1]
+
+
+        #coord_list.append(DIC_point[["x_proj","y_proj","z_proj"]].iloc[0].to_list())
+        # print(coord_list)
+        gp_plot(fig = fig, ax = ax, n_row = n_row, n_col = n_col, gp_force = gp_force, gp_mean = gp_point_mu.to_numpy(), gp_sd = gp_point_sigma.to_numpy(), gp_sam = gp_point_sam.to_numpy(), xval_force = force_disp[:,0], xval_y = force_disp[:,1], add_legend = False)
+
+
 rcParams.update({'figure.figsize' : (12,9),
                 'font.size' : 14,
                 'font.family' : 'serif',
@@ -50,6 +110,7 @@ gp_sam = np.loadtxt(file_str + "_RP_eta_sam.csv", delimiter=",", skiprows=0)
 
 # Alternative source of DIC data - contains entire test dataset rather than interpolated data used to train model
 for i, file in enumerate(os.listdir(DIC_folder)):
+    print(file)
     data = pd.read_csv(DIC_folder + "\\" + file)
     data["Force"] = zeroed_force[i]
     data["point_ind"] = data.index
@@ -84,47 +145,23 @@ ax.plot(-gp_mean-2*gp_sd, y_gp, "b", linewidth=1.5, label="95% Interval")
 ax.plot(-gp_mean+2*gp_sd, y_gp, "b", linewidth=1.5)
 # Plot experimental force-displacement
 ax.plot(-zeroed_disp.to_numpy(),-zeroed_force.to_numpy(),"k", linewidth=1.5)     
-label_font = {'family': 'serif', 'size': 16}
-ax.set_ylabel("Force (kN)", fontdict = label_font)
-ax.set_xlabel("Displacement (mm)", fontdict = label_font)
+ax.set_ylabel("Force (kN)")
+ax.set_xlabel("Displacement (mm)")
 # ax.legend()
 
 # Also plot force (longitudinal) displacement for selected DIC data points
-point_subset = [41306, 45855, 43614, 46631, 48792, 49622]
-fig2 = plt.figure()
-# coord_list = []
-ax2 = []
-for i, point in enumerate(point_subset):
-    # Extract DIC data (across all increments) at current point
-    DIC_point = DIC_all[DIC_all["point_ind"] == point]
-    # Also extract values from training data
-    gp_point = GP_DIC[GP_DIC["point_ind"] == point].sort_values(["Increment"])
-    gp_force = gp_point["Increment"].to_numpy()/n_incs*max_force
-    # Extract samples, mean and standard deviation from gp predictions
-    gp_point_sam = gp_point[[column for column in GP_DIC.columns.values if "eta_sam_w" in column and column != "eta_sam_mu_w" and column != "eta_sam_sigma_w"]]
-    gp_point_mu = gp_point[["eta_sam_mu_w"]]
-    gp_point_sigma = gp_point[["eta_sam_sigma_w"]]
-
-    # Extract force and displacemnt data from DIC 
-    force_disp = DIC_point[["w_rot", "Force"]].to_numpy()
-    #DIC_point = DIC_data[DIC_data["point_ind"] == point]
-    #force_disp = DIC_point[["w_rot", "Compressive Force"]].to_numpy()
-    #coord_list.append(DIC_point[["x_proj","y_proj","z_proj"]].iloc[0].to_list())
-    ax2.append(fig2.add_subplot(2, 3, i+1))
-    ax2[-1].plot(-gp_point_sam.to_numpy(), gp_force, "c", linewidth = 0.25, label = "sample")
-    ax2[-1].plot(-force_disp[:,0], -force_disp[:,1], "k", linewidth=1.5, label="DIC")
-    ax2[-1].plot(-gp_point_mu.to_numpy(), gp_force, "r", linewidth = 1.5, label = "mean")
-    ax2[-1].plot(-gp_point_mu.to_numpy()-2*gp_point_sigma.to_numpy(), gp_force, "b", linewidth = 1.0, label = "-2 standard deviations")
-    ax2[-1].plot(-gp_point_mu.to_numpy()+2*gp_point_sigma.to_numpy(), gp_force, "b", linewidth = 1.0, label = "+2 standard deviations")
-    ax2[-1].set_ylabel("Force (kN)", fontdict = label_font)
-    ax2[-1].set_xlabel("Displacement (mm)", fontdict = label_font)
-
-#print(coord_list)
-fig2.suptitle("Force (longitudinal) displacement plots from DIC near spar end")
-plt.show()
-
-# Works up to here.
-# Next plot summary u and v.
+point_subset_w = [41306, 45855, 43614, 46631, 48792, 49622]
+subplots_loop(point_subset_w, DIC_all, GP_DIC, max_force/n_incs, "w", 2, 3, minus = True)
+# Plot minmum vertical displacement
+point_subset_umin = [11710, 10738, 10699, 21171, 10650]
+subplots_loop(point_subset_umin, DIC_all, GP_DIC, max_force/n_incs, "u", 1, 5)
+# Plot maximum vertical displacement at both ends
+point_subset_umax = [669, 554, 398, 22793, 28281, 38707, 388, 38834, 45144, 45568]
+subplots_loop(point_subset_umax, DIC_all, GP_DIC, max_force/n_incs, "u", 2, 5)
+# Plot maximum transverse diplacement at both end of the flange tips
+point_subset_vmax = [51980, 51513, 50460, 51045, 51126, 51318]
+subplots_loop(point_subset_vmax, DIC_all, GP_DIC, max_force/n_incs, "v", 2, 3)
 # Decide on a few points from each
 # Points from middle (for u) are [11710, 10738, 10699, 21171, 10650]
 # Try and get some for the other bits (nodes)
+plt.show()
