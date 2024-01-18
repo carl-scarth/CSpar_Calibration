@@ -59,7 +59,11 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
     # the overall mean)
     sigma_y = sd(y)
   }
-  y_scale = y/sigma_y
+  if (length(sigma_y) == 1) {
+    y_scale = y/sigma_y
+  } else {
+    y_scale = sweep(y,1,sigma_y,"/") # Allows for input of vector y to scale the individual componenents individually
+  }
   return(list(y_scale, mu_y, sigma_y))
 }
 
@@ -70,7 +74,11 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
 # I think this would actually also work for scalar valued mu_y etc, and vector 
 # sigma_y
 rescale_vector_output <- function(y_scale, mu_y, sigma_y, std = FALSE){
-  y = y_scale*sigma_y
+  if (length(sigma_y) == 1) {
+    y = y_scale*sigma_y
+  } else {
+    y = y_scale = sweep(y,1,sigma_y,"*") # Allows for input of vector y to scale the individual componenents individually
+  }
   if (!std) {
     #if (is.matrix)(y){
     #  y = y + t(replicate(ncol(y), mu_y))
