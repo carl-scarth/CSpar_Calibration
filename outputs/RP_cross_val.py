@@ -13,14 +13,14 @@ rcParams.update({'figure.figsize' : (12,9),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
-gpfile = "LHSDesign40x4"
-infile = "LHSDesign40x4_1"
-disp_str = ["u", "v", "w"]
+gpfile = "LHSDesign70x7"
+infile = "LHSDesign70x7_1"
+disp_str = disp_str = "w" # ["u", "v", "w"]
 # Load training data
 RP_DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
+# Will this apply to other datasets besides 40x4? vvvv Check?
 max_DoE = {key : np.loadtxt("_".join((infile,key,"max_displacements.csv")),delimiter=",", skiprows=0) for key in disp_str}
-print(max_DoE)
-asdsa
+
 # DoE = np.loadtxt(infile + "_u_max_displacements.csv", delimiter=",", skiprows=0)
 # Load gp mean and standard deviation (used a different name for training gp - fix later)
 gp_mean_RP = np.loadtxt(gpfile + "_RP_eta_mu_mu.csv", delimiter=",", skiprows=0)
@@ -32,8 +32,9 @@ fig, ax = plt.subplots()
 # Cherry pick from output data
 
 # ind = [2]
-ind = range(30, 40)
-ind = [10]
+ind = range(10, 20)
+ind = [25]
+# ind = [10]
 RP_DoE = RP_DoE[ind,:]
 max_DoE = {key : max_DoE[key][ind,:] for key in disp_str}
 
@@ -62,6 +63,8 @@ ax.set_xlabel("Displacement (mm)")
 ax.set_title("Longitudinal dispacement at the RP")
 
 fig2, axs2 = plt.subplots(1,len(disp_str))
+if len(disp_str) == 1:
+    axs2 = [axs2]
 for ax2, key in zip(axs2, disp_str):
     for displacement in max_DoE[key]:
         ax2.plot(-displacement, y_DoE, "k")
