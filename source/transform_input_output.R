@@ -87,7 +87,7 @@ rescale_vector_output <- function(y_scale, mu_y, sigma_y, std = FALSE){
   if (length(sigma_y) == 1) {
     y = y_scale*sigma_y
   } else {
-    y = y_scale = sweep(y,1,sigma_y,"*") # Allows for input of vector y to scale the individual componenents individually
+    y = sweep(y_scale,1,sigma_y,"*") # Allows for input of vector y to scale the individual componenents individually
   }
   if (!std) {
     #if (is.matrix)(y){
