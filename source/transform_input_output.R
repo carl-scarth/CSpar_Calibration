@@ -46,7 +46,7 @@ rescale_inputs <- function(x_norm, x_min, x_max, std = FALSE){
 # necessary to centre before scaling
 # There is an option to provide the mean vector and standard deviation, 
 # otherwise these are calculated internally
-standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALSE){
+standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALSE, q_y = 1){
   if (!std) {
     if (is.null(mu_y)){
       mu_y = rowMeans(y)
@@ -57,11 +57,25 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
     # Note, it's better to calculate this after centring the data, as this 
     # affects the standard deviation (given the mean vector is used, rather than
     # the overall mean)
-    sigma_y = sd(y)
+    if (q_y > 1) {
+      simga_y = c()
+      n_y = nrow(y)/q_y
+      for (i in 1:q_y) {
+        y_i = y[((i-1)*n_y+1):(i*n_y),]
+        sigma_y = c(sigma_y, rep(sd(y_i),n_y))
+      }
+    } else {
+      sigma_y = sd(y)
+    }
   }
-  y_scale = y/sigma_y
+  if (length(sigma_y) == 1) {
+    y_scale = y/sigma_y
+  } else {
+    y_scale = sweep(y,1,sigma_y,"/") # Allows for input of vector y to scale the individual componenents individually
+  }
   return(list(y_scale, mu_y, sigma_y))
 }
+
 
 # Function for the inverse standardisation of vector output by the mean vector
 # mu_y, and scalar standard deviation sigma_y
@@ -70,7 +84,11 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
 # I think this would actually also work for scalar valued mu_y etc, and vector 
 # sigma_y
 rescale_vector_output <- function(y_scale, mu_y, sigma_y, std = FALSE){
-  y = y_scale*sigma_y
+  if (length(sigma_y) == 1) {
+    y = y_scale*sigma_y
+  } else {
+    y = sweep(y_scale,1,sigma_y,"*") # Allows for input of vector y to scale the individual componenents individually
+  }
   if (!std) {
     #if (is.matrix)(y){
     #  y = y + t(replicate(ncol(y), mu_y))

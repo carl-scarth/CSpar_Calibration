@@ -2,16 +2,13 @@
 import json
 import pandas as pd
 
-specify_load = True
-if not specify_load:
-    specify_inc = True
-else:
-    specify_inc = False
+specify_load = False
+specify_inc = not(specify_load)
 
 load = 200 # Desired applied load Value
 inc = 2
 
-file_str = "LHSDesign100x9"
+file_str = "LHSDesign70x7"
 with open("inputs\\" + file_str + "_output_struct.json",'r') as f:
     output_dict = json.loads(f.readline())
 
@@ -26,7 +23,7 @@ if specify_load:
 elif specify_inc:
     out_dict = {"Sample" : []}
     for i, sample in enumerate(output_dict["Sample"]):
-        # [print(frame["RFs"]) for j, frame in enumerate(sample["Frame"]) if j % inc == 0]
+        [print(frame["RFs"]) for j, frame in enumerate(sample["Frame"]) if j % inc == 0]
         out_dict["Sample"].append({"Frame": [frame for j, frame in enumerate(sample["Frame"]) if j % inc == 0]})
     # Write to json
     with open("inputs\\" + file_str + "_downsam_" + str(inc) + ".json",'w') as f:
