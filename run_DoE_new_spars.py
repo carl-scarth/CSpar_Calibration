@@ -29,8 +29,8 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-# infile = "inputs\\LHSDesign40x4_1"
-infile = "inputs\\nominal_inputs_new_spar"
+infile = "inputs\\LHSDesign50x3_2"
+# infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
 # infile = "inputs\\eccentricities"
@@ -186,7 +186,6 @@ for i, x_i in iterable:
     print(command)
     os.system(command)
     
-
     # Process the abaqus output to extract displacements and nodal coordinates
     if change_inc:
         # If multiple frames are requested, run the code which processes all frames
