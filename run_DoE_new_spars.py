@@ -167,19 +167,30 @@ for i, x_i in iterable:
     nu23 = set_input(x_i, "nu23", 0.43)
     G12 = set_input(x_i, "G12", 4.69)
     x_spring = set_input(x_i, "x_spring", 44.27)
+    x_spring_error = set_input(x_i, "x_spring_error", 0.0)
+    x_misalign_slope = set_input(x_i, "x_misalign_slope", 0.0)
+    pivot_offset_error = set_input(x_i, "pivot_offset_error", 0.0)
+    # Calculate the eccentricity of the support pivot at either end
+    x_spring_1 = x_spring + x_spring_error - x_misalign_slope*(Zlength+rotation_offset)
+    x_spring_2 = x_spring + x_spring_error + x_misalign_slope*(Zlength+rotation_offset)
+
     if "K" in x_i:
         K = x_i["K"]
     elif "log_K" in x_i:
         K = np.exp(x_i["log_K"])
     else:
-        K = 1.0e10
+        K = 10.0
     
     # write Abaqus input file using the appropriate function, depending on whether or not the mesh is 
     # comprised of shells
+    asdnasldnaskdasn
+    # NEED  TO CHANGE WRITE_SHELL_INP TO TAKE IN SEPARATE X_spring values below, matching my updates
+    # to Jean's model. doesn't matter for my past runs as they had no offset. perform the calculation
+    # here thuough
     if shell_mesh:
-        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_1=x_spring_1, x_spring_2=x_spring_2, load=load, rotation_offset = rotation_offset, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     else:
-        write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+        write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
 
     # Run Abaqus from the command line
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
