@@ -8,17 +8,22 @@ import matplotlib.pyplot as plt
 import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign40x4_1"
+new_spar = True # Are we dealing with the new (IM7) spars?
+infile = "nominal_inputs_new_spar_output_struct"
 
 # Open the output files
 if shell_mesh:
-    node_file = "CSpar_sam_shell_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
-    element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
+    if new_spar:
+        node_file = "CSpar_sam_shell_mesh_nodes_new_spar.csv" # Nodes of nominal input (ignores geometric uncertainty)
+        element_file = "CSpar_sam_shell_mesh_elements_new_spar.csv" # Element connectivity
+    else:
+        node_file = "CSpar_sam_shell_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
+        element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
 else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-output_file = infile + "_output_struct.json"
+output_file = infile + ".json" # "_output_struct.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -51,7 +56,7 @@ with open(output_file, "r") as f:
 n_sam = len(in_dict["Sample"]) # Number of predictions
 n_frames = len(in_dict["Sample"][0]["Frame"]) # Number of frames
 increments = [frame["Increment"] for frame in in_dict["Sample"][0]["Frame"]]
-keep_ind = np.linspace(0,n_frames-1, 17, dtype="int")
+keep_ind = np.linspace(0,n_frames-1, 9, dtype="int")
 RFs = [frame["RFs"][2] for frame in in_dict["Sample"][0]["Frame"]]
 max_ind = {"u" : 4164, "v" : 207, "w" : 1299} # Index of node containing maximum absolute value across training data
 # col_ind = {"u" : 0, "v" : 1, "w" : 2} # Column index for each displacement component
@@ -87,8 +92,11 @@ for i, frame in enumerate(frame_dict):
 # Finally, plot the displacements at the reference point
 
 fig, ax = plt.subplots(figsize=(10,4))
+
+
+max_load = 300.0
 for sample in output_RP:
-    ax.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
+    ax.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
 
 ax.set_ylabel("Force (kN)")
 ax.set_xlabel("RP Displacement (mm)")
