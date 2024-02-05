@@ -3,9 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "LHSDesign40x4_1"
-max_load = -250.0
-max_inc = 0.01
+file_str = "nominal_inputs_new_spar"
+max_load = -300.0
+max_inc = 0.05
 displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 # displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
 RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
@@ -59,7 +59,8 @@ displacements_struct_subset["Sample"] = displacements_struct_subset["Sample"].co
 displacements_struct_subset["Sample"] = [sample.copy() for sample in displacements_struct_subset["Sample"]]
 for sample in displacements_struct_subset["Sample"]:
     # Pick 0.81 as the increment of interest is very slightly over 0.80
-    sample["Frame"] = [frame for frame in sample["Frame"] if frame["Increment"]<=0.81]
+    # 
+    sample["Frame"] = [frame for frame in sample["Frame"] if frame["Increment"]<=1.01]
     
 # Look at the number of frames and increment at the final frame to check that 
 # the following would be suitable for  an emulator trained using fixed increments
@@ -106,3 +107,4 @@ for sample in displacements_struct_subset["Sample"]:
 
 with open("inputs\\" + file_str + "_output_struct.json",'w') as f:
     f.write(json.dumps(displacements_struct_subset))
+    # f.write(json.dumps(displacements_struct))
