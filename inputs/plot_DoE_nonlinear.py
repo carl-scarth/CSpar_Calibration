@@ -9,7 +9,8 @@ import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
 new_spar = True # Are we dealing with the new (IM7) spars?
-infile = "nominal_inputs_new_spar_output_struct"
+extract_subset = False # Do we want to only extract a subset of the data?
+infile = "LHSDesign50x3_2"
 
 # Open the output files
 if shell_mesh:
@@ -23,7 +24,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-output_file = infile + ".json" # "_output_struct.json"
+output_file = infile + "_output_struct.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -54,9 +55,10 @@ with open(output_file, "r") as f:
 
 # Get number of predictions and number of frames
 n_sam = len(in_dict["Sample"]) # Number of predictions
+n_frames = [len(sample["Frame"]) for sample in in_dict["Sample"]]
+n_frames = max(n_frames)
 n_frames = len(in_dict["Sample"][0]["Frame"]) # Number of frames
 increments = [frame["Increment"] for frame in in_dict["Sample"][0]["Frame"]]
-keep_ind = np.linspace(0,n_frames-1, 9, dtype="int")
 RFs = [frame["RFs"][2] for frame in in_dict["Sample"][0]["Frame"]]
 max_ind = {"u" : 4164, "v" : 207, "w" : 1299} # Index of node containing maximum absolute value across training data
 # col_ind = {"u" : 0, "v" : 1, "w" : 2} # Column index for each displacement component
@@ -75,10 +77,10 @@ for i, sample in enumerate(in_dict["Sample"]):
         for k, QoI in enumerate(["u","v","w"]):
             output_max[QoI][i,j] = displacements[max_ind[QoI],k]
             # Dictionary containing output
-            if j in keep_ind:
-                frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
+            frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
                 
-frame_dict = [frame_dict[i] for i in keep_ind] # Only retain those at specified increments
+if extract_subset:
+    frame_dict = [frame_dict[i] for i in keep_ind] # Only retain those at specified increments
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("displacements_" + infile)):
     os.mkdir("displacements_" + infile)
@@ -88,11 +90,8 @@ if not(os.path.isdir("displacements_" + infile)):
 for i, frame in enumerate(frame_dict):
     meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("displacements_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
     
-    
 # Finally, plot the displacements at the reference point
-
 fig, ax = plt.subplots(figsize=(10,4))
-
 
 max_load = 300.0
 for sample in output_RP:
