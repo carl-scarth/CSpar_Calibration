@@ -29,7 +29,7 @@ def set_input(x_series, x_name, default_val):
     return x
 
 
-infile = "inputs\\LHSDesign50x3_2"
+infile = "inputs\\LHSDesign60x6_2"
 # infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
@@ -48,7 +48,7 @@ shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = False
 
-max_inc = 0.05  # maximum increment
+max_inc = 0.025  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -300.0 # Applied load
@@ -129,7 +129,6 @@ else:
 
 # nodes = np.empty([n_Nodes,3*N])
 # Loop over entries of the DoE and run the Abaqus model
-
 for i, x_i in iterable:
     print(i)
     print(x_i)
@@ -171,9 +170,8 @@ for i, x_i in iterable:
     x_misalign_slope = set_input(x_i, "x_misalign_slope", 0.0)
     pivot_offset_error = set_input(x_i, "pivot_offset_error", 0.0)
     # Calculate the eccentricity of the support pivot at either end
-    x_spring_1 = x_spring + x_spring_error - x_misalign_slope*(Zlength+rotation_offset)
-    x_spring_2 = x_spring + x_spring_error + x_misalign_slope*(Zlength+rotation_offset)
-
+    x_spring_fix = x_spring + x_spring_error - x_misalign_slope*(Zlength+rotation_offset)
+    x_spring_load = x_spring + x_spring_error + x_misalign_slope*(Zlength+rotation_offset)
     if "K" in x_i:
         K = x_i["K"]
     elif "log_K" in x_i:
@@ -183,12 +181,9 @@ for i, x_i in iterable:
     
     # write Abaqus input file using the appropriate function, depending on whether or not the mesh is 
     # comprised of shells
-    asdnasldnaskdasn
-    # NEED  TO CHANGE WRITE_SHELL_INP TO TAKE IN SEPARATE X_spring values below, matching my updates
-    # to Jean's model. doesn't matter for my past runs as they had no offset. perform the calculation
-    # here thuough
     if shell_mesh:
-        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_1=x_spring_1, x_spring_2=x_spring_2, load=load, rotation_offset = rotation_offset, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+        # Assumes pivot off-set error is applied symmetrically, i.e. positive at load end, negative at fixed end. basically just increases the effective length
+        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
 
