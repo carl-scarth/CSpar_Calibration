@@ -9,7 +9,7 @@ from matplotlib import rcParams
 import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign40x4"
+infile = "LHSDesign50x3_2"
 
 # Open the output files
 if shell_mesh:
@@ -19,7 +19,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-basis_file = "basis_nonlinear_" + infile + ".json"
+basis_file = "basis_nonlinear_" + infile + "_w.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -125,6 +125,8 @@ if "w" in out_str:
 # Plot output at location of maximum absolute mean displacement (across training data)
 # in final frame (useful for vertical displacement)
 fig3, axes3 = plt.subplots(1,n_out, sharey=True)
+if n_out == 1:
+    axes3 = [axes3]
 for i, ax3 in enumerate(axes3):
     for base in basis_max[out_str[i]].T:
         ax3.plot(range(n_frames),base)
