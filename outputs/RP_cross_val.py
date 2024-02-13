@@ -13,12 +13,11 @@ rcParams.update({'figure.figsize' : (12,9),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
-gpfile = "LHSDesign70x7"
-infile = "LHSDesign70x7_1"
-disp_str = disp_str = "w" # ["u", "v", "w"]
+gpfile = "LHSDesign50x3_2"
+infile = "LHSDesign50x3_3"
+disp_str = disp_str = ["u", "v", "w"]
 # Load training data
 RP_DoE = np.loadtxt(infile + "_RP_displacements.csv", delimiter=",", skiprows=0)
-# Will this apply to other datasets besides 40x4? vvvv Check?
 max_DoE = {key : np.loadtxt("_".join((infile,key,"max_displacements.csv")),delimiter=",", skiprows=0) for key in disp_str}
 
 # DoE = np.loadtxt(infile + "_u_max_displacements.csv", delimiter=",", skiprows=0)
@@ -32,8 +31,8 @@ fig, ax = plt.subplots()
 # Cherry pick from output data
 
 # ind = [2]
-ind = range(10, 20)
-ind = [25]
+ind = range(20,25)
+# ind = [5]
 # ind = [10]
 RP_DoE = RP_DoE[ind,:]
 max_DoE = {key : max_DoE[key][ind,:] for key in disp_str}

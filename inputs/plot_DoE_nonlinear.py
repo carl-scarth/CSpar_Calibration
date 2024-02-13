@@ -79,6 +79,7 @@ for i, sample in enumerate(in_dict["Sample"]):
             # Dictionary containing output
             frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
                 
+asdasds
 if extract_subset:
     frame_dict = [frame_dict[i] for i in keep_ind] # Only retain those at specified increments
 # Create a new directory for the vtk files, if one does not exist already
@@ -104,7 +105,7 @@ ax.set_xlabel("RP Displacement (mm)")
 fig2, axs2 = plt.subplots(1, 3, figsize=(10,4))
 for ax2, key in zip(axs2, ["u", "v", "w"]):
     for sample in output_max[key]:
-        ax2.plot(-sample, [250*inc for inc in increments],linewidth=2.0)
+        ax2.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
     ax2.set_ylabel("Force (kN)")
     ax2.set_xlabel("Displacement (mm)")
     ax2.set_title(key+" at node "+str(max_ind[key]))

@@ -19,7 +19,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-basis_file = "basis_nonlinear_" + infile + "_w.json"
+basis_file = "basis_nonlinear_" + infile + "_u.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')

@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign70x7" # File identifier string for input and output files
+in_file = "LHSDesign50x3_2" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -60,8 +60,8 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
+#abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
@@ -74,7 +74,7 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-XT_pred = fread("inputs/LHSDesign70x7_1.csv")
+XT_pred = fread("inputs/LHSDesign50x3_3.csv")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
 

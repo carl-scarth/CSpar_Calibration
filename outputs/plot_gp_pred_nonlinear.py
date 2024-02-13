@@ -12,7 +12,7 @@ import pandas as pd
 # This code is getting messy - it would be good to package up some aspects to tidy
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign40x4"
+infile = "LHSDesign50x3_2"
 
 # Open the output files
 if shell_mesh:
