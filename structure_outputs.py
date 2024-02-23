@@ -5,13 +5,26 @@ import json
 
 file_str = "nominal_inputs_new_spar"
 max_load = -300.0
+max_disp = -4.0
 max_inc = 0.05
-displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
+apply_force = False
+if apply_force:
+    displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
+else:
+    displacements = np.loadtxt("inputs\\" + file_str + "disp=" + str(max_disp) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 # displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
-RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
-with open ("inputs\\" + file_str + "_incs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
-    increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
+if apply_force:
+    RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
+else:
+    RFs = np.loadtxt("inputs\\" + file_str + "_RFs_disp=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
 
+if apply_force:
+    with open ("inputs\\" + file_str + "_incs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
+        increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
+else:
+    with open ("inputs\\" + file_str + "_incs_disp=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
+        increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
+        
 # Play around with different data structures: json or dataframe
 displacements_struct = {"Sample" : []}
 # Creates an empty dataframe with all the correct column names. Not sure how to add to these in the loop
