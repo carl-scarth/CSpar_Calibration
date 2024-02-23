@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import json
 
 file_str = "nominal_inputs_new_spar"
+#file_str = "LHSDesign60x6_2"
 max_load = -300.0
 max_disp = -4.0
 max_inc = 0.05
@@ -70,10 +71,14 @@ displacements_sam_0 = displacements_df.loc[displacements_df["Sample"]==0]
 displacements_struct_subset = displacements_struct.copy()
 displacements_struct_subset["Sample"] = displacements_struct_subset["Sample"].copy()
 displacements_struct_subset["Sample"] = [sample.copy() for sample in displacements_struct_subset["Sample"]]
-for sample in displacements_struct_subset["Sample"]:
+for i, sample in enumerate(displacements_struct_subset["Sample"]):
     # Pick 0.81 as the increment of interest is very slightly over 0.80
     # 
     sample["Frame"] = [frame for frame in sample["Frame"] if frame["Increment"]<=1.01]
+    print(sample["Frame"][-1]["Increment"])
+    if sample["Frame"][-1]["Increment"] < 0.75:
+        print(i)
+    
     
 # Look at the number of frames and increment at the final frame to check that 
 # the following would be suitable for  an emulator trained using fixed increments
@@ -88,7 +93,10 @@ RF_z = [[frame["RFs"][2] for frame in sample["Frame"]]for sample in displacement
 fig = plt.figure(figsize=(10,8))
 ax = fig.add_subplot(1, 1, 1)
 for i, sample in enumerate(ref_w):
-    ax.plot(sample, RF_z[i])
+    if min(RF_z[i]) < -1:
+        print(i)
+    if max(RF_z[i]) <= 300:
+        ax.plot(sample, RF_z[i])
 
 label_font = {'family': 'serif', 'size': 16,}
 ax.set_ylabel("Force (kN)", fontdict = label_font)
