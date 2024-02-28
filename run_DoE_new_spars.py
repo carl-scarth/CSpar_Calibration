@@ -28,30 +28,27 @@ def set_input(x_series, x_name, default_val):
         x = default_val
     return x
 
-
-infile = "inputs\\LHSDesign60x6_2"
+infile = "inputs\\LHSDesign15x1_1"
 # infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
-# infile = "inputs\\eccentricities"
-
-# infile = "inputs\\LHSDesign100x6"
-# infile = "Problem_run"
-# infile = "inputs\\LHSDesign100x7_1" # file in which DoE is stored
-# infile = "inputs\\LHSDesign50x4" # file in which DoE is stored
-# infile = "inputs\\nominal_inputs" # file in which DoE is stored
+# infile = "inputs\\nominal_inputs_new_spar"
+# infile = "inputs\\new_spar_real_props"
 
 change_inc = True # Do I want to play with the increment size?
 write_buffer = False # Do I want to write a temporary file to store displacements as I go?
 restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
-rotate_flanges = False
+rotate_flanges = True
+thin_corners = False
+apply_load = False
 
-max_inc = 0.025  # maximum increment
+max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
 load = -300.0 # Applied load
+applied_disp = -4.0 # Applied displacement (specified as alternative to load)
 
 # sym = True # Representing only half of a symmetric layup
 sym = True
@@ -135,6 +132,7 @@ for i, x_i in iterable:
     
     # Extract inputs which govern the geometry, or othewise set to their default values
     t_ply = set_input(x_i, "t_ply", 0.125)
+    t_ply_rad = set_input(x_i, "t_ply_rad", 0.125)
     LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
     RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
 
@@ -147,7 +145,7 @@ for i, x_i in iterable:
     # Pick different input file generating script depending on if the mesh is comprised of shells or not
     # ideally I'd just use the same file taking a Boolean input, but keep for now in case of changes
     if shell_mesh:
-        write_shell_parameters(t_ply=t_ply, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, model_name=file_str)
+        write_shell_parameters(t_ply=t_ply, t_ply_rad = t_ply_rad, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, thin_corners = thin_corners, model_name=file_str)
     else:
         # Write parameters to a text file which will be used to generate mesh
         # write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
@@ -159,7 +157,6 @@ for i, x_i in iterable:
     command = gridMod_dir + "\\gridMod"
     os.system(command)
     # Extract other material properties from the DoE
-
     E11 = set_input(x_i, "E11", 140.9)
     E22 = set_input(x_i, "E22", 8.96)
     nu12 = set_input(x_i, "nu12", 0.32)
@@ -170,8 +167,10 @@ for i, x_i in iterable:
     x_misalign_slope = set_input(x_i, "x_misalign_slope", 0.0)
     pivot_offset_error = set_input(x_i, "pivot_offset_error", 0.0)
     # Calculate the eccentricity of the support pivot at either end
-    x_spring_fix = x_spring + x_spring_error - x_misalign_slope*(Zlength+rotation_offset)
-    x_spring_load = x_spring + x_spring_error + x_misalign_slope*(Zlength+rotation_offset)
+    x_spring_fix = x_spring + x_spring_error - x_misalign_slope*(Zlength/2+rotation_offset)
+    x_spring_load = x_spring + x_spring_error + x_misalign_slope*(Zlength/2+rotation_offset)
+    if x_misalign_slope != 0.0:
+        print(x_misalign_slope*(Zlength/2+rotation_offset))
     if "K" in x_i:
         K = x_i["K"]
     elif "log_K" in x_i:
@@ -183,11 +182,11 @@ for i, x_i in iterable:
     # comprised of shells
     if shell_mesh:
         # Assumes pivot off-set error is applied symmetrically, i.e. positive at load end, negative at fixed end. basically just increases the effective length
-        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
+        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
-
     # Run Abaqus from the command line
+
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
     print(command)
     os.system(command)
@@ -254,15 +253,25 @@ if change_inc:
 else:
     head_str = ', '.join(['u_' + str(i+1)+', v_'+str(i+1)+', w_'+str(i+1) for i in range(N)])
 
-np.savetxt(infile + "_displacements_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", displacements, delimiter=",", header = head_str, comments = "")
+if apply_load:
+    np.savetxt(infile + "_displacements_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", displacements, delimiter=",", header = head_str, comments = "")
+else:
+    np.savetxt(infile + "_displacements_disp=" + str(applied_disp) + "_max_inc=" + str(max_inc) + ".csv", displacements, delimiter=",", header = head_str, comments = "")
 # head_str = ', '.join(['x_' + str(i+1)+', y_'+str(i+1)+', z_'+str(i+1) for i in range(N)])
 # np.savetxt(infile + "_nodes_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", nodes, delimiter=",", header = head_str, comments = "")
 
 if change_inc:
-    with open(infile + "_incs_load=" + str(load) + "_max_inc=" + str(max_inc) + ".txt", 'w') as f:
-        [f.write(', '.join([str(inc) for inc in sam])+"\n") for sam in incs]
+    if apply_load:
+        with open(infile + "_incs_load=" + str(load) + "_max_inc=" + str(max_inc) + ".txt", 'w') as f:
+            [f.write(', '.join([str(inc) for inc in sam])+"\n") for sam in incs]
+    else:
+        with open(infile + "_incs_disp=" + str(applied_disp) + "_max_inc=" + str(max_inc) + ".txt", 'w') as f:
+            [f.write(', '.join([str(inc) for inc in sam])+"\n") for sam in incs]
     head_str = ', '.join(['Rx_' + str(i+1) + '_' + str(j+1) + ', Ry_' + str(i+1) + '_' + str(j+1) + ', Rz_' + str(i+1) + '_' + str(j+1) for i in range(N) for j in range(len(incs[i]))])
-    np.savetxt(infile + "_RFs_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", RFs, delimiter=",", header = head_str, comments = "")
+    if apply_load:
+        np.savetxt(infile + "_RFs_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", RFs, delimiter=",", header = head_str, comments = "")
+    else:
+        np.savetxt(infile + "_RFs_disp=" + str(applied_disp) + "_max_inc=" + str(max_inc) + ".csv", RFs, delimiter=",", header = head_str, comments = "")
 
 # Delete temporary files
 if write_buffer:
@@ -271,5 +280,9 @@ if write_buffer:
             os.remove(filename)
 
 # Write json file
-with open(infile + "_json_" + str(load) + "_max_inc=" + str(max_inc) + ".json",'w') as f:
-    f.write(json.dumps(out_dict))
+if apply_load:
+    with open(infile + "_json_load=" + str(load) + "_max_inc=" + str(max_inc) + ".json",'w') as f:
+        f.write(json.dumps(out_dict))
+else:
+    with open(infile + "_json_disp=" + str(applied_disp) + "_max_inc=" + str(max_inc) + ".json",'w') as f:
+        f.write(json.dumps(out_dict))
