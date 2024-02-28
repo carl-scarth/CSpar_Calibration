@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "nominal_inputs_new_spar"
+file_str = "LHSDesign60x6_2"
 #file_str = "LHSDesign60x6_2"
 max_load = -300.0
 max_disp = -4.0
@@ -12,18 +12,18 @@ apply_force = False
 if apply_force:
     displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 else:
-    displacements = np.loadtxt("inputs\\" + file_str + "disp=" + str(max_disp) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
+    displacements = np.loadtxt("inputs\\" + file_str + "_displacements_disp=" + str(max_disp) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 # displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
 if apply_force:
     RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
 else:
-    RFs = np.loadtxt("inputs\\" + file_str + "_RFs_disp=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
+    RFs = np.loadtxt("inputs\\" + file_str + "_RFs_disp=" + str(max_disp) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
 
 if apply_force:
     with open ("inputs\\" + file_str + "_incs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
         increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
 else:
-    with open ("inputs\\" + file_str + "_incs_disp=" + str(max_load) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
+    with open ("inputs\\" + file_str + "_incs_disp=" + str(max_disp) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
         increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
         
 # Play around with different data structures: json or dataframe
@@ -126,6 +126,10 @@ for sample in displacements_struct_subset["Sample"]:
     for frame in sample["Frame"]:
         frame["Displacements"] = frame["Displacements"].tolist()
 
-with open("inputs\\" + file_str + "_output_struct.json",'w') as f:
-    f.write(json.dumps(displacements_struct_subset))
-    # f.write(json.dumps(displacements_struct))
+if apply_force:
+    with open("inputs\\" + file_str + "_output_struct.json",'w') as f:
+        f.write(json.dumps(displacements_struct_subset))
+        # f.write(json.dumps(displacements_struct))
+else:
+    with open("inputs\\" + file_str + "_output_struct_disp.json",'w') as f:
+        f.write(json.dumps(displacements_struct_subset))
