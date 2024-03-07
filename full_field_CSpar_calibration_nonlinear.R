@@ -30,7 +30,7 @@ source("source/gp_predictions.R")
 # Might be able to delete some of these later
 # p_eta = 7 # Number of basis functions retained for the emulator from SVD
 # exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("u","v","w") #c("u","w") # String which identifies the displacement component of interest (u,v, or w)
+disp_str = "w" #c("u","w") # String which identifies the displacement component of interest (u,v, or w)
 q_y = length(disp_str)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 a_y = 5.0  # Shape parameter for the lambda_y prior
@@ -41,15 +41,16 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign70x7" # File identifier string for input and output csvs
-exp_data_file = "Interpolated_DIC_inc2_downsam8" # Identifier of file containing DIC data
-surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+in_file = "LHSDesign50x3_2" # File identifier string for input and output csvs
+exp_data_file = "Interpolated_DIC_inc0_CS02P_210kN" # Identifier of file containing DIC data
+# surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
 
 # Define prior distribution parameters for passing to stan
 # Note, input sd rather than cov
-tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",")
+tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 # Pre-processing for BC example (Mean and coefficients of variation for Gaussian
 # inputs)
@@ -98,8 +99,8 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-#abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_210kN.json", sep=""))
+# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
