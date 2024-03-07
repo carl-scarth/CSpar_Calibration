@@ -166,6 +166,10 @@ for input in inputs:
     if input[1] == "Loguniform":
         input[2] = np.log(input[2])
         input[3] = np.log(input[3])
+    elif input[1] == "Gaussian" and input[2]!= 0.0:
+        input[3] = input[2]*input[3]/100.0
+
+print(inputs)
 
 out_frame = pd.DataFrame({"distribution" : [input[1] for input in inputs], 
  "param_1" : [input[2] for input in inputs],
