@@ -28,7 +28,7 @@ def set_input(x_series, x_name, default_val):
         x = default_val
     return x
 
-infile = "inputs\\LHSDesign15x1_1"
+infile = "inputs\\nominal_inputs_new_spar_corner"
 # infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
@@ -41,7 +41,7 @@ restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = True
-thin_corners = False
+thin_corners = True
 apply_load = False
 
 max_inc = 0.05  # maximum increment
@@ -132,7 +132,7 @@ for i, x_i in iterable:
     
     # Extract inputs which govern the geometry, or othewise set to their default values
     t_ply = set_input(x_i, "t_ply", 0.125)
-    t_ply_rad = set_input(x_i, "t_ply_rad", 0.125)
+    rad_thin = set_input(x_i, "rad_thin", 0.0.0)
     LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
     RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
 
@@ -145,12 +145,14 @@ for i, x_i in iterable:
     # Pick different input file generating script depending on if the mesh is comprised of shells or not
     # ideally I'd just use the same file taking a Boolean input, but keep for now in case of changes
     if shell_mesh:
-        write_shell_parameters(t_ply=t_ply, t_ply_rad = t_ply_rad, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, thin_corners = thin_corners, model_name=file_str)
+        write_shell_parameters(t_ply=t_ply, rad_thin = rad_thin, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, thin_corners = thin_corners, model_name=file_str)
     else:
         # Write parameters to a text file which will be used to generate mesh
         # write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
         write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, StackSeq = layup, rotate_flanges = rotate_flanges, model_name = file_str)
 
+    # TEST OUT USING DIFFERENT FIRST ROW IN INPUT FILE
+    sdasdsd
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar
