@@ -41,8 +41,8 @@ restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = True
-thin_corners = False
-apply_load = True
+thin_corners = True
+apply_load = False
 
 max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
@@ -139,6 +139,7 @@ for i, x_i in iterable:
     else:
         LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
         RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
+    rad_thin = set_input(x_i, "rad_thin", 0.0)
 
     # Give unique filenames to each run?
     if store_all_sam:
@@ -149,12 +150,14 @@ for i, x_i in iterable:
     # Pick different input file generating script depending on if the mesh is comprised of shells or not
     # ideally I'd just use the same file taking a Boolean input, but keep for now in case of changes
     if shell_mesh:
-        write_shell_parameters(t_ply=t_ply, t_ply_rad = t_ply_rad, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, thin_corners = thin_corners, model_name=file_str)
+        write_shell_parameters(t_ply=t_ply, rad_thin = rad_thin, Zlength=Zlength, height=height+n_plies*t_ply, LFlange_theta=LFlange_theta, RFlange_theta=RFlange_theta, n_plies=n_plies, rotate_flanges = rotate_flanges, thin_corners = thin_corners, model_name=file_str)
     else:
         # Write parameters to a text file which will be used to generate mesh
         # write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
         write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, StackSeq = layup, rotate_flanges = rotate_flanges, model_name = file_str)
 
+    # TEST OUT USING DIFFERENT FIRST ROW IN INPUT FILE
+    sdasdsd
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar

@@ -103,24 +103,24 @@ inputs = [
     #['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
 ]
 
-inputs = [
-    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
-    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
-    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
-    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
-    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
-    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
-]
+# inputs = [
+#    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
+#    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
+#    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
+#    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
+#    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
+#    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
+#]
 
 # Alternative with higher modulus
-inputs = [
-    ['E11', 'Gaussian', 150.0, 6.0, True], # NIAR, RTD
-    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
-    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
-    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
-    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
-    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
-]
+# inputs = [
+#    ['E11', 'Gaussian', 150.0, 6.0, True], # NIAR, RTD
+#    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
+#    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
+#    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
+#    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
+#    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
+#]
 
 inputs = [
     ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
@@ -183,6 +183,15 @@ np.savetxt(filename, xLHS, delimiter=",", header = head_string, comments = "")
 # Don't bother for now as this will probably be easier when I know how to use Pandas
 # Consider scikit-opt for optimised Latin Hypercubes
 # Write the calibration parameters file
+for input in inputs:
+    if input[1] == "Loguniform":
+        input[2] = np.log(input[2])
+        input[3] = np.log(input[3])
+    elif input[1] == "Gaussian" and input[2]!= 0.0:
+        input[3] = input[2]*input[3]/100.0
+
+print(inputs)
+
 out_frame = pd.DataFrame({"distribution" : [input[1] for input in inputs], 
  "param_1" : [input[2] for input in inputs],
  "param_2" : [input[3] for input in inputs]}, 

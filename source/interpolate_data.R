@@ -76,9 +76,11 @@ intp_nodes_to_cloud_inc <- function(el_ind, gh, f_node, inc_ind, n_incs, connect
   n_f = ncol(f_node)
   f_cloud = matrix(0, nrow=0, ncol=n_f)
   for (i in 1:n_incs){
-    print(i)
-    f_i = as.matrix(f_node[((i-1)*n_nodes+1):(i*n_nodes),,drop=FALSE])
-    f_cloud = rbind(f_cloud, intp_nodes_to_cloud(el_ind[inc_ind == i],gh[inc_ind == i,], f_i, connectivity = connectivity, conn_file = conn_file, skip_nodes=skip_nodes))
+    if (i %in% inc_ind){
+      print(i)
+      f_i = as.matrix(f_node[((i-1)*n_nodes+1):(i*n_nodes),,drop=FALSE])
+      f_cloud = rbind(f_cloud, intp_nodes_to_cloud(el_ind[inc_ind == i],gh[inc_ind == i,], f_i, connectivity = connectivity, conn_file = conn_file, skip_nodes=skip_nodes))
+    }
   }
 
   return(f_cloud)
