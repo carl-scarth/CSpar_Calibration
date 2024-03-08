@@ -28,7 +28,7 @@ def set_input(x_series, x_name, default_val):
         x = default_val
     return x
 
-infile = "inputs\\LHSDesign15x1_1"
+infile = "inputs\\LHSDesign50x5_2"
 # infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
@@ -42,12 +42,12 @@ shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = True
 thin_corners = False
-apply_load = False
+apply_load = True
 
 max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
 min_inc = 1.0e-5 # minimum increment
-load = -300.0 # Applied load
+load = -250.0 # Applied load
 applied_disp = -4.0 # Applied displacement (specified as alternative to load)
 
 # sym = True # Representing only half of a symmetric layup
@@ -133,8 +133,12 @@ for i, x_i in iterable:
     # Extract inputs which govern the geometry, or othewise set to their default values
     t_ply = set_input(x_i, "t_ply", 0.125)
     t_ply_rad = set_input(x_i, "t_ply_rad", 0.125)
-    LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
-    RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
+    if "Flange_theta" in x_i:
+        LFlange_theta = set_input(x_i, "Flange_theta", 0.0)
+        RFlange_theta = set_input(x_i, "Flange_theta", 0.0)
+    else:
+        LFlange_theta = set_input(x_i, "LFlange_theta", 0.0)
+        RFlange_theta = set_input(x_i, "RFlange_theta", 0.0)
 
     # Give unique filenames to each run?
     if store_all_sam:
