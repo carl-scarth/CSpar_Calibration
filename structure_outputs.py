@@ -3,8 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "LHSDesign60x6_2"
-#file_str = "LHSDesign60x6_2"
+file_str = "LHSDesign50x5_1"
 max_load = -300.0
 max_disp = -4.0
 max_inc = 0.05
