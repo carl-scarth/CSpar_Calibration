@@ -50,7 +50,7 @@ surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier stri
 
 # Define prior distribution parameters for passing to stan
 # Note, input sd rather than cov
-tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 # tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 # Pre-processing for BC example (Mean and coefficients of variation for Gaussian
@@ -123,15 +123,21 @@ t_max = colMaxs(tc)
 tc = normalise_inputs(tc, t_min, t_max)
 
 # For all implemented distributions the transformation of the 1st parameter is the same
-tf_param$p1_trans = normalise_inputs(tf_param$param_1, t_min, t_max)
+tf_param$p1_trans = NA
 # The transformation of the 2nd parameter is different if this is a standard deviation
 tf_param$p2_trans = NA
 for (i in 1:q){
   # Second parameter of a Gaussian is a standard deviation
-  if (tf_param$distribution[i] == "Gaussian"){
+  if (tf_param$distribution[i] == "Gaussian" | tf_param$distribution[i] == "Lognormal" | tf_param$distribution[i] == "Halfnormal"){
+    tf_param$p1_trans[i] = normalise_inputs(tf_param$param_1[i], t_min[i], t_max[i])
     tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i], std = TRUE)
   } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+    tf_param$p1_trans[i] = normalise_inputs(tf_param$param_1[i], t_min[i], t_max[i])
     tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i])
+  } else if (tf_param$distribution[i] == "Gamma" | tf_param$distribution[i] == "Loggamma"){
+    tf_param$p1_trans[i] = tf_param$param_1[i] # Shape parameter doesn't change under transformation
+    tf_param$p2_trans[i] = tf_param$param_2[i]*(t_max[i] - t_min[i]) # I think this is correct...
+    stop("Error: Scale implemented correctly, but not yet shifted. Consider passing shift as parameter and shifting back within stan")
   } else {
     stop("Error: Non-implemented distribution")
   }
