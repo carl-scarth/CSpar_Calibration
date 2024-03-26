@@ -30,7 +30,8 @@ source("source/gp_predictions.R")
 # Might be able to delete some of these later
 # p_eta = 7 # Number of basis functions retained for the emulator from SVD
 # exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w)
+# disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w)
+disp_str = "w"
 q_y = length(disp_str)
 DIC_coord_labels = c("x_proj","y_proj","z_proj") # Strings used to identify coordinates in DIC point_cloud
 a_y = 5.0  # Shape parameter for the lambda_y prior
@@ -41,51 +42,23 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign40x4" # File identifier string for input and output csvs
-exp_data_file = "Interpolated_DIC_inc2_downsam4" # Identifier of file containing DIC data
-surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+in_file = "LHSDesign60x6_4" # File identifier string for input and output csvs
+exp_data_file = "Interpolated_DIC_200kN_no0" # Identifier of file containing DIC data
+surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
 #-------------------------------------------------------------------------------
 
 # Define prior distribution parameters for passing to stan
-
-# Pre-processing for BC example (Mean and coefficients of variation for Gaussian
-# inputs)
-E11_mu = 115.6
-t_ply_mu = 0.196
-E11_cov = 6.0 
-t_ply_cov = 5.0
-# Bounds for log-uniform inputs
-# K_lb = 100.0
-# K_ub = 1.0e9
-
-# Define data_frame of prior parameters (this could be done via csv?)
-# tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Loguniform"),
-#                       param_1 = c(E11_mu, t_ply_mu, log(K_lb)),
-#                       param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, log(K_ub)))
-# row.names(tf_param) <- c("E11","t_ply","log_K")
-
-# Additional pre-processing for flange-rotation example
-flange_theta_mu = 0.0
-flange_theta_sigma = 4.0
-# Define data_frame of prior parameters
-tf_param <- data.frame(distribution = c("Gaussian","Gaussian","Gaussian","Gaussian"),
-                       param_1 = c(E11_mu, t_ply_mu, flange_theta_mu, flange_theta_mu ),
-                       param_2 = c(E11_mu*E11_cov/100, t_ply_mu*t_ply_cov/100, flange_theta_sigma, flange_theta_sigma))
-row.names(tf_param) <- c("E11","t_ply","LFlange_theta","RFlange_theta")
+# Define prior distribution parameters for passing to stan
+# Note, input sd rather than cov
+tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 #-------------------------------------------------------------------------------
 # Set up simulation data (need to retain this for normalisation of inputs)
 
 # Load in emulator training data input values from Design of Experiments. 
-# in_file = "LHSDesign50x3" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
-
-# In this example I fit the emulator to the log of spring stiffness K, which is 
-# a more natural choice of values across which outputs are expected for
-# variations in this input
-# XT_sim$K = log(XT_sim$K)
-# colnames(XT_sim)[3] = "log_K"
 
 # Determine useful quantities from model inputs and outputs. Variable names 
 # match the notation of Higdon et al. 2008
@@ -96,8 +69,8 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-#abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_200kN.json", sep=""))
+# abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
 # across all output frames
@@ -119,15 +92,20 @@ t_max = colMaxs(tc)
 tc = normalise_inputs(tc, t_min, t_max)
 
 # For all implemented distributions the transformation of the 1st parameter is the same
-tf_param$p1_trans = normalise_inputs(tf_param$param_1, t_min, t_max)
+tf_param$p1_trans = NA
 # The transformation of the 2nd parameter is different if this is a standard deviation
 tf_param$p2_trans = NA
 for (i in 1:q){
   # Second parameter of a Gaussian is a standard deviation
-  if (tf_param$distribution[i] == "Gaussian"){
+  if (tf_param$distribution[i] == "Gaussian" | tf_param$distribution[i] == "Lognormal" | tf_param$distribution[i] == "Halfnormal"){
+    tf_param$p1_trans[i] = normalise_inputs(tf_param$param_1[i], t_min[i], t_max[i])
     tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i], std = TRUE)
   } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
+    tf_param$p1_trans[i] = normalise_inputs(tf_param$param_1[i], t_min[i], t_max[i])
     tf_param$p2_trans[i] = normalise_inputs(tf_param$param_2[i], t_min[i], t_max[i])
+  } else if (tf_param$distribution[i] == "Gamma" | tf_param$distribution[i] == "Loggamma"){
+    tf_param$p1_trans[i] = tf_param[i] # Shape parameter doesn't change under transformation
+    tf_param$p2_trans[i] = tf_param[i]*(t_max[i] - t_min[i]) # I think this is correct...
   } else {
     stop("Error: Non-implemented distribution")
   }
@@ -148,14 +126,14 @@ pairs(tc,col="blue", pch=4,
 # decomposed according to basis vectors K_eta
 
 # Standardise the data to have zero mean and unit standard deviation
-out_list = standardise_vector_output(dt_simulation)
+out_list = standardise_vector_output(dt_simulation, q_y = q_y)
 eta = as.matrix(out_list[[1]]) # Convert to matrix for stan
 mu_dt = out_list[[2]]
 sd_dt = out_list[[3]]
 
 # Load in basis vectors previously generated by emulator code
 # K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,".csv", sep = "")))
-K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,"_uvw.csv", sep = "")))
+K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,"_w.csv", sep = "")))
 p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from SVD
 
 #-------------------------------------------------------------------------------
@@ -173,7 +151,7 @@ exp_str = paste(disp_str, "_rot", sep="")
 exp_displacement = experimental_data[(exp_str)] # Displacement component
 
 y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
-hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
+gh = as.matrix(experimental_data[c("g","h")]) # Matched natural coordinates
 # exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
 frame_ind = experimental_data$Increment # Index of which frame each point belongs to
 
@@ -183,7 +161,7 @@ frame_ind = experimental_data$Increment # Index of which frame each point belong
 mu_y = rep(NA, q_y*n_y)
 for (i in 1:q_y){
   mu_dt_i = mu_dt[((i-1)*n_eta/q_y+1):(i*n_eta/q_y)]
-  mu_y[((i-1)*n_y+1):(i*n_y)] = as.vector(intp_nodes_to_cloud_inc(y_element, hr, as.matrix(mu_dt_i), frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
+  mu_y[((i-1)*n_y+1):(i*n_y)] = as.vector(intp_nodes_to_cloud_inc(y_element, gh, as.matrix(mu_dt_i), frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
 }
 
 # Calculate residuals of experimental error
@@ -210,14 +188,13 @@ write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep =
 # Centre the experimental data and convert to vector to pass to stan
 exp_displacement_cen = (c(as.matrix(exp_displacement)) - mu_y)/sd_dt
 y = exp_displacement_cen
-#y = as.vector(exp_displacement_cen)
 
 # We also need to interpolate the basis functions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
 K_y = matrix(NA, nrow = n_y*q_y, ncol = p_eta)
 # K_y = intp_nodes_to_cloud_inc(y_element, hr, K_eta, frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 for (i in 1:q_y){
-  K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud_inc(y_element, hr, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),], frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
+  K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud_inc(y_element, gh, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),], frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 }
 if (q_y == 1) {
   out_frame = as.data.frame(K_y)
@@ -259,7 +236,7 @@ b_y_dash = array(rep(b_y, q_y), dim=q_y)
 # Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
 # emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
-emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,"_uvW.csv", sep=""), sep = ",", header = TRUE)))
+emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,"_W.csv", sep=""), sep = ",", header = TRUE)))
 rho_w = emulator_parameters[1:(p_eta*q)]
 lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
 lambda_eta = emulator_parameters[p_eta*(q+1)+1]
@@ -332,7 +309,7 @@ prior_posterior_pairs(tf_trans, tf_param)
 
 # Make predictions from fitted Gaussian process emulator
 # N_sam_plot = N_samples
-N_sam_plot = 2500
+N_sam_plot = 1500
 # Transform correlation lengths into appropriate format
 beta_w = -4.0*log(rho_w)
 # Take averages across posterior predictions of the calibrated Gaussian process
@@ -356,6 +333,7 @@ out_list = c(out_list, full_field_calibration_pred_fixed_em_multi(N_sam_plot, tc
 json_list <- list()
 for (i in 1:length(out_list)){
   out_string = names(out_list[i])
+  print(out_string)
   out_i = out_list[[out_string]]
   # If the quantity is in full-field, transform back onto it's original scale
   # First, identify the correct mean vector to use for the transformation
@@ -382,7 +360,8 @@ for (i in 1:length(out_list)){
     print(out_string)
     # We don't want to output covariance matrices.
     # Output predictions at experimental coordinates to csv
-    write_output(out_i, out_string, in_file)
+    # Commented to save disk space
+    # write_output(out_i, out_string, in_file)
   }
 }
 

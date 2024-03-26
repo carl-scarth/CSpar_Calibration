@@ -30,8 +30,8 @@ source("source/transform_input_output.R")
 
 p_eta = 20 # Number of basis functions retained for the emulator from SVD
 exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
-# disp_str = c("u","w")
+disp_str = c("w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
+# disp_str = "w"
 # disp_str = "u"
 q_y = length(disp_str)
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign50x3_2" # File identifier string for input and output files
+in_file = "LHSDesign60x6_4" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -60,7 +60,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_200kN.json", sep=""))
 #abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
@@ -74,7 +74,7 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-XT_pred = fread("inputs/LHSDesign50x3_3.csv")
+XT_pred = fread("inputs/LHSDesign60x6_5")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
 
@@ -194,9 +194,8 @@ lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda
 
 # Make predictions from fitted Gaussian process emulator, and write these
 # predictions to a .json file
-# MODIFY PREDICTION CODE TO PROPERLY DO INVERSE TRANSFORMATION WITH UPDATED CODE
 
-N_sam_pred = 100 # Required number of prediction samples
+N_sam_pred = 30 # Required number of prediction samples
 # Make predictions. Request only averages of the full-field across the posterior
 # uncertainty
 out_list = full_field_gp_pred(N_sam_pred, tc, z_hat, t_pred, beta_w, lambda_w, lambda_eta, K_eta, KTK_inv, sam_gp = FALSE, output_coeff_sam = FALSE, output_ff_sam = FALSE, output_coeff_mean = FALSE, output_ff_mean = TRUE)
