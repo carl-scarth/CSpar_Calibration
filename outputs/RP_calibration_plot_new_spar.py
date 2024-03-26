@@ -45,11 +45,12 @@ def subplots_loop(point_inds, DIC, GP_DIC, force_inc, disp_str, n_row, n_col, mi
     # for i, point in enumerate(point_inds):
     for point in point_inds:
         # Extract DIC data (across all increments) at current point
-        DIC_point = DIC[DIC["point_ind"] == point]
-        print(DIC_point)
+        DIC_point = DIC[DIC["point_ind"] == point].sort_values(["Increment"])
         # Also extract values from training data
         gp_point = GP_DIC[GP_DIC["point_ind"] == point].sort_values(["Increment"])
+        print(force_inc)
         gp_force = gp_point["Increment"].to_numpy()*force_inc
+        print(gp_force)
         # Extract samples, mean and standard deviation from gp predictions
         gp_point_sam = gp_point[[column for column in GP_DIC.columns.values if "_".join(("eta_sam",disp_str)) in column and column != "_".join(("eta_sam_mu",disp_str)) and column != "_".join(("eta_sam_sigma",disp_str))]]
         gp_point_mu = gp_point[["_".join(("eta_sam_mu", disp_str))]]
@@ -58,8 +59,8 @@ def subplots_loop(point_inds, DIC, GP_DIC, force_inc, disp_str, n_row, n_col, mi
             gp_point_sam = -gp_point_sam
             gp_point_mu = -gp_point_mu
         # Extract force and displacemnt data from DIC 
-        force_disp = DIC_point[["Force", "_".join((disp_str,"rot"))]].to_numpy()
-        force_disp[:,0] = - force_disp[:,0]
+        force_disp = DIC_point[["Compressive Force", "_".join((disp_str,"rot"))]].to_numpy()
+        # force_disp[:,0] = - force_disp[:,0]
         if minus:
             force_disp[:,1] = -force_disp[:,1]
 
@@ -78,16 +79,16 @@ rcParams.update({'figure.figsize' : (12,9),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
-file_str = "LHSDesign50x3_2"
+file_str = "LHSDesign50x5"
 
 # GP_file = "LHSDesign40x4_RP_pred.csv"
 # DIC_file = "Interpolated_DIC.csv"
 # For if I want to load in actual data
 # Folder Containing DIC data
-DIC_folder = "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Left_Camera_Pair\\Interpolated_Data_inc0"
+DIC_folder = "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Left_Camera_Pair\\Interpolated_Data_200kN"
 # Folder Containg GP predictions, interpolated to DIC coordinates
 GP_DIC_folder = "interp_gp_output" # folder containng interpolated DIC
-# n_incs = 17 # number of increments
+n_incs = 16 # number of increments
 DIC_force_disp_file = "CS02P_mean_disp_412.5mm.csv"
 # Load gp mean and standard deviation (used a different name for training gp - fix later)
 gp_mean = np.loadtxt(file_str+ "_max_eta_sam_mu_w.csv", delimiter=",", skiprows=0)
@@ -100,30 +101,35 @@ DIC_force_disp = pd.read_csv(DIC_force_disp_file)
 # Alternative source of DIC data - contains entire test dataset rather than interpolated data used to train model
 for i, file in enumerate(os.listdir(DIC_folder)):
     data = pd.read_csv(DIC_folder + "\\" + file)
-    data["point_ind"] = data.index
+    # data["point_ind"] = data.index
+    print(data.columns.values)
+    print(data)
+    print(data["index"])
+    data["point_ind"] = data["index"]
+    print(data)
     if i == 0:
         DIC_all = data
     else:
         DIC_all = pd.concat((DIC_all, data),axis=0)
 
-# Not sure if I need this?
-## Load in GP_predictions for DIC data points
-#for file in os.listdir(GP_DIC_folder):
-#    data = pd.read_csv(GP_DIC_folder + "\\" + file)
-#    data["Increment"] = int(file.strip("Frame_.csv"))
-#    #data["Increment"] = int(file.strip("Image_Inc_.csv"))
-#    try:
-#        GP_DIC = pd.concat((GP_DIC, data),axis=0)
-#    except:
-#        GP_DIC = data
+# Load in GP_predictions for DIC data points
+for file in os.listdir(GP_DIC_folder):
+    data = pd.read_csv(GP_DIC_folder + "\\" + file)
+    data["Increment"] = int(file.strip("Frame_.csv"))
+    # data["Increment"] = int(file.strip("Image_Inc_.csv"))
+    try:
+        GP_DIC = pd.concat((GP_DIC, data),axis=0)
+    except:
+        GP_DIC = data
         
 ##n_incs = GP_DIC["Increment"].max()
 # Create plot
 fig, ax = plt.subplots()
-force = 210.0 # Maximum applied load
+force = 200.0 # Maximum applied load
 
 #<=3.5)
 DIC_force_disp = DIC_force_disp[(DIC_force_disp["Load"].abs()<=(force*1.025)) & (DIC_force_disp["Mean DIC Displacement"].abs()<=3.5)]
+print(DIC_all)
 # Plot emulator predictions
 y_gp = np.linspace(0.0, force, gp_mean.shape[0])
 ax.set_title("Calibrated model against machine force-displacement")
@@ -138,19 +144,18 @@ ax.set_xlabel("Displacement (mm)")
 # ax.legend()
 
 # Also plot force (longitudinal) displacement for selected DIC data points
-point_subset_w = [41306, 45855, 43614, 46631, 48792, 49622]
-subplots_loop(point_subset_w, DIC_all, GP_DIC, max_force/n_incs, "w", 2, 3, minus = True)
-plt.show()
-sdasdasd
+point_subset_w = [26805, 34982, 32996]
+print(GP_DIC)
+print(n_incs)
+print(force/n_incs)
+# print(GP_DIC.columns.values)
+subplots_loop(point_subset_w, DIC_all, GP_DIC, force/n_incs, "w", 1, 3, minus = True)
 # Plot minmum vertical displacement
-point_subset_umin = [11710, 10738, 10699, 21171, 10650]
-subplots_loop(point_subset_umin, DIC_all, GP_DIC, max_force/n_incs, "u", 1, 5)
-# Plot maximum vertical displacement at both ends
-point_subset_umax = [669, 554, 398, 22793, 28281, 38707, 388, 38834, 45144, 45568]
-subplots_loop(point_subset_umax, DIC_all, GP_DIC, max_force/n_incs, "u", 2, 5)
+point_subset_umin = [23275, 23903, 24285] # (first one is maximum of the model, second two are either side of experimental points)
+subplots_loop(point_subset_umin, DIC_all, GP_DIC, force/n_incs, "u", 1, 3)
 # Plot maximum transverse diplacement at both end of the flange tips
-point_subset_vmax = [51980, 51513, 50460, 51045, 51126, 51318]
-subplots_loop(point_subset_vmax, DIC_all, GP_DIC, max_force/n_incs, "v", 2, 3)
+point_subset_vmax = [14313, 15408, 22474]
+subplots_loop(point_subset_vmax, DIC_all, GP_DIC, force/n_incs, "v", 1, 3)
 # Decide on a few points from each
 # Points from middle (for u) are [11710, 10738, 10699, 21171, 10650]
 # Try and get some for the other bits (nodes)

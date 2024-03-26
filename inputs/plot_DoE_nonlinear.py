@@ -10,13 +10,15 @@ import os
 shell_mesh = True # Is the mesh comprised of continuum shells?
 new_spar = True # Are we dealing with the new (IM7) spars?
 extract_subset = False # Do we want to only extract a subset of the data?
-infile = "LHSDesign50x3_2"
+flex_support = True
+keep_ind = []
+infile = "LHSDesign60x6_5"
 
 # Open the output files
 if shell_mesh:
     if new_spar:
-        node_file = "CSpar_sam_shell_mesh_nodes_new_spar.csv" # Nodes of nominal input (ignores geometric uncertainty)
-        element_file = "CSpar_sam_shell_mesh_elements_new_spar.csv" # Element connectivity
+        node_file = "new_spar_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
+        element_file = "new_spar_mesh_elements.csv" # Element connectivity
     else:
         node_file = "CSpar_sam_shell_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
         element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
@@ -24,7 +26,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-output_file = infile + "_output_struct.json"
+output_file = infile + "_output_struct_200kN.json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -60,26 +62,40 @@ n_frames = max(n_frames)
 n_frames = len(in_dict["Sample"][0]["Frame"]) # Number of frames
 increments = [frame["Increment"] for frame in in_dict["Sample"][0]["Frame"]]
 RFs = [frame["RFs"][2] for frame in in_dict["Sample"][0]["Frame"]]
-max_ind = {"u" : 4164, "v" : 207, "w" : 1299} # Index of node containing maximum absolute value across training data
+# max_ind = {"u" : 4164, "v" : 207, "w" : 1299} # Index of node containing maximum absolute value across training data (old spars (clamped))
+max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported)
 # col_ind = {"u" : 0, "v" : 1, "w" : 2} # Column index for each displacement component
 output_RP = np.empty((n_sam, n_frames)) # Reference point displacement
+force_RP = np.empty((n_sam, n_frames)) # Refrerence point force
 output_max = {key : np.empty((n_sam, n_frames)) for key in max_ind.keys()} # Maximum displacement
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
 for i, sample in enumerate(in_dict["Sample"]):
-    for j, frame in enumerate(sample["Frame"]):
+    for j, frame in enumerate(sample["Frame"]):        
         # Extract displacements and convert to numpy
         displacements = np.array(frame["Displacements"], dtype = "float")
         # Store RP displacement
-        output_RP[i,j] = displacements[1,2]
+        if flex_support:
+            output_RP[i,j] = displacements[-1,2]
+        else:
+            output_RP[i,j] = displacements[1,2]
+            
+            #output_RP[i,j] = displacements[,2]
+        force_RP[i,j] = frame["RFs"][2]
         # for key, value in output_max.items():
           #  value[i,j] = displacements[max_ind[key], col_ind[key]]
             #output_max[i,j] = displacements[max_ind,0]
         for k, QoI in enumerate(["u","v","w"]):
-            output_max[QoI][i,j] = displacements[max_ind[QoI],k]
+            if flex_support:
+                # Don't have the 2RPs preceeding the nodes in the flexible support version
+                output_max[QoI][i,j] = displacements[max_ind[QoI]-2,k]
+            else:
+                output_max[QoI][i,j] = displacements[max_ind[QoI],k]
             # Dictionary containing output
-            frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
-                
-asdasds
+            if flex_support:
+                frame_dict[j][QoI+"_"+str(i)] = displacements[:-4,k]
+            else:
+                frame_dict[j][QoI+"_"+str(i)] = displacements[2:,k]
+
 if extract_subset:
     frame_dict = [frame_dict[i] for i in keep_ind] # Only retain those at specified increments
 # Create a new directory for the vtk files, if one does not exist already
@@ -94,18 +110,19 @@ for i, frame in enumerate(frame_dict):
 # Finally, plot the displacements at the reference point
 fig, ax = plt.subplots(figsize=(10,4))
 
-max_load = 300.0
-for sample in output_RP:
-    ax.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
+# max_load = 300.0
+for displacement, force in zip(output_RP, force_RP):
+    # ax.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
+    ax.plot(-displacement, force,linewidth=2.0)
 
 ax.set_ylabel("Force (kN)")
 ax.set_xlabel("RP Displacement (mm)")
-
-
+plt.show()
 fig2, axs2 = plt.subplots(1, 3, figsize=(10,4))
 for ax2, key in zip(axs2, ["u", "v", "w"]):
-    for sample in output_max[key]:
-        ax2.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
+    for displacement, force in zip(output_max[key], force_RP):
+        # ax2.plot(-sample, [max_load*inc for inc in increments],linewidth=2.0)
+        ax2.plot(-displacement, force,linewidth=2.0)
     ax2.set_ylabel("Force (kN)")
     ax2.set_xlabel("Displacement (mm)")
     ax2.set_title(key+" at node "+str(max_ind[key]))
@@ -115,5 +132,6 @@ plt.show()
 
 # Write to a csv file
 np.savetxt(infile+"_RP_displacements.csv", output_RP, delimiter=',')
+np.savetxt(infile+"_RP_Force.csv", force_RP, delimiter=',')
 for key in ["u","v","w"]:
     np.savetxt("_".join((infile,key,"max_displacements.csv")), output_max[key], delimiter=',')

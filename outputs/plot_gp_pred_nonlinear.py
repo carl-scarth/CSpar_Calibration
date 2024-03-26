@@ -12,12 +12,18 @@ import pandas as pd
 # This code is getting messy - it would be good to package up some aspects to tidy
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign50x3_2"
+infile = "LHSDesign60x6_4_5"
+new_spar = True # Are we considering the new spar geometry?
+flex_support = True # Are we using the model with flexible supports?
 
 # Open the output files
 if shell_mesh:
-    node_file = "CSpar_sam_shell_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
-    element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
+    if new_spar:
+        node_file = "new_spar_mesh_nodes.csv"
+        element_file = "new_spar_mesh_elements.csv"
+    else:
+        node_file = "CSpar_sam_shell_mesh_nodes_new.csv" # Nodes of nominal input (ignores geometric uncertainty)
+        element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
 else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
@@ -50,7 +56,7 @@ faces = faces - 1
 with open(output_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())
-
+    
 # Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
 try:
     n_pred = len(in_dict["Prediction"]) # Number of predictions
@@ -74,7 +80,11 @@ if "w" in out_str:
     output_RP = {} # Dictionary for storing reference point info
 
 output_max = {} # Dictionary for storing outputs at location of maximum displacement
-max_ind = {'u': 4164, 'v': 207,'w': 1299} # Index of node containing maximum absolute value across training data
+# max_ind = {'u': 4164, 'v': 207,'w': 1299} # Index of node containing maximum absolute value across training data (old spar)
+max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported)
+if flex_support:
+    max_ind = {key : value - 2 for key, value in max_ind.items()} # (don't have the reference points in the new model)
+
 # Ideally I'd caluclate this here but it's a little too messy.
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
 for i, sample in sam_iter:
@@ -97,7 +107,10 @@ for i, sample in sam_iter:
                             
                             output_max[QoI+"_sam_"+str(k)][coord][i, j] = post_sam_k[max_ind[coord]]
                             if "w" in out_str:
-                                output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[1]
+                                if flex_support:
+                                    output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[-1]
+                                else:
+                                    output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[1]
                         
                         else:
                             if QoI not in output_max:
@@ -107,13 +120,22 @@ for i, sample in sam_iter:
                             
                             output_max[QoI][coord][j,k] = post_sam_k[max_ind[coord]]
                             if coord == "w":
-                                output_RP[QoI][j,k] = post_sam_k[1]
+                                if flex_support:
+                                    output_RP[QoI][j,k] = post_sam_k[-1]
+                                else:
+                                    output_RP[QoI][j,k] = post_sam_k[1]
                     
                     # Dictionary containing output
                     if n_pred > 1:
-                        frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[2:]
+                        if flex_support:
+                            frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[:-4]
+                        else:
+                            frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[2:]
                     else:
-                        frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[2:]
+                        if flex_support:
+                            frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[:-4]
+                        else:
+                            frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[2:]
         
             else:
                 # Otherwise the prediction is an average across the posterior
@@ -132,13 +154,25 @@ for i, sample in sam_iter:
                     if n_pred > 1:
                         output_max[QoI][coord][i,j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
-                            output_RP[QoI][i,j] = predictions[coord][1]
-                        frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][2:], dtype=float)
+                            if flex_support:
+                                output_RP[QoI][i,j] = predictions[coord][-1]
+                            else:
+                                output_RP[QoI][i,j] = predictions[coord][1]
+                        if flex_support:
+                            frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][:-4], dtype=float)
+                        else:
+                            frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][2:], dtype=float)
                     else:
                         output_max[QoI][coord][j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
-                            output_RP[QoI][j] = predictions[coord][1]
-                        frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][2:], dtype=float)
+                            if flex_support:
+                                output_RP[QoI][j] = predictions[coord][-1]
+                            else:
+                                output_RP[QoI][j] = predictions[coord][1]
+                        if flex_support:
+                            frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][:-4], dtype=float)
+                        else:
+                            frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][2:], dtype=float)
 
 # Create a new directory for the vtk files, if one does not exist already
 if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):

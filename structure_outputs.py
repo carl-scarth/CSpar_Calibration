@@ -3,11 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "LHSDesign50x5_1"
-max_load = -300.0
+file_str = "LHSDesign60x6_4"
+max_load = -250.0
 max_disp = -4.0
 max_inc = 0.05
-apply_force = False
+apply_force = True
 if apply_force:
     displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 else:

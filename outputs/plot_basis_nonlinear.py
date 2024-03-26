@@ -10,16 +10,21 @@ import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
 infile = "LHSDesign50x3_2"
+new_spar = True # Are we considering the new spar geometry?
 
 # Open the output files
 if shell_mesh:
-    node_file = "CSpar_sam_shell_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
-    element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
+    if new_spar:
+        node_file = "new_spar_mesh_nodes.csv"
+        element_file = "new_spar_mesh_elements.csv"
+    else:
+        node_file = "CSpar_sam_shell_mesh_nodes_new.csv" # Nodes of nominal input (ignores geometric uncertainty)
+        element_file = "CSpar_sam_shell_mesh_elements.csv" # Element connectivity
 else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-basis_file = "basis_nonlinear_" + infile + "_u.json"
+basis_file = "basis_nonlinear_" + infile + ".json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -36,7 +41,7 @@ for frame in in_dict["Frame"]:
 
 # Get maximum mean displacement for plotting/exporting
 max_ind = {label : np.argmax(np.abs(value)) for label, value in in_dict["Frame"][-1]["Training_Data_Mean"].items()}
-print(max_ind)
+
 # Extract number of frames, number of bases, and number of outputs
 n_frames = len(in_dict["Frame"])
 out_str = list(in_dict["Frame"][0]["Bases"].keys())
