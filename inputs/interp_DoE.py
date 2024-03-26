@@ -9,10 +9,11 @@ from interpolate_data import intp_nodes_to_cloud
 if __name__ == "__main__":
     # Load inputs from file
     conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
-    exp_data_file = "Interpolated_DIC_200kN"                # Experimental data
-    DoE_file = "LHSDesign40x4_1_fixed_200kN"                  # Model output
+    exp_data_file = "Selected_Points_CS02P"                # Experimental data
+    DoE_file = "nominal_inputs_new_spar"                  # Model output
     conn = pd.read_csv(conn_file+".csv").to_numpy(dtype=int)
     conn = conn - 1 # Convert to Python indexing from Abaqus
+    
     model_out = pd.read_csv(DoE_file+".csv")
     exp_data = pd.read_csv(exp_data_file+".csv")
 
