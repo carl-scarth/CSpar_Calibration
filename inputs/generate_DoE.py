@@ -98,7 +98,7 @@ inputs = [
     ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
     #['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
     ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
-    ['K', 'Loguniform', 10.0, 25000.0, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
+    ['K', 'Loguniform', 10.0, 25000.0, True] # Initial test case - switch probably to log-gamma once I've had time to think about it
     #['x_spring_error', 'Uniform', -1.0, 1.0, True]  # Halfway between two settings
     #['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
 ]
@@ -122,20 +122,41 @@ inputs = [
 #    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
 #]
 
+inputs = [
+    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
+    #['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
+    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
+    ['K', 'Loggamma', 1.0, 0.3, True] # Initial test case - switch probably to log-gamma once I've had time to think about it
+    #['x_spring_error', 'Uniform', -1.0, 1.0, True]  # Halfway between two settings
+    #['pivot_offset_error', 'Uniform', -5.0, 5.0, True] # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
+]
+
+
 # Write code for outputting prior info
-#inputs = [
-#    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
-#    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
-#    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
-#    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
-#    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
-#    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True], # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
-#    ['x_misalign_slope', 'Gaussian', 0.0, 1.0/370.0, True] # Such that one standard deviation results in a misalignment of 1mm at each end
-#]
+inputs = [
+    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
+    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
+    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
+    ['K', 'Loggamma', 1.0, 0.3, True], # Initial test case - switch probably to log-gamma once I've had time to think about it
+    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
+    ['pivot_offset_error', 'Uniform', -5.0, 5.0, True], # Rig is precision machined, pick this value to incorporate uncertainty in trimmed spar length, and amount embedded in end caps. Basically this changes the effective length
+    ['x_misalign_slope', 'Gaussian', 0.0, 1.0/370.0, True] # Such that one standard deviation results in a misalignment of 1mm at each end (of the spar)
+]
+
+inputs = [
+    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR, RTD
+    ['G12', 'Gaussian', 4.69, 6.0, True], # NIAR, RTD
+    ['t_ply', 'Gaussian', 0.125, 4.0, True], #  Meng Yi's Refs
+    ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
+    ['Flange_theta', 'Gaussian', 0.0, 1.0, True]
+]
+
+
+
 # What about misalignment in y direction?
 
-N = 5000 # Number of samples to be generated
-xLHS = transformed_LHS(inputs, N)#, sampler_package="scikit-optimize", sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":10000})
+N = 50 # Number of samples to be generated
+xLHS = transformed_LHS(inputs, N, sampler_package="scikit-optimize", sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":10000})
 d = len(inputs) # Number of inputs
 
 # If a log distribution, output the natural log as this is a more natural scale for the Gaussian process
