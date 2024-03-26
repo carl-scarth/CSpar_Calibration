@@ -10,11 +10,12 @@ from interpolate_data import intp_nodes_to_cloud
 if __name__ == "__main__":
 
     # Set up for output across multiple frames, input via json
-    infile = "LHSDesign40x4"
+    infile = "LHSDesign60x6_4"
     output_file = "gp_predictions_nonlinear_" + infile + ".json"
-    conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
+    # conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
     # Load inputs from file
-    exp_data_file = "Interpolated_DIC_inc2" # Csv containing experimental data, including increment index and point index
+    conn_file = "new_spar_mesh_outer_surface_elements"
+    exp_data_file = "..\\inputs\\Interpolated_DIC_200kN_no0" # csv containing experimental data, including increment index and point index
     # Read in prediction data
     with open(output_file, "r") as f:
         # Load in string from file
@@ -25,6 +26,7 @@ if __name__ == "__main__":
     # Read in experimental data
     exp_data = pd.read_csv(exp_data_file+".csv")
     exp_data.columns.values[0] = "point_ind"
+    print(exp_data)
     # Convert increment to python indexing
     exp_data.Increment = exp_data.Increment - 1
 
@@ -49,7 +51,8 @@ if __name__ == "__main__":
         exp_data_i = exp_data[exp_data.Increment == i]
         # Extract element index and natural coordinates
         el_ind = exp_data_i["Element"].to_numpy(dtype=int)
-        gh = exp_data_i[["h","r"]].to_numpy()
+        # gh = exp_data_i[["h","r"]].to_numpy()
+        gh = exp_data_i[["g","h"]].to_numpy()
         out_frame = exp_data_i[["point_ind","x_proj","y_proj","z_proj"]]
         for QoI, predictions in frame.items():
             print(QoI)
