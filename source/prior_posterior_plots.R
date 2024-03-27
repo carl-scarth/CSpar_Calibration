@@ -29,11 +29,16 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
     }
     # get limits for plot
     if (!is.null(tf_param)){
-      if (tf_param$distribution[i] == "Gaussian"){
+      if (tf_param$distribution[i] == "Gaussian" | tf_param$distribution[i] == "Lognormal"){
         # maximum and minimum of +/- 3 standard deviations
         mu = tf_param$param_1[i]
         std = tf_param$param_2[i]
         t_min = mu - 3*std
+        t_max = mu + 3*std
+      } else if (tf_param$distribution[i] == "Halfnormal") {
+        mu = tf_param$param_1[i]
+        std = tf_param$param_2[i]
+        t_min = mu
         t_max = mu + 3*std
       } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
         t_min = tf_param$param_1[i]
@@ -51,7 +56,7 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
          col = "brown1",
          breaks = 25,
          freq = FALSE,
-         xlim = c(t_min,t_max),
+         #xlim = c(t_min,t_max),
          cex.lab = 1.25,
          cex.axis = 1.25)
   
@@ -59,9 +64,11 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
     if (!is.null(tf_param)){
       # identify the appropriate distribution and properties
       t_plot = seq(t_min,t_max, length.out = 100)
-      if (tf_param$distribution[i] == "Gaussian"){
+      if (tf_param$distribution[i] == "Gaussian" | tf_param$distribution[i] == "Lognormal" ){
         # maximum and minimum of +/- 3 standard deviations
         prior_plot = dnorm(t_plot, mean = mu, sd = std)
+      } else if (tf_param$distribution[i] == "Halfnormal") {
+        prior_plot = 2*dnorm(t_plot, mean = mu, sd = std)
       } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
         prior_plot = dunif(t_plot, min = t_min, max = t_max)
       }
