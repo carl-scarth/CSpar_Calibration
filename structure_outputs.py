@@ -3,16 +3,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
-file_str = "LHSDesign50x5"
-#file_str = "LHSDesign60x6_2"
-max_load = -300.0
-max_disp = -4.0
+#file_str = "LHSDesign25x1_1"
+file_str = "LHSDesign60x6_6"
+max_load = -250.0
+max_disp = -3.0
 max_inc = 0.05
 apply_force = False
+rigid_BC = False
+
 if apply_force:
     displacements = np.loadtxt("inputs\\" + file_str + "_displacements_load=" + str(max_load) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
 else:
     displacements = np.loadtxt("inputs\\" + file_str + "_displacements_disp=" + str(max_disp) + "_max_inc=" + str(max_inc) +".csv",delimiter=",",skiprows=1)
+print(displacements)
+
 # displacements = pd.read_csv("inputs\\LHSDesign60x6_displacements_load=-250.0_max_inc=0.1.csv",sep=",")
 if apply_force:
     RFs = np.loadtxt("inputs\\" + file_str + "_RFs_load=" + str(max_load) + "_max_inc=" + str(max_inc) + ".csv", delimiter=',', skiprows=1)
@@ -25,7 +29,7 @@ if apply_force:
 else:
     with open ("inputs\\" + file_str + "_incs_disp=" + str(max_disp) + "_max_inc=" + str(max_inc) + ".txt",'r') as f:
         increments = [[float(increment) for increment in line.strip().split(',')] for line in f.readlines()]
-        
+
 # Play around with different data structures: json or dataframe
 displacements_struct = {"Sample" : []}
 # Creates an empty dataframe with all the correct column names. Not sure how to add to these in the loop
@@ -85,18 +89,28 @@ for i, sample in enumerate(displacements_struct_subset["Sample"]):
 n_frames_subset = [len(sample["Frame"]) for sample in displacements_struct_subset["Sample"]]
 end_incs_subset = [sample["Frame"][-1]["Increment"] for sample in displacements_struct_subset["Sample"]]
 
+
 # Plot force-displacement of reference point at the spar tip
 # Extract displacement (w) at reference point for all increments in each sample
-ref_w = [[-frame["Displacements"][1,2] for frame in sample["Frame"]]for sample in displacements_struct["Sample"]]
+
+for sample in displacements_struct["Sample"]:
+    print(sample["Frame"][-1]["Displacements"][-5:-1,:])
+
+if rigid_BC:
+    ref_w = [[-frame["Displacements"][1,2] for frame in sample["Frame"]]for sample in displacements_struct["Sample"]]
+else:
+    ref_w = [[-frame["Displacements"][-1,2] for frame in sample["Frame"]]for sample in displacements_struct["Sample"]]
 RF_z = [[frame["RFs"][2] for frame in sample["Frame"]]for sample in displacements_struct["Sample"]]
 
 fig = plt.figure(figsize=(10,8))
 ax = fig.add_subplot(1, 1, 1)
 for i, sample in enumerate(ref_w):
+    print(sample)
     if min(RF_z[i]) < -1:
         print(i)
     if max(RF_z[i]) <= 300:
         ax.plot(sample, RF_z[i])
+        print(RF_z[i])
 
 label_font = {'family': 'serif', 'size': 16,}
 ax.set_ylabel("Force (kN)", fontdict = label_font)
