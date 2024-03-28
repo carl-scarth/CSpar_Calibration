@@ -1,7 +1,7 @@
 // Define specified prior distributions on the calibration parameters
-for (i in 1:q){
+for (i in 1:4){
   tf_gauss[i] ~ normal(tf_param_1[i], tf_param_2[i]);
 }
-// Remaining calibration parameters are uniformly distributed by default, 
-// between previously defined bounds
-
+for (i in 1:2){
+  tf_halfnorm[i] ~ normal(0.0, tf_param_2[i]);
+}

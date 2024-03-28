@@ -4,9 +4,9 @@
 import pandas as pd
 import os
 
-file_str = "LHSDesign40x4"
-# quantity = "mean_error"
-quantity = "interpolated_basis"
+file_str = "LHSDesign60x6_4"
+quantity = "mean_error"
+#quantity = "interpolated_basis"
 
 cloud_file = "_".join((file_str, quantity, "nonlinear.csv"))
 #cloud_file = "Interpolated_DIC_inc2_downsam4.csv"

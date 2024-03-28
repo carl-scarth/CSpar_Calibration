@@ -46,6 +46,7 @@ def subplots_loop(point_inds, DIC, GP_DIC, force_inc, disp_str, n_row, n_col, mi
     for point in point_inds:
         # Extract DIC data (across all increments) at current point
         DIC_point = DIC[DIC["point_ind"] == point]
+        print(DIC_point)
         # Also extract values from training data
         gp_point = GP_DIC[GP_DIC["point_ind"] == point].sort_values(["Increment"])
         gp_force = gp_point["Increment"].to_numpy()*force_inc
@@ -83,7 +84,8 @@ exp_file = "Crosshead_Force_Disp.csv" # Force-displacement from test machine
 # DIC_file = "Interpolated_DIC.csv"
 # For if I want to load in actual data
 # Folder Containing DIC data
-DIC_folder = "..\\..\\Geir_Olafsson\\Failure\\Processed DIC Data\\Individual Fields of View\\Alvium Pair 03\\Export_2\\Data_rad_trimmed"
+# DIC_folder = "..\\..\\Geir_Olafsson\\Failure\\Processed DIC Data\\Individual Fields of View\\Alvium Pair 03\\Export_2\\Data_rad_trimmed"
+DIC_folder = "..\\..\\Geir_Olafsson\\Failure\\Interpolated_Data"
 # Folder Containg GP predictions, interpolated to DIC coordinates
 GP_DIC_folder = "interp_gp_output" # folder containng interpolated DIC
 # n_incs = 17 # number of increments
@@ -119,6 +121,7 @@ for i, file in enumerate(os.listdir(DIC_folder)):
     else:
         DIC_all = pd.concat((DIC_all, data),axis=0)
 
+
 # Load in GP_predictions for DIC data points
 for file in os.listdir(GP_DIC_folder):
     data = pd.read_csv(GP_DIC_folder + "\\" + file)
@@ -152,6 +155,8 @@ ax.set_xlabel("Displacement (mm)")
 # Also plot force (longitudinal) displacement for selected DIC data points
 point_subset_w = [41306, 45855, 43614, 46631, 48792, 49622]
 subplots_loop(point_subset_w, DIC_all, GP_DIC, max_force/n_incs, "w", 2, 3, minus = True)
+plt.show()
+sdasdasd
 # Plot minmum vertical displacement
 point_subset_umin = [11710, 10738, 10699, 21171, 10650]
 subplots_loop(point_subset_umin, DIC_all, GP_DIC, max_force/n_incs, "u", 1, 5)

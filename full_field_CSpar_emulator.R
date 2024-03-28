@@ -41,8 +41,8 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-# in_file = "LHSDesign50x3" # File identifier for input and output csvs
-in_file = "LHSDesign100x9" # File identifier string for input and output csvs
+in_file = "LHSDesign50x3_2" # File identifier for input and output csvs
+# in_file = "LHSDesign100x9" # File identifier string for input and output csvs
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # In this example I fit the emulator to the log of spring stiffness K, which is 

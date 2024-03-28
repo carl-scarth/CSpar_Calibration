@@ -17,8 +17,8 @@ data {
   real<lower=0> b_y_dash[q_y];   // Adjusted value of the rate parameter for the lambda_y prior
   real<lower=0> lambda_eta;      // Precision of truncation error
   vector[(m+1)*p_eta] z_hat;     // Vector of regression weights representing model output for the experimental data and emulator training data
-  vector[q] tf_param_1;          // First parameter of calibration parameter priors
-  vector[q] tf_param_2;          // Second parameter of calibration parameter priors
+  row_vector[q] tf_param_1;      // First parameter of calibration parameter priors
+  row_vector[q] tf_param_2;      // Second parameter of calibration parameter priors
   vector<lower=0,upper=1>[q*p_eta] rho_w; // Emulator correlation parameters
   vector<lower=0>[p_eta] lambda_w;        // Emulator precision parameters
   matrix[m, q] tc;                        // Matrix of uncontrolled inputs at the training data points
