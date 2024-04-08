@@ -246,8 +246,10 @@ prior_posterior_pairs <- function(tf, tf_param, inp_labels = NULL, new_window = 
   
   prior_sam = matrix(0, nrow = N_samples, ncol = q)
   for (i in 1:q){
-    if (tf_param$distribution[i] == "Gaussian"){
+    if (tf_param$distribution[i] == "Gaussian" | tf_param$distribution[i] == "Lognormal"){
       prior_sam[,i] = rnorm(N_samples, tf_param$param_1[i], tf_param$param_2[i])
+    } else if (tf_param$distribution[i] == "Halfnormal"){
+      prior_sam[,i] = tf_param$param_1[i] + abs(rnorm(N_samples, 0.0, tf_param$param_2[i]))
     } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
       prior_sam[,i] = runif(N_samples, tf_param$param_1[i], tf_param$param_2[i])
     } else {
