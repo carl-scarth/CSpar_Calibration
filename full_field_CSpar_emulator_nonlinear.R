@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign60x6_4" # File identifier string for input and output files
+in_file = "LHSDesign60x6_5" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -74,7 +74,7 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-XT_pred = fread("inputs/LHSDesign60x6_5")
+XT_pred = fread("inputs/LHSDesign60x6_4.csv")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
 
