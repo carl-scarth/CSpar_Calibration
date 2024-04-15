@@ -170,22 +170,6 @@ for (i in 1:q_y){
 residual = c(as.matrix(exp_displacement)) - mu_y
 rel_error = (abs(residual)/abs(mu_y))*100
 
-# Write to CSV
-# write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
-if (q_y == 1) {
-  out_frame = cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, Increment = experimental_data$Increment)
-} else {
-  out_frame = experimental_data[DIC_coord_labels]
-  for (i in 1:q_y) {
-    out_frame[paste("training_data_mean_", disp_str[i], sep="")] = mu_y[((i-1)*n_y+1):(i*n_y)]
-    out_frame[paste("residual_", disp_str[i], sep="")] = residual[((i-1)*n_y+1):(i*n_y)]
-    out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[((i-1)*n_y+1):(i*n_y)])
-    out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[((i-1)*n_y+1):(i*n_y)]
-  }
-  out_frame["Increment"] = experimental_data$Increment
-}
-write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
-
 # Centre the experimental data and convert to vector to pass to stan
 if ((length(sd_dt)>1) & (q_y>1)){
   sd_y = rep(sd_dt[1],n_y)
@@ -197,6 +181,23 @@ if ((length(sd_dt)>1) & (q_y>1)){
 }
 exp_displacement_cen = (c(as.matrix(exp_displacement)) - mu_y)/sd_y
 y = exp_displacement_cen
+
+# Write to CSV
+# write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
+if (q_y == 1) {
+  out_frame = cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y, standardised_y = y,residual,abs(residual),rel_error, Increment = experimental_data$Increment)
+} else {
+  out_frame = experimental_data[DIC_coord_labels]
+  for (i in 1:q_y) {
+    out_frame[paste("training_data_mean_", disp_str[i], sep="")] = mu_y[((i-1)*n_y+1):(i*n_y)]
+    out_frame[paste("standardised_y_", disp_str[i], sep="")] = y[((i-1)*n_y+1):(i*n_y)]
+    out_frame[paste("residual_", disp_str[i], sep="")] = residual[((i-1)*n_y+1):(i*n_y)]
+    out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[((i-1)*n_y+1):(i*n_y)])
+    out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[((i-1)*n_y+1):(i*n_y)]
+  }
+  out_frame["Increment"] = experimental_data$Increment
+}
+write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
 
 # We also need to interpolate the basis functions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
