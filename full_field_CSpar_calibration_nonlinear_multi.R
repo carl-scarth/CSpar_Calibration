@@ -42,7 +42,7 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign60x6_5" # File identifier string for input and output csvs
+in_file = "LHSDesign60x6_4" # File identifier string for input and output csvs
 exp_data_file = "Interpolated_DIC_200kN_no0" # Identifier of file containing DIC data
 surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 
@@ -51,8 +51,8 @@ surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier stri
 # Define prior distribution parameters for passing to stan
 # Define prior distribution parameters for passing to stan
 # Note, input sd rather than cov
-tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
-#tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+#tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 #-------------------------------------------------------------------------------
 # Set up simulation data (need to retain this for normalisation of inputs)
@@ -187,7 +187,15 @@ if (q_y == 1) {
 write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
 
 # Centre the experimental data and convert to vector to pass to stan
-exp_displacement_cen = (c(as.matrix(exp_displacement)) - mu_y)/sd_dt
+if ((length(sd_dt)>1) & (q_y>1)){
+  sd_y = rep(sd_dt[1],n_y)
+  for (i in 2:q_y){
+    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y+1],n_y))
+  }
+} else {
+  sd_y = sd_dt
+}
+exp_displacement_cen = (c(as.matrix(exp_displacement)) - mu_y)/sd_y
 y = exp_displacement_cen
 
 # We also need to interpolate the basis functions, K, (determined above using 
