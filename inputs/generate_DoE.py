@@ -150,12 +150,23 @@ inputs = [
     ['x_spring_error', 'Uniform', -1.0, 1.0, True],  # Halfway between two settings
     ['Flange_theta', 'Gaussian', 0.0, 1.0, True]
 ]
-
-
+# Fullest example I can think of
+inputs = [
+    ['E11', 'Gaussian', 140.9, 6.0, True], # NIAR data, E11c, RTD
+    ['E22', 'Gaussian', 8.96, 6.0, True],  # NIAR data, E22t, RTD
+    ['G12', 'Gaussian', 4.69, 6.0, True],    # NIAR data, G12,s RTD.
+    ['t_ply','Gaussian', 0.125, 4.0, True],   # Mean taken from past data of material used in Bath, mean chosen from Engineering judgement of a conservative but reasonable spread in values
+    ['x_spring_error', 'Gaussian', 0.0, 2/3, True],
+    ['LFlange_theta', 'Gaussian', 0.0, 1.0, True], # +/- 3 standard deviations within 5 degrees
+    ['RFlange_theta', 'Gaussian', 0.0, 1.0, True], # +/- 3 standard deviations within 5 degrees
+    ['E_beam', 'Loguniform', np.exp(6.0), np.exp(16.0), True],
+    ['K_ground', 'Loguniform', np.exp(6.0), np.exp(16.0), True],
+    ['rad_thin', 'Uniform',	-0.25,	2.5, True]
+    ]
 
 # What about misalignment in y direction?
 
-N = 50 # Number of samples to be generated
+N = 100 # Number of samples to be generated
 xLHS = transformed_LHS(inputs, N, sampler_package="scikit-optimize", sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":10000})
 d = len(inputs) # Number of inputs
 
