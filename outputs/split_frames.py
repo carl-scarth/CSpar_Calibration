@@ -4,7 +4,7 @@
 import pandas as pd
 import os
 
-file_str = "LHSDesign60x6_4"
+file_str = "LHSDesign60x6_7"
 quantity = "mean_error"
 #quantity = "interpolated_basis"
 
