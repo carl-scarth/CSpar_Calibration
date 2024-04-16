@@ -28,12 +28,12 @@ def set_input(x_series, x_name, default_val):
         x = default_val
     return x
 
-infile = "inputs\\LHSDesign50x5_2"
+# infile = "inputs\\LHSDesign50x5_2"
 # infile = "inputs\\spring_study_new_spar"
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
 # infile = "inputs\\nominal_inputs_new_spar"
-# infile = "inputs\\new_spar_real_props"
+infile = "inputs\\nominal_ground_spring"
 
 change_inc = True # Do I want to play with the increment size?
 write_buffer = False # Do I want to write a temporary file to store displacements as I go?
@@ -155,9 +155,7 @@ for i, x_i in iterable:
         # Write parameters to a text file which will be used to generate mesh
         # write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, model_name = model_name)
         write_parameters(t_ply = t_ply, Zlength = Zlength, height = height, StackSeq = layup, rotate_flanges = rotate_flanges, model_name = file_str)
-
-    # TEST OUT USING DIFFERENT FIRST ROW IN INPUT FILE
-    sdasdsd
+  
     # Generate the mesh using Gmsh
     write_mesh()
     # Run the gridModification code to create the ramp in the spar
@@ -197,6 +195,7 @@ for i, x_i in iterable:
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
     print(command)
     os.system(command)
+    fgfdgfdg
     
     # Process the abaqus output to extract displacements and nodal coordinates
     if change_inc:
