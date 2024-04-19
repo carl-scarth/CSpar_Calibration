@@ -1,4 +1,4 @@
-# Loads in a Design of Experiments and runs the C_spar model for this DoE
+    # Loads in a Design of Experiments and runs the C_spar model for this DoE
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from write_parameters import write_parameters
 from write_mesh import *
 from write_inp import *
 from write_shell_inp import write_inp as write_shell_inp
+from write_shell_inp_beam import write_inp as write_shell_inp_beam
 from write_shell_parameters import write_parameters as write_shell_parameters
 
 
@@ -37,6 +38,8 @@ infile = "inputs\\nominal_ground_spring"
 
 change_inc = True # Do I want to play with the increment size?
 write_buffer = False # Do I want to write a temporary file to store displacements as I go?
+flexible_support = True
+flexible_ground = True
 restart = False # Am I restarting a previous analysis?
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
@@ -74,6 +77,11 @@ if shell_mesh:
 else:
     # n_Nodes = 116877 # Number of nodes per simulation (this increased with the additional BCs) 3D Mesh
     n_Nodes = (n_plies + 1)*4675 + 2 # Assumes mesh density is fixed
+if flexible_support:
+    n_Nodes = n_Nodes + 2
+if flexible_ground:
+    n_Nodes = n_Nodes + 1
+print(n_Nodes)
 
 # Define inputs which are held constant
 model_name = 'CSpar_sam' # Name of the Abaqus model
@@ -182,12 +190,19 @@ for i, x_i in iterable:
         K = np.exp(x_i["log_K"])
     else:
         K = 10.0
+    if "log_E_beam" in x_i:
+        E_beam = np.exp(x_i["log_E_beam"])
+        print(E_beam)
+    if "log_K_ground" in x_i:
+        K_ground = np.exp(x_i["log_K_ground"])
+        print(K_ground)
     
     # write Abaqus input file using the appropriate function, depending on whether or not the mesh is 
     # comprised of shells
     if shell_mesh:
         # Assumes pivot off-set error is applied symmetrically, i.e. positive at load end, negative at fixed end. basically just increases the effective length
-        write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load)
+        #write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load)
+        write_shell_inp_beam(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, E_beam = E_beam, K_ground = K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = not flexible_ground)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     # Run Abaqus from the command line
@@ -195,17 +210,18 @@ for i, x_i in iterable:
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
     print(command)
     os.system(command)
-    fgfdgfdg
     
     # Process the abaqus output to extract displacements and nodal coordinates
     if change_inc:
         # If multiple frames are requested, run the code which processes all frames
-        command = "abaqus viewer noGUI=process_outputs_all_frames.py -- " + file_str
+        # command = "abaqus viewer noGUI=process_outputs_all_frames.py -- " + file_str
+        command = "abaqus viewer noGUI=process_outputs_all_frames_new.py -- " + file_str
     else:
         # If only one increment is required just run the script which processes the final frame
         command = "abaqus viewer noGUI=process_outputs.py -- " + file_str
     
     os.system(command)
+    fdfdsfdsf
 
     # The increment index outputted by the postprocessing file should help keep track of things.
     # At some point consider looking at numpy options for 3d arrays, and json files. This is going to be an 
