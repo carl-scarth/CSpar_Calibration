@@ -45,6 +45,8 @@ chains = 3 # Number of chains for simulation
 in_file = "LHSDesign60x6_4" # File identifier string for input and output csvs
 exp_data_file = "Interpolated_DIC_200kN_no0" # Identifier of file containing DIC data
 surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
+p_sub = 1 # Use a subset of the basis functions
+use_subset = TRUE
 
 #-------------------------------------------------------------------------------
 
@@ -52,7 +54,7 @@ surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier stri
 # Define prior distribution parameters for passing to stan
 # Note, input sd rather than cov
 #tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
-tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data_relaxed_3.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 #-------------------------------------------------------------------------------
 # Set up simulation data (need to retain this for normalisation of inputs)
@@ -136,6 +138,9 @@ sd_dt = out_list[[3]]
 # K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,".csv", sep = "")))
 K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,"_uvw.csv", sep = "")))
 p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from SVD
+if (use_subset) {
+  K_eta = K_eta[,p_sub,drop=F]
+}
 
 #-------------------------------------------------------------------------------
 
@@ -202,18 +207,22 @@ write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep =
 
 # We also need to interpolate the basis functions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
-K_y = matrix(NA, nrow = n_y*q_y, ncol = p_eta)
+if (use_subset){
+  K_y = matrix(NA, nrow = n_y*q_y, ncol = p_sub)
+} else {
+  K_y = matrix(NA, nrow = n_y*q_y, ncol = p_eta)
+}
 # K_y = intp_nodes_to_cloud_inc(y_element, hr, K_eta, frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 for (i in 1:q_y){
-  K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud_inc(y_element, gh, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),], frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0)
+  K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud_inc(y_element, gh, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),,drop=F], frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0)
 }
 if (q_y == 1) {
   out_frame = as.data.frame(K_y)
-  for (i in 1:p_eta) {colnames(out_frame)[i] = sprintf("K_y,%d",i)} 
+  for (i in 1:ncol(K_eta)) {colnames(out_frame)[i] = sprintf("K_y,%d",i)} 
 } else {
   out_frame = as.data.frame(matrix(NA, nrow = n_y, ncol = 0))
   for (i in 1:q_y) {
-    for (j in 1:p_eta) {
+    for (j in 1:ncol(K_eta)) {
       out_frame[[as.name(sprintf("K_y_%s_%d",disp_str[i],j))]] = K_y[((i-1)*n_y+1):(i*n_y),j]
     }
   }
@@ -248,8 +257,13 @@ b_y_dash = array(rep(b_y, q_y), dim=q_y)
 # MLE or MAP estimate
 # emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
 emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,"_uvW.csv", sep=""), sep = ",", header = TRUE)))
-rho_w = emulator_parameters[1:(p_eta*q)]
-lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
+if (use_subset) {
+  rho_w = emulator_parameters[1:(p_sub*q)]
+  lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*q+p_sub)]
+} else {
+  rho_w = emulator_parameters[1:(p_eta*q)]
+  lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*(q+1))]
+}
 lambda_eta = emulator_parameters[p_eta*(q+1)+1]
 
 # Set up the environment for Stan, pass arguments, and run stan model
@@ -260,6 +274,9 @@ parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
 
 # List of arguments to pass to stan
+if (use_subset) {
+  p_eta = p_sub
+}
 stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=q_y, a_y_dash = a_y_dash,
                  b_y_dash = b_y_dash, lambda_eta = lambda_eta, w_hat = w_hat,
                  tf_param_1=tf_param$p1_trans, tf_param_2=tf_param$p2_trans, 
@@ -275,12 +292,15 @@ fit = stan(file = "source/full_field_calibration_fixed_em_multi.stan",
            # iter = 1,
            model_name = "full_field_calibration")
 
+# save.image("~/60x6_4_calibration_uvw.RData")
+
+
+
 #-------------------------------------------------------------------------------
 
 # Post-process and plot the simulation data
 
 # CHECK IF PREDICTION CODE NEEDS TO BE MODIFIED 
-save.image("~/60x6_5_calibration_uvw_td.RData")
 # plot trace plots
 stan_trace(fit, pars = c("tf", "lambda_y"))
 # Print summary of results
