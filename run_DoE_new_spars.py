@@ -34,7 +34,9 @@ def set_input(x_series, x_name, default_val):
 # infile = "inputs\\LHSDesign75x7" # file in which DoE is stored
 # infile = "inputs\\eccentricity_study_shell_E1T"
 # infile = "inputs\\nominal_inputs_new_spar"
-infile = "inputs\\nominal_ground_spring"
+# infile = "inputs\\nominal_ground_spring"
+# infile = "inputs\\LHSDesign100x10"
+infile = "inputs\\LHSDesign50x5_4"
 
 change_inc = True # Do I want to play with the increment size?
 write_buffer = False # Do I want to write a temporary file to store displacements as I go?
@@ -45,7 +47,7 @@ shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = True
 thin_corners = True
-apply_load = False
+apply_load = True
 
 max_inc = 0.05  # maximum increment
 init_inc = max_inc # initial increment. Set equal to maximum increment in the hope that this keeps the output regular
@@ -192,6 +194,8 @@ for i, x_i in iterable:
         K = 10.0
     if "log_E_beam" in x_i:
         E_beam = np.exp(x_i["log_E_beam"])
+    else:
+        E_beam = 5.0e7
         print(E_beam)
     if "log_K_ground" in x_i:
         K_ground = np.exp(x_i["log_K_ground"])
@@ -206,7 +210,7 @@ for i, x_i in iterable:
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     # Run Abaqus from the command line
-
+    
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
     print(command)
     os.system(command)
@@ -221,7 +225,6 @@ for i, x_i in iterable:
         command = "abaqus viewer noGUI=process_outputs.py -- " + file_str
     
     os.system(command)
-    fdfdsfdsf
 
     # The increment index outputted by the postprocessing file should help keep track of things.
     # At some point consider looking at numpy options for 3d arrays, and json files. This is going to be an 
