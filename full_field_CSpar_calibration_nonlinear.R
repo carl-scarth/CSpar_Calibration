@@ -45,7 +45,7 @@ in_file = "LHSDesign60x6_4" # File identifier string for input and output csvs
 exp_data_file = "Interpolated_DIC_200kN_no0" # Identifier of file containing DIC data
 # surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
-p_sub = 1 # Use a subset of the basis functions
+p_sub = 2 # Use a subset of the basis functions
 use_subset = TRUE
 
 #-------------------------------------------------------------------------------
@@ -341,6 +341,10 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
+
+if (use_subset) {
+  p_eta = p_sub
+}
 
 # List of arguments to pass to stan
 stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=q_y, a_y_dash = a_y_dash,
