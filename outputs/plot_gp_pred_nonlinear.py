@@ -12,9 +12,10 @@ import pandas as pd
 # This code is getting messy - it would be good to package up some aspects to tidy
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign60x6_4_5"
+infile = "LHSDesign60x6_7"
 new_spar = True # Are we considering the new spar geometry?
 flex_support = True # Are we using the model with flexible supports?
+flex_ground = True # Are we using the model with flexible ground?
 
 # Open the output files
 if shell_mesh:
@@ -29,6 +30,7 @@ else:
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
 output_file = "gp_predictions_nonlinear_" + infile + ".json"
+#output_file = "E:\\Working_Folder\\gp_predictions_nonlinear_" + infile + ".json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -38,7 +40,8 @@ nodes = np.loadtxt(node_file, delimiter = ',')
 nodes = nodes[:,1:]
 elements = elements[:,1:]
 # Discard the first two points which are reference points defined on the assembly, and aren't
-# referenced in the connectivity file
+# referenced in the connectivity file (need regardless as I have't updated the node file
+# despite the new model)
 nodes = nodes[2:,:]
 
 # Define list of indice of the nodes which define each face of the brick (i.e. which column of the connectivity)
@@ -82,7 +85,7 @@ if "w" in out_str:
 output_max = {} # Dictionary for storing outputs at location of maximum displacement
 # max_ind = {'u': 4164, 'v': 207,'w': 1299} # Index of node containing maximum absolute value across training data (old spar)
 max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported)
-if flex_support:
+if flex_support or flex_ground:
     max_ind = {key : value - 2 for key, value in max_ind.items()} # (don't have the reference points in the new model)
 
 # Ideally I'd caluclate this here but it's a little too messy.
@@ -107,7 +110,7 @@ for i, sample in sam_iter:
                             
                             output_max[QoI+"_sam_"+str(k)][coord][i, j] = post_sam_k[max_ind[coord]]
                             if "w" in out_str:
-                                if flex_support:
+                                if flex_support or flex_ground:
                                     output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[-1]
                                 else:
                                     output_RP[QoI+"_sam_"+str(k)][i, j] = post_sam_k[1]
@@ -120,19 +123,23 @@ for i, sample in sam_iter:
                             
                             output_max[QoI][coord][j,k] = post_sam_k[max_ind[coord]]
                             if coord == "w":
-                                if flex_support:
+                                if flex_support or flex_ground:
                                     output_RP[QoI][j,k] = post_sam_k[-1]
                                 else:
                                     output_RP[QoI][j,k] = post_sam_k[1]
                     
                     # Dictionary containing output
                     if n_pred > 1:
-                        if flex_support:
+                        if flex_ground:
+                            frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[:-5]
+                        elif flex_support:
                             frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[:-4]
                         else:
                             frame_dict[j]["_".join((QoI,coord,str(i),"sam",str(k)))] = post_sam_k[2:]
                     else:
-                        if flex_support:
+                        if flex_ground:
+                            frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[:-5]
+                        elif flex_support:
                             frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[:-4]
                         else:
                             frame_dict[j]["_".join((QoI,coord,"sam",str(k)))] = post_sam_k[2:]
@@ -154,34 +161,41 @@ for i, sample in sam_iter:
                     if n_pred > 1:
                         output_max[QoI][coord][i,j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
-                            if flex_support:
+                            if flex_support or flex_ground:
                                 output_RP[QoI][i,j] = predictions[coord][-1]
                             else:
                                 output_RP[QoI][i,j] = predictions[coord][1]
-                        if flex_support:
+                        if flex_ground:
+                            frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][:-5], dtype=float)
+                        elif flex_support:
                             frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][:-4], dtype=float)
                         else:
                             frame_dict[j]["_".join((QoI,coord,str(i)))] = np.array(predictions[coord][2:], dtype=float)
                     else:
                         output_max[QoI][coord][j] = predictions[coord][max_ind[coord]]
                         if coord == "w":
-                            if flex_support:
+                            if flex_support or flex_ground:
                                 output_RP[QoI][j] = predictions[coord][-1]
                             else:
                                 output_RP[QoI][j] = predictions[coord][1]
-                        if flex_support:
+                        if flex_ground:
+                            frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][:-5], dtype=float)
+                        elif flex_support:
                             frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][:-4], dtype=float)
                         else:
                             frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][2:], dtype=float)
 
 # Create a new directory for the vtk files, if one does not exist already
-if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
-    os.mkdir("gp_predictions_nonlinear_" + infile)
+#if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
+#    os.mkdir("gp_predictions_nonlinear_" + infile)
+if not(os.path.isdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)):
+    os.mkdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)
     
 # Loop over each frame, then write a separate frame which paraview can 
 # interpret as a file series
 for i, frame in enumerate(frame_dict):
-    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
+    # meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
+    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
 
 # Finally, plot the GP predictionsat the reference point/max point
 # Plots for samples
