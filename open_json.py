@@ -22,14 +22,25 @@ def frame_corrections(sample, split_ind, missing_incs):
     
     
 # in_file = "inputs\\LHSDesign25x1_1_output_struct_disp"
-in_file = "E:Working_folder\\LHSDesign60x6_7_output_struct_200kN"
-#in_file = "outputs\\gp_predictions_nonlinear_LHSDesign40x4.json"
+in_file = "E:Working_Folder\\inputs\\LHSDesign50x5_4_output_struct"
 with open (in_file+".json",'r') as f:
     sample_dict = json.loads(f.readline())
 
 # Reduce frame size when convergence issues
-#for i, sample in enumerate(sample_dict["Sample"]):
-#    print([frame["RFs"][2] for frame in sample["Frame"][0:17]])
+for i, sample in enumerate(sample_dict["Sample"]):
+    # Automated detection and interpolation code
+    if round(sample["Frame"][16]["RFs"][2]) != 200:
+        missing_incs = [0.05*i for i in range(17)]
+        print(i)
+        split_ind = [j+1 for j,frame in enumerate(sample["Frame"][1:]) if round(frame["RFs"][2] - sample["Frame"][j]["RFs"][2],1) != 12.5 ][0]
+        missing_incs = missing_incs[split_ind:]
+        frame_corrections(sample, split_ind, missing_incs)
+    else:
+        if len(sample["Frame"]) > 16:
+            sample["Frame"] = sample["Frame"][0:17]
+ 
+for sample in sample_dict["Sample"]:
+    print(len(sample["Frame"]))
 #    # Interpolation code used for LHSDesign60x6_7
 #    if i == 15:
 #        missing_incs = [0.75, 0.8]
@@ -39,9 +50,7 @@ with open (in_file+".json",'r') as f:
 #        missing_incs = [0.8]
 #        split_ind = 16
 #        frame_corrections(sample, split_ind, missing_incs)
-#    else:
-#        if len(sample["Frame"]) > 16:
-#            sample["Frame"] = sample["Frame"][0:17]
+
 #    print(sample["Frame"][-1]["Increment"])
 
 # Reference point displacement for old approach
