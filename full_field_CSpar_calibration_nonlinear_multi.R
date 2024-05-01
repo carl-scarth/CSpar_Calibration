@@ -41,8 +41,8 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 # a_eta = 1.0     # Shape parameter for the lambda_eta prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 4000 # Number of samples per chain
-chains = 3 # Number of chains for simulation
-in_file = "LHSDesign60x6_4" # File identifier string for input and output csvs
+chains = 4 # Number of chains for simulation
+in_file = "LHSDesign50x5_4" # File identifier string for input and output csvs
 exp_data_file = "Interpolated_DIC_200kN_no0" # Identifier of file containing DIC data
 surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 p_sub = 1 # Use a subset of the basis functions
@@ -51,10 +51,9 @@ use_subset = TRUE
 #-------------------------------------------------------------------------------
 
 # Define prior distribution parameters for passing to stan
-# Define prior distribution parameters for passing to stan
 # Note, input sd rather than cov
-#tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data.csv",sep=""), sep=",", header = TRUE, row.names = 1)
-tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data_relaxed_3.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+tf_param = read.table(paste("inputs/", in_file, "_tf_param.csv",sep=""), sep=",", header = TRUE, row.names = 1)
+#tf_param = read.table(paste("inputs/", in_file, "_tf_param_training_data_relaxed_3.csv",sep=""), sep=",", header = TRUE, row.names = 1)
 
 #-------------------------------------------------------------------------------
 # Set up simulation data (need to retain this for normalisation of inputs)
@@ -139,7 +138,7 @@ sd_dt = out_list[[3]]
 K_eta = as.matrix(fread(paste("outputs/basis_nonlinear_",in_file,"_uvw.csv", sep = "")))
 p_eta = ncol(K_eta) # Number of basis functions retained for the emulator from SVD
 if (use_subset) {
-  K_eta = K_eta[,p_sub,drop=F]
+  K_eta = K_eta[,1:p_sub,drop=F]
 }
 
 #-------------------------------------------------------------------------------
@@ -370,16 +369,18 @@ for (i in 1:length(out_list)){
   # First, identify the correct mean vector to use for the transformation
   if (grepl("y", out_string, fixed = TRUE)){
     mu_out = mu_y
+    sd_out = sd_y
   } else {
     mu_out = mu_dt
+    sd_out = sd_dt
   }
   if (grepl("sigma", out_string, fixed=TRUE) & grepl("eta", out_string, fixed=TRUE)){
-    out_i = rescale_vector_output(out_i, mu_out, sd_dt, std=TRUE)
+    out_i = rescale_vector_output(out_i, mu_out, sd_out, std=TRUE)
   } else if (grepl("eta", out_string, fixed=TRUE)) {
     # I encountered a bug here as mu_y was a matrix, not a vector. I've corrected 
     # this in the above code but haven't tested all the way through. I suggest 
     # that if this happens again it's worth checking this first
-    out_i = rescale_vector_output(out_i, mu_out, sd_dt)
+    out_i = rescale_vector_output(out_i, mu_out, sd_out)
   }
   # Predictions at experimental data points to be outputted separately as csvs
   if (!grepl("w_star", out_string, fixed = TRUE) & !grepl("y", out_string, fixed = TRUE)) {
