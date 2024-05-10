@@ -7,6 +7,7 @@ sys.stdout = sys.__stdout__
 
 # Potentially pass the analysis name as a variable at the command line.
 analysis = sys.argv[-1]
+fix_to_ground = bool(sys.argv[-2])
 
 # Open odb file. Assumes the scrip is run from the parent directory, and not from the Abaqus subfolder
 o1 = session.openOdb(name = analysis + '.odb')
@@ -19,7 +20,6 @@ o1 = session.openOdb(name = analysis + '.odb')
 
 n_nodes = len(o1.steps['Step-1'].frames[0].fieldOutputs['U'].values) # Number of nodes
 n_frames = len(o1.steps['Step-1'].frames) # Number of Frames
-print(n_nodes)
 
 # The structure would be nicer if stored as json files. Maybe also numpy has an option for outputting 3D arrays to csv. Might be worth exploring...
 disp_out = np.empty([n_nodes,3*n_frames]) 
@@ -35,14 +35,6 @@ for i, frame in enumerate(o1.steps['Step-1'].frames):
     displacements = frame.fieldOutputs['U']
     disp_i = []
     for j, value in enumerate(displacements.values):
-        # Reference points are defined directly on the assembly, not on an instance
-        #if (value.instance is None):
-        #    disp_out[j,3*i:3*(i+1)] = value.data
-        #    disp_i.append(value.data.tolist())
-        #    if i == 0:
-        #        nodes_out[j,:] = [node.coordinates for node in o1.rootAssembly.nodes if node.label == value.nodeLabel][0]
-        #        nodes_list.append(nodes_out[j,:].tolist())
-        #else:
         disp_out[j,3*i:3*(i+1)] = value.data
         disp_i.append(value.data.tolist())
         if i == 0:
@@ -50,9 +42,10 @@ for i, frame in enumerate(o1.steps['Step-1'].frames):
             nodes_list.append(nodes_out[j,:].tolist())
 
     # Store reaction forces at fixed end of the spar
-    # RFs = frame.fieldOutputs['RF'].getSubset(region = o1.rootAssembly.nodeSets['FIXED_RP'])
-    # RFs = frame.fieldOutputs['RF'].getSubset(region = o1.rootAssembly.instances['M'].nodeSets['FIXED_SUP_RP'])
-    RFs = frame.fieldOutputs['RF'].getSubset(region = o1.rootAssembly.instances['M'].nodeSets['GROUND'])
+    if fix_to_ground:
+        RFs = frame.fieldOutputs['RF'].getSubset(region = o1.rootAssembly.instances['M'].nodeSets['FIXED_SUP_RP'])
+    else:
+        RFs = frame.fieldOutputs['RF'].getSubset(region = o1.rootAssembly.instances['M'].nodeSets['GROUND'])
     RFs_out[i,:] = RFs.values[0].data
     increments.append(frame.frameValue)
 
