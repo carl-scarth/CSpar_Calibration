@@ -178,7 +178,6 @@ rel_error = (abs(residual)/abs(mu_y))*100
 if ((length(sd_dt)>1) & (q_y>1)){
   sd_y = rep(sd_dt[1],n_y)
   for (i in 2:q_y){
-    print(i*n_eta/q_y+1)
     sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y))
   }
 } else {
