@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 def lin_interp(before, after, fraction):
     interp = before + (after - before)*fraction
@@ -20,38 +21,34 @@ def frame_corrections(sample, split_ind, missing_incs):
         correct_frames.append(intp_frame)
     sample["Frame"] = correct_frames
     
-    
-# in_file = "inputs\\LHSDesign25x1_1_output_struct_disp"
-in_file = "E:Working_Folder\\inputs\\LHSDesign50x5_4_output_struct"
+wd = os.getcwd()
+# in_file = "inputs\\nominal_inputs_translator_output_struct"
+in_file = "E:Working_Folder\\inputs\\LHSDesign50x5_6_output_struct"
 with open (in_file+".json",'r') as f:
     sample_dict = json.loads(f.readline())
 
 # Reduce frame size when convergence issues
-for i, sample in enumerate(sample_dict["Sample"]):
-    # Automated detection and interpolation code
-    if round(sample["Frame"][16]["RFs"][2]) != 200:
-        missing_incs = [0.05*i for i in range(17)]
-        print(i)
-        split_ind = [j+1 for j,frame in enumerate(sample["Frame"][1:]) if round(frame["RFs"][2] - sample["Frame"][j]["RFs"][2],1) != 12.5 ][0]
-        missing_incs = missing_incs[split_ind:]
-        frame_corrections(sample, split_ind, missing_incs)
-    else:
-        if len(sample["Frame"]) > 16:
-            sample["Frame"] = sample["Frame"][0:17]
+#last_frame = 15
+#last_load = 187.5
+#for i, sample in enumerate(sample_dict["Sample"]):
+#    # Automated detection and interpolation code
+#    if round(sample["Frame"][last_frame]["RFs"][2],1) != last_load:
+#        missing_incs = [0.05*i for i in range(last_frame+1)]
+#        split_ind = [j+1 for j,frame in enumerate(sample["Frame"][1:]) if round(frame["RFs"][2] - sample["Frame"][j]["RFs"][2],1) != 12.5 ][0]
+#        missing_incs = missing_incs[split_ind:]
+#        print(i)
+#        print(missing_incs)
+#        print(split_ind)
+#        print(sample["Frame"][-1]["RFs"])
+#        frame_corrections(sample, split_ind, missing_incs)
+#    else:
+#        if len(sample["Frame"]) > last_frame:
+#            sample["Frame"] = sample["Frame"][0:last_frame+1]
  
-for sample in sample_dict["Sample"]:
-    print(len(sample["Frame"]))
-#    # Interpolation code used for LHSDesign60x6_7
-#    if i == 15:
-#        missing_incs = [0.75, 0.8]
-#        split_ind = 15
-#        frame_corrections(sample, split_ind, missing_incs)
-#    elif i == 58:
-#        missing_incs = [0.8]
-#        split_ind = 16
-#        frame_corrections(sample, split_ind, missing_incs)
-
-#    print(sample["Frame"][-1]["Increment"])
+for i, sample in enumerate(sample_dict["Sample"]):
+    # print(len(sample["Frame"]))
+    print(i)
+    print(sample["Frame"][-1]["RFs"][2])
 
 # Reference point displacement for old approach
 # ref_w = [[-frame["Displacements"][1][2] for frame in sample["Frame"]]for sample in sample_dict["Sample"]]
@@ -69,10 +66,9 @@ for ax, ref_w in zip(axs, (ref_w_pivot, ref_w_end)):
             ax.plot(sample, RF_z[i], marker = "x")
 
 plt.show()
-asdsadsad
 
 #init_grad = [sample[1] for sample in RF_z]
-
-with open(in_file+"_200kN.json",'w') as f:
+dsfdf
+with open(in_file+"_195kN.json",'w') as f:
     f.write(json.dumps(sample_dict))
 
