@@ -21,41 +21,56 @@ def frame_corrections(sample, split_ind, missing_incs):
         correct_frames.append(intp_frame)
     sample["Frame"] = correct_frames
     
+    
 wd = os.getcwd()
 # in_file = "inputs\\nominal_inputs_translator_output_struct"
-in_file = "E:Working_Folder\\inputs\\LHSDesign50x5_6_output_struct"
+in_file = "inputs\\nominal_inputs_translator_output_struct"
 with open (in_file+".json",'r') as f:
     sample_dict = json.loads(f.readline())
 
 # Reduce frame size when convergence issues
-#last_frame = 15
-#last_load = 187.5
-#for i, sample in enumerate(sample_dict["Sample"]):
-#    # Automated detection and interpolation code
-#    if round(sample["Frame"][last_frame]["RFs"][2],1) != last_load:
+last_frame = -1
+last_load = 187.5
+for i, sample in enumerate(sample_dict["Sample"]):
+    # Automated detection and interpolation code
+    print(sample["Frame"][last_frame]["RFs"][2])
+    if round(sample["Frame"][last_frame]["RFs"][2],1) != last_load:
 #        missing_incs = [0.05*i for i in range(last_frame+1)]
 #        split_ind = [j+1 for j,frame in enumerate(sample["Frame"][1:]) if round(frame["RFs"][2] - sample["Frame"][j]["RFs"][2],1) != 12.5 ][0]
 #        missing_incs = missing_incs[split_ind:]
-#        print(i)
+        print(str(i))
 #        print(missing_incs)
 #        print(split_ind)
 #        print(sample["Frame"][-1]["RFs"])
 #        frame_corrections(sample, split_ind, missing_incs)
-#    else:
-#        if len(sample["Frame"]) > last_frame:
-#            sample["Frame"] = sample["Frame"][0:last_frame+1]
- 
+    else:
+        print("")
+        #if len(sample["Frame"]) > last_frame:
+        #    sample["Frame"] = sample["Frame"][0:last_frame+1]
+
 for i, sample in enumerate(sample_dict["Sample"]):
     # print(len(sample["Frame"]))
     print(i)
     print(sample["Frame"][-1]["RFs"][2])
 
+# Code for subtracting displacements
+# to undo and make new predictions just add value back on
+for i, sample in enumerate(sample_dict["Sample"]):
+    zero_disp = np.array(sample["Frame"][1]["Displacements"])
+    for j, frame in enumerate(sample["Frame"]):
+        frame["Unzeroed_disp"] = frame["Displacements"]
+        frame["Displacements"] = (np.array(frame["Displacements"]) - zero_disp).tolist()
+    # Delete first frame
+    sample["Frame"] = sample["Frame"][1:]
+
+        
 # Reference point displacement for old approach
 # ref_w = [[-frame["Displacements"][1][2] for frame in sample["Frame"]]for sample in sample_dict["Sample"]]
 # Refernce point displacement for new approach
 ref_w_pivot = [[-frame["Displacements"][-1][2] for frame in sample["Frame"]] for sample in sample_dict["Sample"]]
 ref_w_end = [[-frame["Displacements"][-3][2] for frame in sample["Frame"]] for sample in sample_dict["Sample"]]
 RF_z = [[frame["RFs"][2] for frame in sample["Frame"]] for sample in sample_dict["Sample"]]
+
 
 fig, axs = plt.subplots(1,2)
 for ax, ref_w in zip(axs, (ref_w_pivot, ref_w_end)):
@@ -68,7 +83,5 @@ for ax, ref_w in zip(axs, (ref_w_pivot, ref_w_end)):
 plt.show()
 
 #init_grad = [sample[1] for sample in RF_z]
-dsfdf
-with open(in_file+"_195kN.json",'w') as f:
+with open(in_file+"_zeroed.json",'w') as f:
     f.write(json.dumps(sample_dict))
-
