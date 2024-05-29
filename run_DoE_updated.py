@@ -29,8 +29,6 @@ def set_input(x_series, x_name, default_val):
     return x
 
 infile = "inputs\\nominal_inputs_translator"
-
-change_inc = True # Do I want to play with the increment size?
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
 rotate_flanges = False
@@ -150,72 +148,42 @@ for i, x_i in x_DoE.iterrows():
     # comprised of shells
     if shell_mesh:
         # write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
-        write_shell_inp_multistep(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
+        write_shell_inp_multi(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     # Run Abaqus from the command line
     command = "Abaqus Job=" + file_str + " input=\"Abaqus\\" + file_str + ".inp\" interactive ask_delete=OFF cpus=2"
     print(command)
     os.system(command)
-    # Process the abaqus output to extract displacements and nodal coordinates
-    if change_inc:
-        # If multiple frames are requested, run the code which processes all frames
-        # command = "abaqus viewer noGUI=process_outputs_all_frames.py -- " + file_str
-        command = "abaqus viewer noGUI=process_outputs_all_frames_new.py -- " + str(fix_to_ground) + " " + file_str
-    else:
-        # If only one increment is required just run the script which processes the final frame
-        command = "abaqus viewer noGUI=process_outputs.py -- " + file_str
+    
+    # If multiple frames are requested, run the code which processes all frames
+    # command = "abaqus viewer noGUI=process_outputs_all_frames.py -- " + file_str
+    # command = "abaqus viewer noGUI=process_outputs_all_frames_new.py -- " + str(fix_to_ground) + " " + file_str
+    command = "abaqus viewer noGUI=process_outputs_all_frames_multi.py -- " + str(fix_to_ground) + " " + file_str
     
     os.system(command)
-    fghfghfghfgh
+    # Open json separately in spyder to check
     # The increment index outputted by the postprocessing file should help keep track of things.
     # At some point consider looking at numpy options for 3d arrays, and json files. This is going to be an 
     # issue for the experimental data as well so worth getting a decent structure set downl
-    # disp_i = np.loadtxt(model_name + "_displacement.csv", delimiter = ",", skiprows = 0)
-    disp_i = np.loadtxt(file_str + "_displacement.csv", delimiter = ",", skiprows = 0)
-    # nodes_i = np.loadtxt(model_name + "_nodes.csv", delimiter = ",", skiprows = 0)
-    if change_inc:
-        displacements = np.concatenate((displacements,disp_i), axis=1)
-        # Also load in increment indices and reaction forces
-        #incs_i = np.loadtxt(model_name + "_increments.csv", delimiter = ",", skiprows = 0, ndmin = 1)
-        incs_i = np.loadtxt(file_str + "_increments.csv", delimiter = ",", skiprows = 0, ndmin = 1)
-        incs.append(incs_i.tolist())
-        # RFs_i = np.loadtxt(model_name + "_RFs.csv", delimiter = ",", skiprows = 0)
-        RFs_i = np.loadtxt(file_str + "_RFs.csv", delimiter = ",", skiprows = 0)
-        RFs = np.concatenate((RFs, RFs_i.reshape((1, -1))), axis=1)
-        # Load in json file if using
-        # with open(model_name + "_output.json", "r") as f:
-        with open(file_str + "_output.json", "r") as f:
-            # Load in string from file
-            sample_dict = json.loads(f.readline())
+    # disp_i = np.loadtxt(file_str + "_displacement.csv", delimiter = ",", skiprows = 0)
+    #displacements = np.concatenate((displacements,disp_i), axis=1)
+    # Also load in increment indices and reaction forces
+    #incs_i = np.loadtxt(file_str + "_increments.csv", delimiter = ",", skiprows = 0, ndmin = 1)
+    #incs.append(incs_i.tolist())
+    #RFs_i = np.loadtxt(file_str + "_RFs.csv", delimiter = ",", skiprows = 0)
+    #RFs = np.concatenate((RFs, RFs_i.reshape((1, -1))), axis=1)
+    # Load in json file if using
+    with open(file_str + "_output.json", "r") as f:
+        # Load in string from file
+        sample_dict = json.loads(f.readline())
         
-        # Should follow the structure of the dictionary defined in the process outputs file
-        # If the below code works fine then it should be possible just to add this to another
-        # dictionary defined at this level. Then output this file. Could even output at each increment
-        # then overwrite to get rid of the complicated buffer code
-        out_dict["Sample"].append(sample_dict)
-    else:
-        displacements[:,3*i:3*(i+1)] = disp_i
-
-    # Store nodes???
-    # nodes[:,3*i:3*(i+1)] = nodes_i
+    # Should follow the structure of the dictionary defined in the process outputs file
+    # If the below code works fine then it should be possible just to add this to another
+    # dictionary defined at this level. Then output this file. Could even output at each increment
+    # then overwrite to get rid of the complicated buffer code
+    out_dict["Sample"].append(sample_dict)
     
-# Consider using json format, stick with csv for now. This should be relatively easy if working with python dictionaries
-
-# Write model outputs from all simulations to csv files   
-# Create header for csv
-if change_inc:
-    # issue if some runs haven't started as then the stored increment list is a single float and not a list. I've added ndmin to the code which adds to this list
-    # in the hope that it fixes this issue
-    head_str = ', '.join(['u_' + str(i+1) + '_' + str(j+1) + ', v_' + str(i+1) + '_' + str(j+1) + ', w_' + str(i+1) + '_' + str(j+1) for i in range(N) for j in range(len(incs[i]))])
-else:
-    head_str = ', '.join(['u_' + str(i+1)+', v_'+str(i+1)+', w_'+str(i+1) for i in range(N)])
-
-if apply_load:
-    np.savetxt(infile + "_displacements_load=" + str(load) + "_max_inc=" + str(max_inc) + ".csv", displacements, delimiter=",", header = head_str, comments = "")
-else:
-    np.savetxt(infile + "_displacements_disp=" + str(applied_disp) + "_max_inc=" + str(max_inc) + ".csv", displacements, delimiter=",", header = head_str, comments = "")
-
 # Write json file
 if apply_load:
     with open(infile + "_output_struct.json",'w') as f:
