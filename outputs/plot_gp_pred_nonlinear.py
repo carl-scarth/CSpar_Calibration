@@ -12,10 +12,10 @@ import pandas as pd
 # This code is getting messy - it would be good to package up some aspects to tidy
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign60x6_7"
+infile = "LHSDesign50x5_11"
 new_spar = True # Are we considering the new spar geometry?
 flex_support = True # Are we using the model with flexible supports?
-flex_ground = True # Are we using the model with flexible ground?
+flex_ground = False # Are we using the model with flexible ground?
 
 # Open the output files
 if shell_mesh:
@@ -84,9 +84,11 @@ if "w" in out_str:
 
 output_max = {} # Dictionary for storing outputs at location of maximum displacement
 # max_ind = {'u': 4164, 'v': 207,'w': 1299} # Index of node containing maximum absolute value across training data (old spar)
-max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported)
+#max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported) (was correct, but felt neater to pick a node along the centreline)
+max_ind = {'u': 4164, 'v': 182, 'w': 684} # New spars (simply supported) # w correct, need to check u and v for new spars
 if flex_support or flex_ground:
     max_ind = {key : value - 2 for key, value in max_ind.items()} # (don't have the reference points in the new model)
+#print(nodes[max_ind["w"],:])
 
 # Ideally I'd caluclate this here but it's a little too messy.
 frame_dict = [{} for i in range(n_frames)] # List of dictionaries containing output for each frame
@@ -186,16 +188,16 @@ for i, sample in sam_iter:
                             frame_dict[j]["_".join((QoI, coord))] = np.array(predictions[coord][2:], dtype=float)
 
 # Create a new directory for the vtk files, if one does not exist already
-#if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
-#    os.mkdir("gp_predictions_nonlinear_" + infile)
-if not(os.path.isdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)):
-    os.mkdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)
+if not(os.path.isdir("gp_predictions_nonlinear_" + infile)):
+    os.mkdir("gp_predictions_nonlinear_" + infile)
+#if not(os.path.isdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)):
+#    os.mkdir("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile)
     
 # Loop over each frame, then write a separate frame which paraview can 
 # interpret as a file series
 for i, frame in enumerate(frame_dict):
-    # meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
-    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
+    meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
+    #meshio.Mesh(points = nodes, cells = [("quad",faces)], point_data = frame).write("E:\\Working_Folder\\gp_predictions_nonlinear_" + infile + "\\frame_" + str(i) + ".vtk", file_format="vtk")
 
 # Finally, plot the GP predictionsat the reference point/max point
 # Plots for samples
