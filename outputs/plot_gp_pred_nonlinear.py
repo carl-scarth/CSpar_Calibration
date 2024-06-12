@@ -59,7 +59,10 @@ faces = faces - 1
 with open(output_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())
-    
+
+applied_load = np.array([5.39])
+applied_load = np.concatenate((np.array([5.39]), np.linspace(10.0, 200.0, 20)))
+
 # Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
 try:
     n_pred = len(in_dict["Prediction"]) # Number of predictions
@@ -221,16 +224,16 @@ if n_pred > 1:
             for key, value in output_RP.items():
                 if "eta_mu_sam" in key:
                     for displacement in value:
-                        ax.plot(-displacement, np.linspace(0,force,n_frames), "r")
+                        ax.plot(-displacement, applied_load, "r")
                         if "eta_sam_sam" in key:
                             for displacement in value:
-                                ax.plot(-displacement, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+                                ax.plot(-displacement, applied_load, "c", linewidth=0.25)
                 if "eta_sigma_sam" in key:
                     mu_key = "eta_mu_sam_" + key.strip("eta_sigma_sam_")
                     mu = output_RP[mu_key]
                     for i, sd in enumerate(value):
-                        ax.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
-                        ax.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")   
+                        ax.plot(-mu[i,:]-2*sd, applied_load, "b")
+                        ax.plot(-mu[i,:]+2*sd, applied_load, "b")   
         
             ax.set_ylabel("Force (kN)")
             ax.set_xlabel("Displacement (mm)")
@@ -242,16 +245,16 @@ if n_pred > 1:
             for i, (disp_key, value) in enumerate(disp_dict.items()):
                 if "eta_mu_sam" in key:
                     for displacement in value:
-                        axs2[i].plot(-displacement, np.linspace(0,force,n_frames), "r")
+                        axs2[i].plot(-displacement, applied_load, "r")
                 if "eta_sam_sam" in key:
                     for displacement in value:
-                        axs2[i].plot(-displacement, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+                        axs2[i].plot(-displacement, applied_load, "c", linewidth=0.25)
                 if "eta_sigma_sam" in key:
                     mu_key = "eta_mu_sam_" + key.strip("eta_sigma_sam_")
                     mu = output_max[mu_key][disp_key]
                     for j, sd in enumerate(value):
-                        axs2[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "b")
-                        axs2[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "b")   
+                        axs2[i].plot(-mu[j,:]-2*sd, applied_load, "b")
+                        axs2[i].plot(-mu[j,:]+2*sd, applied_load, "b")   
                     
             axs2[i].set_ylabel("Force (kN)")
             axs2[i].set_xlabel("Displacement (mm)")
@@ -265,13 +268,13 @@ elif "eta_mu" in output_max.keys():
         fig3, ax3 = plt.subplots()
         for key, value in output_RP.items():
             if key == "eta_mu":
-                ax3.plot(-value, np.linspace(0,force,n_frames), "r")
+                ax3.plot(-value, applied_load, "r")
             if key == "eta_sam":
-                ax3.plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+                ax3.plot(-value, applied_load, "c", linewidth=0.25)
             if key == "eta_sigma":
                 mu = output_RP["eta_mu"]
-                ax3.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
-                ax3.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
+                ax3.plot(-mu-2*value, applied_load, "b")
+                ax3.plot(-mu+2*value, applied_load, "b")   
             
         ax3.set_ylabel("Force (kN)")
         ax3.set_xlabel("Displacement (mm)")
@@ -284,13 +287,13 @@ elif "eta_mu" in output_max.keys():
     for key, disp_dict in output_max.items():
         for i, (disp_key, value) in enumerate(disp_dict.items()):
             if key == "eta_mu":
-                axs4[i].plot(-value, np.linspace(0,force,n_frames), "r")
+                axs4[i].plot(-value, applied_load, "r")
             if key == "eta_sam":
-                axs4[i].plot(-value, np.linspace(0,force,n_frames), "c", linewidth=0.25)
+                axs4[i].plot(-value, applied_load, "c", linewidth=0.25)
             if key == "eta_sigma":
                 mu = output_max["eta_mu"][disp_key]
-                axs4[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
-                axs4[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "b")   
+                axs4[i].plot(-mu-2*value, applied_load, "b")
+                axs4[i].plot(-mu+2*value, applied_load, "b")   
     
             axs4[i].set_ylabel("Force (kN)")
             axs4[i].set_xlabel("Displacement (mm)")
@@ -305,45 +308,45 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
             if "eta_mu_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        ax5.plot(-displacement, np.linspace(0,force,n_frames), "r")
+                        ax5.plot(-displacement, applied_load, "r")
                 else:
-                    ax5.plot(-value, np.linspace(0,force,n_frames), "r")
+                    ax5.plot(-value, applied_load, "r")
             if "eta_sam_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        ax5.plot(-displacement, np.linspace(0,force,n_frames), "g")
+                        ax5.plot(-displacement, applied_load, "g")
                 else:
-                    ax5.plot(-value, np.linspace(0,force,n_frames), "g")
+                    ax5.plot(-value, applied_load, "g")
             if "eta_sigma_mu" in key:
                 mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
                 mu = output_RP[mu_key]#[ind,:]
                 if value.ndim > 1: 
                     for i, sd in enumerate(value):
-                        ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "b")
-                        ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "b")
+                        ax5.plot(-mu[i,:]-2*sd, applied_load, "b")
+                        ax5.plot(-mu[i,:]+2*sd, applied_load, "b")
                 else:
-                    ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "b")
-                    ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "b")
+                    ax5.plot(-mu-2*value, applied_load, "b")
+                    ax5.plot(-mu+2*value, applied_load, "b")
             if "eta_mu_sigma" in key:
                 mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
                 mu = output_RP[mu_key]
                 if value.ndim > 1: 
                     for i, sd in enumerate(value):
-                        ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "c")
-                        ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "c")
+                        ax5.plot(-mu[i,:]-2*sd, applied_load, "c")
+                        ax5.plot(-mu[i,:]+2*sd, applied_load, "c")
                 else:
-                    ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "c")
-                    ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "c")
+                    ax5.plot(-mu-2*value, applied_load, "c")
+                    ax5.plot(-mu+2*value, applied_load, "c")
             if "eta_sam_sigma" in key:
                 mu_key = "eta_sam_mu" + key.strip("eta_sigma_mu_")
                 mu = output_RP[mu_key]
                 if value.ndim > 1: 
                     for i, sd in enumerate(value):
-                        ax5.plot(-mu[i,:]-2*sd, np.linspace(0,force,n_frames), "m")
-                        ax5.plot(-mu[i,:]+2*sd, np.linspace(0,force,n_frames), "m")
+                        ax5.plot(-mu[i,:]-2*sd, applied_load, "m")
+                        ax5.plot(-mu[i,:]+2*sd, applied_load, "m")
                 else:
-                    ax5.plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
-                    ax5.plot(-mu+2*value, np.linspace(0,force,n_frames), "m")
+                    ax5.plot(-mu-2*value, applied_load, "m")
+                    ax5.plot(-mu+2*value, applied_load, "m")
             
         ax5.set_ylabel("Force (kN)")
         ax5.set_xlabel("Displacement (mm)")
@@ -359,46 +362,46 @@ if len([key for key in output_max.keys() if "eta_mu_mu" in key]) > 0:
             if "eta_mu_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "r", label="emulator mean")
+                        axs6[i].plot(-displacement, applied_load, "r", label="emulator mean")
                 else:
-                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "r", label="emulator mean")
+                    axs6[i].plot(-value, applied_load, "r", label="emulator mean")
             if "eta_sam_mu" in key:
                 if value.ndim > 1:
                     for displacement in value:
-                        axs6[i].plot(-displacement, np.linspace(0,force,n_frames), "g", label="posterior mean")
+                        axs6[i].plot(-displacement, applied_load, "g", label="posterior mean")
                 else:
-                    axs6[i].plot(-value, np.linspace(0,force,n_frames), "g", label="posterior mean")
+                    axs6[i].plot(-value, applied_load, "g", label="posterior mean")
             if "eta_sigma_mu" in key:
                 mu_key = "eta_mu_mu" # + key.strip("eta_sigma_mu_")
                 mu = output_max[mu_key][disp_key]
                 if value.ndim > 1: 
                     for j, sd in enumerate(value):
-                        axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "b", label="95% interval (emulator)")
-                        axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "b")
+                        axs6[i].plot(-mu[j,:]-2*sd, applied_load, "b", label="95% interval (emulator)")
+                        axs6[i].plot(-mu[j,:]+2*sd, applied_load, "b")
                 else:
-                    axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "b", label="95% interval (emulator)")
-                    axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "b")
+                    axs6[i].plot(-mu-2*value, applied_load, "b", label="95% interval (emulator)")
+                    axs6[i].plot(-mu+2*value, applied_load, "b")
             if "eta_mu_sigma" in key:
                 mu_key = "eta_mu_mu" + key.strip("eta_sigma_mu_")
                 mu = output_max[mu_key][disp_key]
                 if value.ndim > 1: 
                     for j, sd in enumerate(value):
-                        axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "c")
-                        axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "c")
+                        axs6[i].plot(-mu[j,:]-2*sd, applied_load, "c")
+                        axs6[i].plot(-mu[j,:]+2*sd, applied_load, "c")
                 else:
-                    axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "c")
-                    axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "c")
+                    axs6[i].plot(-mu-2*value, applied_load, "c")
+                    axs6[i].plot(-mu+2*value, applied_load, "c")
         
             if "eta_sam_sigma" in key:
                 mu_key = "eta_sam_mu" + key.strip("eta_sigma_mu_")
                 mu = output_max[mu_key][disp_key]
                 if value.ndim > 1: 
                     for j, sd in enumerate(value):
-                        axs6[i].plot(-mu[j,:]-2*sd, np.linspace(0,force,n_frames), "m")
-                        axs6[i].plot(-mu[j,:]+2*sd, np.linspace(0,force,n_frames), "m", label="95% interval (posterior)")
+                        axs6[i].plot(-mu[j,:]-2*sd, applied_load, "m")
+                        axs6[i].plot(-mu[j,:]+2*sd, applied_load, "m", label="95% interval (posterior)")
                 else:
-                    axs6[i].plot(-mu-2*value, np.linspace(0,force,n_frames), "m")
-                    axs6[i].plot(-mu+2*value, np.linspace(0,force,n_frames), "m", label="95% interval (posterior)")
+                    axs6[i].plot(-mu-2*value, applied_load, "m")
+                    axs6[i].plot(-mu+2*value, applied_load, "m", label="95% interval (posterior)")
             
             axs6[i].set_ylabel("Force (kN)")
             axs6[i].set_xlabel("Displacement (mm)")
