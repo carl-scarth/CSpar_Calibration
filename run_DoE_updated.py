@@ -17,6 +17,7 @@ from write_mesh import *
 from write_inp import *
 from write_shell_inp_translator import write_inp as write_shell_inp
 from write_shell_inp_multistep import write_inp as write_shell_inp_multi
+from write_shell_inp_translator_hashin import write_inp as write_shell_inp_hashin
 from write_shell_parameters import write_parameters as write_shell_parameters
 
 def set_input(x_series, x_name, default_val):
@@ -28,11 +29,11 @@ def set_input(x_series, x_name, default_val):
         x = default_val
     return x
 
-infile = "inputs\\nominal_inputs_translator"
+infile = "inputs\\LHSDesign250x10"
 shell_mesh = True # Is the mesh comprised of continuum shells?
 store_all_sam = False
-rotate_flanges = False
-thin_corners = False
+rotate_flanges = True
+thin_corners = True
 apply_load = True
 fix_to_ground = True
 
@@ -43,7 +44,6 @@ load = -210.0 # Applied load
 applied_disp = -4.0 # Applied displacement (specified as alternative to load)
 sym = True # Representing only half of a symmetric layup
 layup = 3*[45.0,45.0,-45.0,-45.0, 90.0, 90.0, 0.0, 0.0] #, 45.0, -45.0, 90.0, 0.0, 45.0, -45.0, 90.0, 0.0] # Layup of new spar
-# layup = [45.0, -45.0, 45.0, -45.0, 45.0, -45.0, 0.0, 90.0, 0.0, 90.0, 0.0, 90.0] # Half layup for old CSpar
 if sym:
     n_plies = 2*len(layup)
 else:
@@ -115,11 +115,12 @@ for i, x_i in x_DoE.iterrows():
     
     # Extract other material properties from the DoE
     E11 = set_input(x_i, "E11", 140.9)
-    E22 = set_input(x_i, "E22", 8.96)
+    # E22 = set_input(x_i, "E22", 8.96)
+    E22 = set_input(x_i, "E22", 12.0)
     nu12 = set_input(x_i, "nu12", 0.32)
     nu23 = set_input(x_i, "nu23", 0.43)
     G12 = set_input(x_i, "G12", 4.69)
-    x_spring = set_input(x_i, "x_spring", 46.27)
+    x_spring = set_input(x_i, "x_spring", 46.0)
     x_spring_error = set_input(x_i, "x_spring_error", 0.0)
     x_misalign_slope = set_input(x_i, "x_misalign_slope", 0.0)
     pivot_offset_error = set_input(x_i, "pivot_offset_error", 0.0)
@@ -149,6 +150,7 @@ for i, x_i in x_DoE.iterrows():
     if shell_mesh:
         # write_shell_inp(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
         write_shell_inp_multi(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
+        #write_shell_inp_hashin(E11=E11, E22=E22, nu12=nu12, nu23=nu23, G12=G12, t_ply=t_ply, K=K, K_rig=K_rig, K_ground=K_ground, x_spring_fix=x_spring_fix, x_spring_load=x_spring_load, load=load, displacement = applied_disp, rotation_offset = rotation_offset+pivot_offset_error, StackSeq = layup, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc, apply_load = apply_load, fix_to_ground = fix_to_ground)
     else:
         write_inp(E11=E11, E22 = E22, nu12 = nu12, nu23 = nu23, G12 = G12, K=K, x_spring=x_spring, load=load, rotation_offset = rotation_offset+pivot_offset_error, init_inc=init_inc, min_inc=min_inc, max_inc=max_inc)
     # Run Abaqus from the command line
@@ -160,20 +162,10 @@ for i, x_i in x_DoE.iterrows():
     # command = "abaqus viewer noGUI=process_outputs_all_frames.py -- " + file_str
     # command = "abaqus viewer noGUI=process_outputs_all_frames_new.py -- " + str(fix_to_ground) + " " + file_str
     command = "abaqus viewer noGUI=process_outputs_all_frames_multi.py -- " + str(fix_to_ground) + " " + file_str
-    
+    # command = "abaqus viewer noGUI=process_outputs_all_frames_hashin.py -- " + str(fix_to_ground) + " " + file_str
     os.system(command)
-    # Open json separately in spyder to check
-    # The increment index outputted by the postprocessing file should help keep track of things.
-    # At some point consider looking at numpy options for 3d arrays, and json files. This is going to be an 
-    # issue for the experimental data as well so worth getting a decent structure set downl
-    # disp_i = np.loadtxt(file_str + "_displacement.csv", delimiter = ",", skiprows = 0)
-    #displacements = np.concatenate((displacements,disp_i), axis=1)
-    # Also load in increment indices and reaction forces
-    #incs_i = np.loadtxt(file_str + "_increments.csv", delimiter = ",", skiprows = 0, ndmin = 1)
-    #incs.append(incs_i.tolist())
-    #RFs_i = np.loadtxt(file_str + "_RFs.csv", delimiter = ",", skiprows = 0)
-    #RFs = np.concatenate((RFs, RFs_i.reshape((1, -1))), axis=1)
-    # Load in json file if using
+    
+    # Load in json
     with open(file_str + "_output.json", "r") as f:
         # Load in string from file
         sample_dict = json.loads(f.readline())
@@ -182,6 +174,7 @@ for i, x_i in x_DoE.iterrows():
     # If the below code works fine then it should be possible just to add this to another
     # dictionary defined at this level. Then output this file. Could even output at each increment
     # then overwrite to get rid of the complicated buffer code
+    # ADD INPUTS TO THIS?
     out_dict["Sample"].append(sample_dict)
     
 # Write json file
