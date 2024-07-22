@@ -29,9 +29,9 @@ source("source/transform_input_output.R")
 # Set up parameters which govern the formulation
 
 p_eta = 20 # Number of basis functions retained for the emulator from SVD
-exp_tol = 1e-6 # Tolerance variance fraction used to assess SVD convergence
-disp_str = c("w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
-# disp_str = "w"
+exp_tol = 1e-5 # Tolerance variance fraction used to assess SVD convergence
+#disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
+disp_str = "w"
 # disp_str = "u"
 q_y = length(disp_str)
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
@@ -40,7 +40,7 @@ export_modes = TRUE # Calculate modes of emulator hyperparameters and write to f
 # the series expansion for the model output
 a_eta = 1.0     # Shape parameter for the lambda_eta prior
 b_eta = 0.0001  # Rate parameter for the lambda_eta prior
-iter = 4000 # Number of samples per chain
+iter = 5000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 
 #-------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign60x6_5" # File identifier string for input and output files
+in_file = "LHSDesign100x10_1" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -60,7 +60,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_200kN.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_160kN_zeroed.json", sep=""))
 #abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
@@ -74,13 +74,13 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-XT_pred = fread("inputs/LHSDesign60x6_4.csv")
+XT_pred = fread("inputs/LHSDesign20x10_1.csv")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
 
 #-------------------------------------------------------------------------------
 
-# All training data points are normalised onto the unit hypercube [0,1]^q before
+# All training data points are normalised onto the unit hypercube [0,1]^q beforehttp://127.0.0.1:44055/graphics/plot_zoom_png?width=1200&height=886
 # being passed to stan. The same transformation is applied to the test points
 
 # Determine the maximum and minimum value of each input within the training data
@@ -155,6 +155,8 @@ fit = stan(file = "source/full_field_emulator.stan",
            iter = iter,
            chains = chains,
            model_name = "full_field_emulator")
+
+save.image("temp_save.RData")
 
 #-------------------------------------------------------------------------------
 
