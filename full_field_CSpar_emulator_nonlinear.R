@@ -29,9 +29,9 @@ source("source/transform_input_output.R")
 # Set up parameters which govern the formulation
 
 p_eta = 20 # Number of basis functions retained for the emulator from SVD
-exp_tol = 1e-5 # Tolerance variance fraction used to assess SVD convergence
-#disp_str = c("u","v","w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
-disp_str = "w"
+exp_tol = 1e-4 # Tolerance variance fraction used to assess SVD convergence
+disp_str = c("u", "w") # String which identifies the displacement component of interest (u,v, or w) or list of multiple
+# disp_str = "w"
 # disp_str = "u"
 q_y = length(disp_str)
 print_svd_output = TRUE # Print diagnostic output of svd to the terminal?
@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign100x10_1" # File identifier string for input and output files
+in_file = "LHSDesign100x8" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -60,7 +60,7 @@ m = nrow(XT_sim)          # sample size of computer simulation data
 # Load in training data output displacement values from Abaqus. I've used a
 # similar naming convention to the inputs to automate changes. 
 # Outputs are structured in a json across samples and load increments
-abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_160kN_zeroed.json", sep=""))
+abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_output_struct_150kN_zeroed.json", sep=""))
 #abaqus_displacements <- fromJSON(file = paste("inputs/",in_file,"_downsam_2.json", sep=""))
 # Extract displacements from json, and store as matrix where each column is a 
 # training sample, and the rows are the concatenation of displacement output
@@ -74,7 +74,7 @@ n_eta = nrow(dt_simulation) # total number of output points per simulation
 #-------------------------------------------------------------------------------
 
 # Load in test points at which predictions are required
-XT_pred = fread("inputs/LHSDesign20x10_1.csv")
+XT_pred = fread("inputs/LHSDesign10x8.csv")
 t_pred = as.matrix(XT_pred)
 n_pred = nrow(t_pred) # number of predictions
 
@@ -156,7 +156,7 @@ fit = stan(file = "source/full_field_emulator.stan",
            chains = chains,
            model_name = "full_field_emulator")
 
-save.image("temp_save.RData")
+save.image("Emulator_100x8_uw_150kN.RData")
 
 #-------------------------------------------------------------------------------
 
@@ -178,15 +178,25 @@ N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
 # Extract label of inputs for plots
 labels = colnames(XT_sim) # don't think I need this but keeping just in case
 
+# Extract just for specified chain
+chain = 2
+samples_unpermuted = extract(fit, permuted = FALSE)
+chain2 = samples_unpermuted[,chain,]
+chain2_rho_w = chain2[,1:(p_eta*q)]
+colMeans(chain2_rho_w)
+full_field_rho_hist(chain2_rho_w, p_eta, inp_labels = labels, new_window = T)
+modes = full_field_emulator_modes(chain2_rho_w, lambda_w, lambda_eta)
+
 # If required, estimate the modes of emulator hyperparameters and write to a csv
 if (export_modes){
   modes = full_field_emulator_modes(rho_w, lambda_w, lambda_eta)
   #write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
-  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_w.csv", sep=""), row.names = FALSE)
+  write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_150kNuw.csv", sep=""), row.names = FALSE)
 }
 
+
 # Plot correlation parameter histograms
-full_field_rho_hist(rho_w, p_eta, inp_labels = labels)
+full_field_rho_hist(rho_w, p_eta, inp_labels = labels, new_window = T)
 # Plot emulator precision parameters for emulator
 full_field_lambda_hist(lambda_w, p_eta)
 # Plot emulator trunction error precision
