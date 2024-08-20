@@ -271,6 +271,49 @@ reduce_dimension_calibration_multi <- function(y, B, W_y, q_y){
   return(list(BTB_sep, BTy_sep))
 }
 
+reduce_dimension_calibration_multi_fov <- function(y, B, W_y, n_y){
+  
+  # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
+  # the necessary quantities for passing to Stan. Focus on quantities relating
+  # to the experimental data
+  # Modified for different covariance structure with different precision for
+  # different fields of view.
+  # Duplication of the multiple displacement component code, though with 
+  
+  # y = n_y-vector of experimental measurements, where n_y is the number of data
+  #     points
+  # B = n_y x p_B matrix of basis functions used to decompose eta, where p_B
+  #     depends upon whether, and how the discrepancy is included. For the most 
+  #     general implementation of Higdon et al. this will equal p_eta + p_delta
+  # W_y = Prior precision of observation error, which can be passed as an n_y x
+  #     n_y matrix, or if the precision is diagonal, as a n_y vector of 
+  #     the diagonal
+  # n_y = Vector of integers indicating how many points there are for each field
+  #     of view
+  
+  
+  # Calculate B'*W_y*B
+  p_B = ncol(B)
+  q_y = length(n_y)
+  BTB_sep = array(NA, dim = c(0, p_B, p_B)) # matrix product separated into different vector components
+  BTy_sep = matrix(NA, nrow = p_B, ncol = q_y)
+  for (i in 1:q_y) {
+    print(i)
+    if (i == 1) {
+      inds_i = 1:n_y[1]
+    } else {
+      inds_i = (sum(n_y[1:(i-1)])+1):sum(n_y[1:i])
+    }
+    print(inds_i[1])
+    print(inds_i[length(inds_i)])
+    BTB_i = t(B[inds_i,])%*%B[inds_i,]
+    BTy_sep[,i] = t(B[inds_i,])%*%y[inds_i]
+    BTB_sep = abind(BTB_sep, array(BTB_i, dim = c(1, p_B, p_B)), along=1)
+  }
+  
+  return(list(BTB_sep, BTy_sep))
+}
+
 adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y) {
   # Adust covariance matrix Sigma_z of the calibration statistical model for the
   # effect of dimension-reduction upon the model decomposition truncation error,
