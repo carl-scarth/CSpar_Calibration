@@ -201,9 +201,13 @@ rel_error = (abs(residual)/abs(mu_y))*100
 
 # Centre the experimental data and convert to vector to pass to stan
 if ((length(sd_dt)>1) & (q_y>1)){
-  sd_y = rep(sd_dt[1],n_y)
+  sd_y = rep(sd_dt[1],n_y1)
   for (i in 2:q_y){
-    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y))
+    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y1))
+  }
+  sd_y = c(sd_y, rep(sd_dt[1],n_y2))
+  for (i in 2:q_y){
+    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y2))
   }
 } else {
   sd_y = sd_dt
@@ -221,6 +225,7 @@ if (q_y == 1) {
     out_frame[paste("residual_", disp_str[i], sep="")] = residual[ind]
     out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[ind])
     out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[ind]
+    out_frame[paste("centred_data_", disp_str[i], sep="")] = y[ind]
   }
   out_frame["Increment"] = frame_ind
 }
@@ -271,16 +276,14 @@ processed_data = reduce_dimension_emulator(eta, K_eta)
 w_hat = processed_data[[1]] # Reduced-dimensional outputs
 KTKinv = processed_data[[2]] # Inverse of the product of basis matrices
 
-# NOT 100% ON THIS, BUT WILL BE A COMBO OF NY1 AND NY2 DEPENDNING ON HOW DATA IS ORDERED
-# I THINK THIS MAKES SENSE
-processed_data = reduce_dimension_calibration_multi_fov(y, K_y, W_y, c(rep(n_y1,q_y),rep(n_y2,q_y)))
+processed_data = reduce_dimension_calibration_multi_fov(y, K_y, c(rep(n_y1,q_y),rep(n_y2,q_y)))
 BTB = processed_data[[1]]
 BTy = processed_data[[2]]
 
 # Force the adjusted parameters of the observation error prior to specified 
 # values to overcome over-constraint issues
-a_y_dash = array(rep(a_y, q_y), dim=2*q_y) # Have to use array to prevent errors in stan with q_y = 1
-b_y_dash = array(rep(b_y, q_y), dim=2*q_y)
+a_y_dash = array(rep(a_y, 2*q_y), dim=2*q_y) # Have to use array to prevent errors in stan with q_y = 1
+b_y_dash = array(rep(b_y, 2*q_y), dim=2*q_y)
 
 #-------------------------------------------------------------------------------
 
