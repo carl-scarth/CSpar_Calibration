@@ -271,7 +271,7 @@ reduce_dimension_calibration_multi <- function(y, B, W_y, q_y){
   return(list(BTB_sep, BTy_sep))
 }
 
-reduce_dimension_calibration_multi_fov <- function(y, B, W_y, n_y){
+reduce_dimension_calibration_multi_fov <- function(y, B, n_y){
   
   # Perform the matrix algebra from Section 2.2.4 of Higdon et al., calculating
   # the necessary quantities for passing to Stan. Focus on quantities relating
@@ -298,14 +298,14 @@ reduce_dimension_calibration_multi_fov <- function(y, B, W_y, n_y){
   BTB_sep = array(NA, dim = c(0, p_B, p_B)) # matrix product separated into different vector components
   BTy_sep = matrix(NA, nrow = p_B, ncol = q_y)
   for (i in 1:q_y) {
-    print(i)
+    #print(i)
     if (i == 1) {
       inds_i = 1:n_y[1]
     } else {
       inds_i = (sum(n_y[1:(i-1)])+1):sum(n_y[1:i])
     }
-    print(inds_i[1])
-    print(inds_i[length(inds_i)])
+    #print(inds_i[1])
+    #print(inds_i[length(inds_i)])
     BTB_i = t(B[inds_i,])%*%B[inds_i,]
     BTy_sep[,i] = t(B[inds_i,])%*%y[inds_i]
     BTB_sep = abind(BTB_sep, array(BTB_i, dim = c(1, p_B, p_B)), along=1)
