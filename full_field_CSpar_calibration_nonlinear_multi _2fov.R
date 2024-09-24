@@ -43,7 +43,8 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 iter = 4000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
 in_file = "LHSDesign100x8" # File identifier string for input and output csvs
-exp_data_file = "Interpolated_DIC_multistep_150kN_RC" # Identifier of file containing DIC data
+exp_data_file_1 = "Interpolated_DIC_multistep_150kN_LC" # Identifier of file containing DIC data
+exp_data_file_2 = "Interpolated_DIC_multistep_150kN_RC" # Identifier of file containing DIC data
 surface_elements = "new_spar_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
 p_sub = 3 # Use a subset of the basis functions
 use_subset = F
@@ -150,24 +151,48 @@ if (use_subset) {
 # measurement has been matched, its natural coordinates within the element, and 
 # applied load increment, which matches those of the model.
 
-experimental_data = as.data.frame(fread(paste("inputs/", exp_data_file, ".csv", sep = "")))
-n_y = nrow(experimental_data) # Total of observations
 exp_str = paste(disp_str, "_rot", sep="")
-exp_displacement = experimental_data[(exp_str)] # Displacement component
 
-y_element = py_to_R(experimental_data$Element) # Matched element indices. Must be converted from Python to R convention
-gh = as.matrix(experimental_data[c("g","h")]) # Matched natural coordinates
+# Extract relevant data from first field of view
+experimental_data_1 = as.data.frame(fread(paste("inputs/", exp_data_file_1, ".csv", sep = "")))
+n_y1 = nrow(experimental_data_1) # Total of observations
+exp_displacement_1 = experimental_data_1[(exp_str)] # Displacement component
+y_element_1 = py_to_R(experimental_data_1$Element) # Matched element indices. Must be converted from Python to R convention
+# hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
+gh_1 = as.matrix(experimental_data_1[c("g","h")]) # Matched natural coordinates
 # exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
-frame_ind = experimental_data$Increment # Index of which frame each point belongs to
+frame_ind_1 = experimental_data_1$Increment # Index of which frame each point belongs to
+exp_coords_1 = experimental_data_1[DIC_coord_labels]
+
+# Extract relevant data from second field of view
+experimental_data_2 = as.data.frame(fread(paste("inputs/", exp_data_file_2, ".csv", sep = "")))
+n_y2 = nrow(experimental_data_2) # Total of observations
+exp_displacement_2 = experimental_data_2[(exp_str)] # Displacement component
+y_element_2 = py_to_R(experimental_data_2$Element) # Matched element indices. Must be converted from Python to R convention
+# hr = as.matrix(experimental_data[c("h","r")]) # Matched natural coordinates
+gh_2 = as.matrix(experimental_data_2[c("g","h")]) # Matched natural coordinates
+# exp_displacement = experimental_data[[as.name(paste(disp_str, "_rot", sep=""))]] # Displacement component
+frame_ind_2 = experimental_data_2$Increment # Index of which frame each point belongs to
+exp_coords_2 = experimental_data_2[DIC_coord_labels]
+
+
+exp_displacement = c(c(as.matrix(exp_displacement_1)),c(as.matrix(exp_displacement_2)))
+#y_element = c(y_element_1,y_element_2)
+#gh = rbind(gh_1,gh_2)
+n_y = n_y1 + n_y2
+frame_ind = c(frame_ind_1,frame_ind_2)
+exp_coords = rbind(exp_coords_1,exp_coords_2)
 
 # Interpolate the training data mean. Skip the first two nodes in the output as 
-# these are reference points which are not referenced by the connectivity file.
-# mu_y = as.vector(intp_nodes_to_cloud_inc(y_element, hr, as.matrix(mu_dt), frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2))
-mu_y = rep(NA, q_y*n_y)
+# these are reference points which are not referenced by the connectivity file
+mu_y1 = rep(NA, q_y*n_y1)
+mu_y2 = rep(NA, q_y*n_y2)
 for (i in 1:q_y){
   mu_dt_i = mu_dt[((i-1)*n_eta/q_y+1):(i*n_eta/q_y)]
-  mu_y[((i-1)*n_y+1):(i*n_y)] = as.vector(intp_nodes_to_cloud_inc(y_element, gh, as.matrix(mu_dt_i), frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0))
+  mu_y1[((i-1)*n_y1+1):(i*n_y1)] = as.vector(intp_nodes_to_cloud_inc(y_element_1, gh_1, as.matrix(mu_dt_i), frame_ind_1, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0))
+  mu_y2[((i-1)*n_y2+1):(i*n_y2)] = as.vector(intp_nodes_to_cloud_inc(y_element_2, gh_2, as.matrix(mu_dt_i), frame_ind_2, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0))
 }
+mu_y = c(mu_y1,mu_y2)
 
 # Calculate residuals of experimental error
 # residual = exp_displacement - mu_y
@@ -176,9 +201,13 @@ rel_error = (abs(residual)/abs(mu_y))*100
 
 # Centre the experimental data and convert to vector to pass to stan
 if ((length(sd_dt)>1) & (q_y>1)){
-  sd_y = rep(sd_dt[1],n_y)
+  sd_y = rep(sd_dt[1],n_y1)
   for (i in 2:q_y){
-    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y))
+    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y1))
+  }
+  sd_y = c(sd_y, rep(sd_dt[1],n_y2))
+  for (i in 2:q_y){
+    sd_y = c(sd_y, rep(sd_dt[i*n_eta/q_y],n_y2))
   }
 } else {
   sd_y = sd_dt
@@ -186,46 +215,53 @@ if ((length(sd_dt)>1) & (q_y>1)){
 exp_displacement_cen = (c(as.matrix(exp_displacement)) - mu_y)/sd_y
 y = exp_displacement_cen
 
-# Write to CSV
-# write.csv(cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y,residual,abs(residual),rel_error, increment = experimental_data$Increment), paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
 if (q_y == 1) {
-  out_frame = cbind(experimental_data[DIC_coord_labels],training_data_mean = mu_y, standardised_y = y,residual,abs(residual),rel_error, Increment = experimental_data$Increment)
+  out_frame = cbind(exp_coords,training_data_mean = mu_y,residual,abs(residual),rel_error, Increment = frame_ind)
 } else {
-  out_frame = experimental_data[DIC_coord_labels]
+  out_frame = exp_coords
   for (i in 1:q_y) {
-    out_frame[paste("training_data_mean_", disp_str[i], sep="")] = mu_y[((i-1)*n_y+1):(i*n_y)]
-    out_frame[paste("standardised_y_", disp_str[i], sep="")] = y[((i-1)*n_y+1):(i*n_y)]
-    out_frame[paste("residual_", disp_str[i], sep="")] = residual[((i-1)*n_y+1):(i*n_y)]
-    out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[((i-1)*n_y+1):(i*n_y)])
-    out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[((i-1)*n_y+1):(i*n_y)]
+    ind = c(((i-1)*n_y1+1):(i*n_y1),(((i-1)*n_y2+1):(i*n_y2))+(n_y1*q_y))
+    out_frame[paste("training_data_mean_", disp_str[i], sep="")] = mu_y[ind]
+    out_frame[paste("residual_", disp_str[i], sep="")] = residual[ind]
+    out_frame[paste("abs_residual_", disp_str[i], sep="")] = abs(residual[ind])
+    out_frame[paste("rel_error_", disp_str[i], sep="")] = rel_error[ind]
+    out_frame[paste("centred_data_", disp_str[i], sep="")] = y[ind]
   }
-  out_frame["Increment"] = experimental_data$Increment
+  out_frame["Increment"] = frame_ind
 }
 write.csv(out_frame, paste("outputs/",in_file,"_mean_error_nonlinear.csv", sep = ""), row.names = FALSE)
 
 # We also need to interpolate the basis functions, K, (determined above using 
 # SVD) to the DIC point cloud locations.
 if (use_subset){
-  K_y = matrix(NA, nrow = n_y*q_y, ncol = p_sub)
+  K_y1 = matrix(NA, nrow = n_y1*q_y, ncol = p_sub)
+  K_y2 = matrix(NA, nrow = n_y2*q_y, ncol = p_sub)
 } else {
-  K_y = matrix(NA, nrow = n_y*q_y, ncol = p_eta)
+  K_y1 = matrix(NA, nrow = n_y1*q_y, ncol = p_eta)
+  K_y2 = matrix(NA, nrow = n_y2*q_y, ncol = p_eta)
 }
+
 # K_y = intp_nodes_to_cloud_inc(y_element, hr, K_eta, frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=2)
 for (i in 1:q_y){
-  K_y[((i-1)*n_y+1):(i*n_y),] = intp_nodes_to_cloud_inc(y_element, gh, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),,drop=F], frame_ind, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0)
+  K_y1[((i-1)*n_y1+1):(i*n_y1),] = intp_nodes_to_cloud_inc(y_element_1, gh_1, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),,drop=F], frame_ind_1, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0)
+  K_y2[((i-1)*n_y2+1):(i*n_y2),] = intp_nodes_to_cloud_inc(y_element_2, gh_2, K_eta[((i-1)*n_eta/q_y+1):(i*n_eta/q_y),,drop=F], frame_ind_2, n_frames, conn_file = paste("inputs/", surface_elements, ".csv", sep=""), skip_nodes=0)
 }
+K_y = rbind(K_y1, K_y2)
+
 if (q_y == 1) {
   out_frame = as.data.frame(K_y)
   for (i in 1:ncol(K_eta)) {colnames(out_frame)[i] = sprintf("K_y,%d",i)} 
 } else {
   out_frame = as.data.frame(matrix(NA, nrow = n_y, ncol = 0))
+  
   for (i in 1:q_y) {
+    ind = c(((i-1)*n_y1+1):(i*n_y1),(((i-1)*n_y2+1):(i*n_y2))+(n_y1*q_y))
     for (j in 1:ncol(K_eta)) {
-      out_frame[[as.name(sprintf("K_y_%s_%d",disp_str[i],j))]] = K_y[((i-1)*n_y+1):(i*n_y),j]
+      out_frame[[as.name(sprintf("K_y_%s_%d",disp_str[i],j))]] = K_y[ind,j]
     }
   }
 }
-out_frame = cbind(experimental_data[DIC_coord_labels], out_frame, Increment = experimental_data$Increment)
+out_frame = cbind(exp_coords, out_frame, Increment = frame_ind)
 
 # output interpolated bases for plotting
 write.csv(out_frame, paste("outputs/",in_file,"_interpolated_basis_nonlinear.csv", sep = ""), row.names = FALSE)
@@ -240,21 +276,21 @@ processed_data = reduce_dimension_emulator(eta, K_eta)
 w_hat = processed_data[[1]] # Reduced-dimensional outputs
 KTKinv = processed_data[[2]] # Inverse of the product of basis matrices
 
-processed_data = reduce_dimension_calibration_multi(y, K_y, W_y, q_y)
+processed_data = reduce_dimension_calibration_multi_fov(y, K_y, c(rep(n_y1,q_y),rep(n_y2,q_y)))
 BTB = processed_data[[1]]
 BTy = processed_data[[2]]
 
 # Force the adjusted parameters of the observation error prior to specified 
 # values to overcome over-constraint issues
-a_y_dash = array(rep(a_y, q_y), dim=q_y) # Have to use array to prevent errors in stan with q_y = 1
-b_y_dash = array(rep(b_y, q_y), dim=q_y)
+a_y_dash = array(rep(a_y, 2*q_y), dim=2*q_y) # Have to use array to prevent errors in stan with q_y = 1
+b_y_dash = array(rep(b_y, 2*q_y), dim=2*q_y)
 
 #-------------------------------------------------------------------------------
 
 # Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
 # emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
-emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,"_uw150z_mod_multi.csv", sep=""), sep = ",", header = TRUE)))
+emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_means_",in_file,"_uw150z_mod.csv", sep=""), sep = ",", header = TRUE)))
 if (use_subset) {
   rho_w = emulator_parameters[1:(p_sub*q)]
   lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*q+p_sub)]
@@ -275,7 +311,7 @@ util = new.env()
 if (use_subset) {
   p_eta = p_sub
 }
-stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=q_y, a_y_dash = a_y_dash,
+stan_data = list(m=m, q=q, n_eta=n_eta, n_y=n_y, p_eta=p_eta, q_y=2*q_y, a_y_dash = a_y_dash,
                  b_y_dash = b_y_dash, lambda_eta = lambda_eta, w_hat = w_hat,
                  tf_param_1=tf_param$p1_trans, tf_param_2=tf_param$p2_trans, 
                  rho_w = rho_w, lambda_w = lambda_w, tc = tc, KTKinv = KTKinv, 

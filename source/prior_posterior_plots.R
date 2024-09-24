@@ -1,6 +1,6 @@
 # Functions for plots of overlaid prior and posterior distributions
 
-calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_window = FALSE, nrows = 1){
+calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_window = FALSE, nrows=1){
   # Produce prior and posterior plots for samples of calibrated model inputs
   # tf = matrix of posterior samples
   # tf_param = data.frame where each row is a random variable, which has columns 
@@ -70,10 +70,9 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
          # breaks = 25,
          breaks = 15,
          freq = FALSE,
-         #xlim = c(t_min,t_max),
-         cex.lab = 1.25,
-         cex.axis = 1.25)
-    }
+         xlim = c(t_min,t_max),
+         cex.lab = 2.0,
+         cex.axis = 2.0)
   
     # overlay plot of prior distribution if parameters are provided
     if (!is.null(tf_param)){
@@ -124,7 +123,7 @@ full_field_rho_hist <- function(rho_w, p_eta, inp_labels=NULL, prior_shape_1 = 1
       }
       # Plot histogram of posterior distribution
       # Don't plot x axis as 
-      hist(samples$rho_w[,(i-1)*q+j],
+      hist(rho_w[,(i-1)*q+j],
            main = title_j,
            xlab = paste("rho_w_",as.character(i),"_",as.character(j)),
            col = "firebrick1",

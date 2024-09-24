@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign100x8" # File identifier string for input and output files
+in_file = "LHSDesign100x8_5" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -146,34 +146,54 @@ options(mc.cores = parallel::detectCores())
 parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 util = new.env()
 
-# List of arguments to pass to stan
-stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=p_eta, linear_mean = 0, a_eta_dash = a_eta_dash, 
-                 b_eta_dash = b_eta_dash, z_hat = z_hat, tc = tc, KTKinv = KTK_inv)
-# Run stan
-fit = stan(file = "source/full_field_emulator.stan",
-           data = stan_data,
-           iter = iter,
-           chains = chains,
-           model_name = "full_field_emulator")
+# List of arguments to pass to stan. Do this sequentially taking each principal
+# component in turn
+# Note - this is technically incorrect - you can't decouple the principal 
+# components even though the bases are orthogonal, because they are linked in the
+# statistical model by lambda_eta. This seems unimportant, but I'll store a 
+# different value regardless.
 
-save.image("Emulator_100x8_1_w_150kN.RData")
+# Initialise output variables
+samples = c()
+N_samples <- iter*chains/2   # Total number of samples post warm-up
+rho_w <- matrix(NA, nrow = N_samples, ncol = q*p_eta) 
+lambda_w <- matrix(NA, nrow = N_samples, ncol = p_eta)
+lambda_eta <- matrix(NA, nrow = N_samples, ncol = p_eta)
+for (i in 1:p_eta) {
+  print(paste("Running stan for principal component #", i,sep=""))
+  
+  # Note that the samples corresponding to each principal component are also
+  # standardised the zero mean and unit standard deviation by definition
+  stan_data = list(m=m, q=q, n_eta=n_eta, p_eta=1, linear_mean = 0, a_eta_dash = a_eta_dash, 
+                 b_eta_dash = b_eta_dash, z_hat = z_hat[((i-1)*m+1):(i*m)], tc = tc, KTKinv = KTK_inv[((i-1)*m+1):(i*m),((i-1)*m+1):(i*m)])
+  # Run stan
+  fit = stan(file = "source/full_field_emulator.stan",
+             data = stan_data,
+             iter = iter,
+             chains = chains,
+             model_name = "full_field_emulator")
+  # Produce trace plots
+  stan_trace(fit, pars = c("rho_w", "lambda_w","lambda_eta"))
+  
+  # Print summary of results
+  print(paste("MCMC Diagnostics for principal component #", i,sep=""))
+  print(fit, pars = c("rho_w", "lambda_w", "lambda_eta"))
+  print("")
+  
+  # extract samples from stan output
+  samples_i <- extract(fit)
+  samples = c(samples,samples_i)
+  rho_w[,((i-1)*q+1):(i*q)] = samples_i$rho_w # Correlation lengths
+  #beta_w <- samples$beta_w         # Transformed Correlation lengths
+  lambda_w[,i] = samples_i$lambda_w     # Emulator precisions
+  lambda_eta[,i] = samples_i$lambda_eta # Expansion truncation error 
+}
+
+#save.image("Emulator_100x8_1_w_150kN.RData")
 
 #-------------------------------------------------------------------------------
 
 # Post-process and plot the simulation data
-
-# Produce trace plots
-stan_trace(fit, pars = c("rho_w", "lambda_w","lambda_eta"))
-# Print summary of results
-print(fit, pars = c("rho_w", "lambda_w", "lambda_eta"))
-
-# extract samples from stan output
-samples <- extract(fit)
-rho_w <- samples$rho_w           # Correlation lengths
-beta_w <- samples$beta_w         # Transformed Correlation lengths
-lambda_w <- samples$lambda_w     # Emulator precisions
-lambda_eta <- samples$lambda_eta # Expansion truncation error 
-N_samples <- dim(rho_w)[1]       # Total number of samples post warm-up
 
 # Extract label of inputs for plots
 labels = colnames(XT_sim) # don't think I need this but keeping just in case
@@ -185,7 +205,9 @@ chain2 = samples_unpermuted[,chain,]
 chain2_rho_w = chain2[,1:(p_eta*q)]
 colMeans(chain2_rho_w)
 full_field_rho_hist(chain2_rho_w, p_eta, inp_labels = labels, new_window = T)
-# modes = full_field_emulator_modes(chain2_rho_w, lambda_w, lambda_eta)
+modes = full_field_emulator_modes(chain2_rho_w, lambda_w, lambda_eta)
+
+lambda_eta = c(lambda_eta)
 
 # If required, estimate the modes of emulator hyperparameters and write to a csv
 if (export_modes){
@@ -193,19 +215,16 @@ if (export_modes){
   #write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), row.names = FALSE)
   write.csv(modes, paste("outputs/nonlinear_emulator_modes_",in_file,"_150kNw.csv", sep=""), row.names = FALSE)
 }
-means = full_field_emulator_modes(rho_w, lambda_w, lambda_eta, calc_mean = T)
-write.csv(means, paste("outputs/nonlinear_emulator_means_",in_file,"_150kNw.csv", sep=""), row.names = FALSE)
-##for (i in 1:p_eta){
-#  colnames(modes)[((i-1)*q+1):(q*i)] <- sprintf("rho_w_%d_%d", i,1:q)
-#}
-#olnames(modes)[(p_eta*q+1):(p_eta*(q+1))] <- sprintf("lambda_w_%d", 1:p_eta)
-#olnames(modes)[p_eta*(q+1)+1] <- "lambda_eta"
+
 
 # Plot correlation parameter histograms
 full_field_rho_hist(rho_w, p_eta, inp_labels = labels, new_window = T)
 # Plot emulator precision parameters for emulator
 full_field_lambda_hist(lambda_w, p_eta)
 # Plot emulator trunction error precision
+# One solution would be to concatenate samples from
+# all simulations and see what the distribution looks like - looking at the output I think that should be fine
+# remember mean, or "Bayesian estimate"
 lambda_hist(lambda_eta, prior_shape = a_eta, prior_rate = b_eta, label = "lambda_eta", adj_prior_shape = a_eta_dash, adj_prior_rate = b_eta_dash)
 
 #-------------------------------------------------------------------------------
