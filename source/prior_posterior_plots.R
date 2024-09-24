@@ -1,6 +1,6 @@
 # Functions for plots of overlaid prior and posterior distributions
 
-calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_window = FALSE){
+calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_window = FALSE, nrows = 1){
   # Produce prior and posterior plots for samples of calibrated model inputs
   # tf = matrix of posterior samples
   # tf_param = data.frame where each row is a random variable, which has columns 
@@ -20,7 +20,7 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
   }
 
   # Produce a subplot for each input
-  par(mfrow = c(1,q))
+  par(mfrow = c(nrows,ceiling(q/nrows)))
   for (i in 1:q){
     if (!is.null(inp_labels)){
       label = inp_labels[i]
@@ -33,8 +33,8 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
         # maximum and minimum of +/- 3 standard deviations
         mu = tf_param$param_1[i]
         std = tf_param$param_2[i]
-        t_min = mu - 3*std
-        t_max = mu + 3*std
+        t_min = mu - 4.25*std
+        t_max = mu + 4.25*std
       } else if (tf_param$distribution[i] == "Halfnormal") {
         mu = tf_param$param_1[i]
         std = tf_param$param_2[i]
@@ -43,6 +43,7 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
       } else if ((tf_param$distribution[i] == "Uniform") | (tf_param$distribution[i] == "Loguniform")){
         t_min = tf_param$param_1[i]
         t_max = tf_param$param_2[i]
+        #t_max = 11
       } else {
         stop("Error: Non-implemented distribution")
       }
@@ -50,15 +51,29 @@ calibration_inp_hist <- function(tf, tf_param = NULL, inp_labels = NULL, new_win
       t_min = min(tf[,i])
       t_max = max(tf[,i])
     }
+    if (i == 4){
+      hist(tf[,i], 
+           main = label,
+           xlab = label,
+           col = "brown1",
+           # breaks = 25,
+           breaks = 10,
+           freq = FALSE,
+           xlim = c(t_min,t_max),
+           cex.lab = 1.25,
+           cex.axis = 1.25)
+    } else {
     hist(tf[,i], 
          main = label,
          xlab = label,
          col = "brown1",
-         breaks = 25,
+         # breaks = 25,
+         breaks = 15,
          freq = FALSE,
          #xlim = c(t_min,t_max),
          cex.lab = 1.25,
          cex.axis = 1.25)
+    }
   
     # overlay plot of prior distribution if parameters are provided
     if (!is.null(tf_param)){
@@ -207,7 +222,7 @@ lambda_hist <- function(lambda, prior_shape = 5.0, prior_rate = 5.0, label = "la
       col = "firebrick1",
       breaks = 25,
       freq = FALSE,
-      xlim = c(0,2^ceiling(log(max_x,2))), # round up upper limit
+      #xlim = c(0,2^ceiling(log(max_x,2))), # round up upper limit
       cex.axis=1.5,
       cex.lab=1,5)
     lambda_plot <- seq(min_x_prior, max_x_prior, length.out = 1000) # set of x values for prior plot
@@ -261,7 +276,7 @@ prior_posterior_pairs <- function(tf, tf_param, inp_labels = NULL, new_window = 
   colnames(prior_post_frame) = inp_labels
   # Create list of colours for the plot
   colours = c(rep("blue",N_samples),rep("red",N_samples))
-  pairs(prior_post_frame,col=colours)
+  pairs(prior_post_frame,col=colours, cex.labels=2, cex.axis=1.75)
 }
 
 
