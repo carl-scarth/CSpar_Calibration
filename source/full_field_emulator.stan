@@ -77,7 +77,8 @@ model {
   // Adjust the covariance matrix to account for the dimension reduction
   sigma_z_hat = rep_matrix(0,m*p_eta, m*p_eta);
   sigma_z_hat = KTKinv/lambda_eta;
-  sigma_z_hat = sigma_z_hat + sigma_z;
+  // Also add nugget
+  sigma_z_hat = sigma_z_hat + sigma_z + diag_matrix(rep_vector(1e-8,m*p_eta));
   
   // Specify prior distribution of z_hat
   L_z_hat = cholesky_decompose(sigma_z_hat);

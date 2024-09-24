@@ -290,7 +290,7 @@ b_y_dash = array(rep(b_y, 2*q_y), dim=2*q_y)
 # Load in fixed values of emulator parameters, determined separately, e.g. via
 # MLE or MAP estimate
 # emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,".csv", sep=""), sep = ",", header = TRUE)))
-emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_modes_",in_file,"_uw150z_mod_multi.csv", sep=""), sep = ",", header = TRUE)))
+emulator_parameters = c(as.matrix(read.table(paste("outputs/nonlinear_emulator_means_",in_file,"_uw150z_mod.csv", sep=""), sep = ",", header = TRUE)))
 if (use_subset) {
   rho_w = emulator_parameters[1:(p_sub*q)]
   lambda_w = emulator_parameters[(p_eta*q + 1):(p_eta*q+p_sub)]

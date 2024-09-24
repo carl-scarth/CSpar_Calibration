@@ -21,6 +21,7 @@ data {
   row_vector[q] tf_param_2;          // Second parameter of calibration parameter priors
   vector<lower=0,upper=1>[q*p_eta] rho_w; // Emulator correlation parameters
   vector<lower=0>[p_eta] lambda_w;        // Emulator precision parameters
+  //real<lower=0> lambda_w;        // Emulator precision parameters
   matrix[m, q] tc;                        // Matrix of uncontrolled inputs at the training data points
   matrix[m*p_eta,m*p_eta] KTKinv;         // Inverse of the inner product of the emulator basis matrix
   matrix[p_eta,p_eta] BTB[q_y];           // Product B'*B, where B is the emulator basis matrix interpolated to the experimental data points
@@ -74,12 +75,14 @@ model {
   for (i in 1:p_eta) {
     // Calculate the covariance matrix for the ith basis coefficient
     sigma_w[(i-1)*m+1:i*m,(i-1)*m+1:i*m] = ARD_SE_cov(tc, lambda_w[i], beta_w[(i-1)*q+1:i*q], 0);
+    //sigma_w[(i-1)*m+1:i*m,(i-1)*m+1:i*m] = ARD_SE_cov(tc, lambda_w, beta_w[(i-1)*q+1:i*q], 0);
   }
   
   // Emulator cross covariance between training data and experimental data.
   sigma_uw = rep_matrix(0,p_eta,m*p_eta);
   for (i in 1:p_eta) {
     sigma_uw[i,(i-1)*m+1:i*m] = to_row_vector(ARD_SE_cov_vect_mat(tf, tc, lambda_w[i], beta_w[(i-1)*q+1:i*q]));
+    //sigma_uw[i,(i-1)*m+1:i*m] = to_row_vector(ARD_SE_cov_vect_mat(tf, tc, lambda_w, beta_w[(i-1)*q+1:i*q]));
   }
   
   // Assemble covariance matrix for joint experimental and model data
@@ -111,7 +114,7 @@ model {
   z_hat = append_row(u_hat, w_hat);
   
   // Add small nugget
-  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-4,(m+1)*p_eta));
+  sigma_z_hat = sigma_z_hat + diag_matrix(rep_vector(1e-8,(m+1)*p_eta));
   
   // Specify prior distribution of z_hat
   L_z_hat = cholesky_decompose(sigma_z_hat);

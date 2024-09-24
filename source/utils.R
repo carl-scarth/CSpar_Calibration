@@ -6,19 +6,31 @@ estimate_mode <- function(x) {
   d$x[which.max(d$y)]
 }
 
-full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta) {
+full_field_emulator_modes <- function(rho_w, lambda_w, lambda_eta, calc_mean = FALSE) {
   # Extract number of inputs, and number of basis functions
   p_eta = ncol(lambda_w)
   q = ncol(rho_w)/p_eta
   # estimate modes of the posterior distribution
   modes = rep(0,(p_eta*(q+1))+1)
   for (i in 1:(p_eta*q)){
-    modes[i] = estimate_mode(rho_w[,i])
+    if (calc_mean) {
+      modes[i] = mean(rho_w[,i])
+    } else {
+      modes[i] = estimate_mode(rho_w[,i])
+    }
   }
   for (i in 1:p_eta){
-    modes[p_eta*q + i] = estimate_mode(lambda_w[,i])
+    if (calc_mean) {
+      modes[p_eta*q + i] = mean(lambda_w[,i])
+    } else {
+      modes[p_eta*q + i] = estimate_mode(lambda_w[,i])
+    }
   }
-  modes[(p_eta*(q+1))+1] = estimate_mode(lambda_eta)
+  if (calc_mean) {
+    modes[(p_eta*(q+1))+1] = mean(lambda_eta)
+  } else {
+    modes[(p_eta*(q+1))+1] = estimate_mode(lambda_eta)
+  }
   # Create dataframe and write column names
   modes = as.data.frame(t(modes))
   for (i in 1:p_eta){
