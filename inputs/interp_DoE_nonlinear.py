@@ -10,17 +10,14 @@ from interpolate_data import intp_nodes_to_cloud
 
 if __name__ == "__main__":
     # Load inputs from file
-    in_file = "nominal_inputs_translator"
+    in_file = "log_K_study_correct_props"
     conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
-    # exp_data_file = "selected_points_CS02P_umax_model" # Experimental data
-    # exp_data_file = "selected_points_CS02P_rad" # Experimental data
+    #exp_data_file = "Selected_Points_CS02P"                 # Experimental data
     exp_data_file = "mid_point"                 # Experimental data
     DoE_file = in_file + "_output_struct.json"         # Model output
     conn = pd.read_csv(conn_file+".csv").to_numpy(dtype=int)
     conn = conn - 1 # Convert to Python indexing from Abaqus
     output_mean = True # Only output mean
-    disp_str = "w"
-    print(conn)
     with open (DoE_file,'r') as f:
         sample_dict = json.loads(f.readline())
     
@@ -62,4 +59,4 @@ if __name__ == "__main__":
         if output_mean:
             interp_outputs = pd.concat([interp_outputs, pd.DataFrame(newcol, columns = ["disp_" + str(i)]), pd.DataFrame(force, columns = ["force_"+str(i)]), pd.DataFrame(crosshead, columns = ["crosshead_"+str(i)])], axis=1)
     
-    interp_outputs.to_csv(in_file+"_interp.csv", sep=",", index=False)
+    interp_outputs.to_csv(in_file+"_interp_mid.csv", sep=",", index=False)
