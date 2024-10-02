@@ -338,7 +338,7 @@ adjust_error_covariance <- function(Sigma_z, KTKinv, BTWyB, lambda_eta, lambda_y
   # Sigma_z_hat[1:n_exp,1:n_exp] = BTWyBinv/lambda_y
   Sigma_z_hat[-(1:n_exp),-(1:n_exp)] = KTKinv/lambda_eta
   Sigma_z_hat = Sigma_z_hat + Sigma_z
-  
+
   return(Sigma_z_hat)
 }
 

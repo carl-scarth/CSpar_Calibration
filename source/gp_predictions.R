@@ -326,7 +326,7 @@ full_field_calibration_pred_fixed_em_multi <- function(N_subsam, tc, tf, z_hat, 
   # lambda_eta = scalar-valued expansion truncation error
   # lambda_y = N_sam_post vector of observation error posterior samples
   # KTKinv = inverse of inner product of emulator basis matrix with itself
-  # BTWyB = Matrix product of basis matrix of experimental data points 
+  # BTB = Matrix product of basis matrix of experimental data points 
   # and prior observation error precision
   # sam_gp = Boolean which dictates whether to sample from the GP
   # nugget = Boolean which dictates whether to add a nugget to the covariance
