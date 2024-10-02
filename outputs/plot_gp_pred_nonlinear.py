@@ -12,7 +12,7 @@ import pandas as pd
 # This code is getting messy - it would be good to package up some aspects to tidy
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign50x5_11"
+infile = "LHSDesign100x8_6"
 new_spar = True # Are we considering the new spar geometry?
 flex_support = True # Are we using the model with flexible supports?
 flex_ground = False # Are we using the model with flexible ground?
@@ -60,8 +60,9 @@ with open(output_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())
 
-applied_load = np.array([5.39])
-applied_load = np.concatenate((np.array([5.39]), np.linspace(10.0, 200.0, 20)))
+#applied_load = np.array([5.39])
+# applied_load = np.concatenate((np.array([5.39]), np.linspace(10.0, 200.0, 20)))
+applied_load = np.concatenate((np.array([5.39]), np.linspace(10.0, 150.0, 15)))
 
 # Get number of predictions and number of frames. If there is no prediction key then there is only one prediction
 try:

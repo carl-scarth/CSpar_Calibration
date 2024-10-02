@@ -10,12 +10,14 @@ from interpolate_data import intp_nodes_to_cloud
 if __name__ == "__main__":
 
     # Set up for output across multiple frames, input via json
-    infile = "LHSDesign60x6_4"
+    infile = "LHSDesign100x8_6"
     output_file = "gp_predictions_nonlinear_" + infile + ".json"
     # conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
     # Load inputs from file
     conn_file = "new_spar_mesh_outer_surface_elements"
-    exp_data_file = "..\\inputs\\Interpolated_DIC_200kN_no0" # csv containing experimental data, including increment index and point index
+    multiple_datasets = True
+    exp_data_file = "..\\inputs\\Interpolated_DIC_multistep_150kN_combined" # csv containing experimental data, including increment index and point index
+    
     # Read in prediction data
     with open(output_file, "r") as f:
         # Load in string from file
@@ -27,6 +29,7 @@ if __name__ == "__main__":
     exp_data = pd.read_csv(exp_data_file+".csv")
     exp_data.columns.values[0] = "point_ind"
     print(exp_data)
+
     # Convert increment to python indexing
     exp_data.Increment = exp_data.Increment - 1
 
@@ -40,7 +43,7 @@ if __name__ == "__main__":
         out_str = list(list(in_dict["Frame"][0].values())[0].keys())
         n_nodes = len(list(list(in_dict["Frame"][0].values())[0].values())[0])
     d_y = len(out_str) # Number of y components
-
+    
     # Loop over the entries of in_dict and interpolate the data to a point cloud
     if "interp_gp_output" not in os.listdir(os.getcwd()):
         os.mkdir("interp_gp_output")
@@ -49,11 +52,13 @@ if __name__ == "__main__":
         print(i)
         # Extract experimental data for the current frame
         exp_data_i = exp_data[exp_data.Increment == i]
+
         # Extract element index and natural coordinates
         el_ind = exp_data_i["Element"].to_numpy(dtype=int)
+    
         # gh = exp_data_i[["h","r"]].to_numpy()
         gh = exp_data_i[["g","h"]].to_numpy()
-        out_frame = exp_data_i[["point_ind","x_proj","y_proj","z_proj"]]
+        out_frame = exp_data_i[["point_ind","x_proj","y_proj","z_proj","Camera_pair","Load","Compressive Force"]]
         for QoI, predictions in frame.items():
             print(QoI)
             # Does output have multiple posterior samples?
@@ -67,12 +72,12 @@ if __name__ == "__main__":
                     output = np.concatenate((output, np.array([component for component in post_sam.values()],ndmin=2, dtype="float").T), axis=1)
                     output_names.extend(["_".join((QoI, coord, str(j))) for coord in post_sam.keys()])
 
-                interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=2)
+                interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=0)
                 interp_output = pd.DataFrame(interp_output, columns=output_names)
             else:
                 # Otherwise the prediction is an average across the posterior
                 output = np.array([component for component in predictions.values()],ndmin=2).T
-                interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=2)
+                interp_output = intp_nodes_to_cloud(el_ind, gh, output, conn, GH = [], skip_nodes=0)
                 interp_output = pd.DataFrame(interp_output, columns=["_".join((QoI,coord)) for coord in predictions.keys()])
                 interp_output.reset_index(drop=True, inplace=False)
 

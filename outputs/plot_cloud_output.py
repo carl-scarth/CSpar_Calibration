@@ -4,11 +4,17 @@ import os
 
 split_frames = True # Is output comprised of multiple frames (e.g. load steps)
 
-file_str = "LHSDesign40x4"
+file_str = "LHSDesign100x8_6"
 # Combines output with point cloud coordinates for visualising in paraview
-cloud_file = "..\\inputs\\Interpolated_DIC_downsam_12.csv"
+# Modify for multiple input point clouds
+cloud_dir = "..\\inputs\\"
+#cloud_file = "..\\inputs\\Interpolated_DIC_downsam_12.csv"
+# Need to keep in same order as calibration code
+cloud_files = ["Interpolated_DIC_multistep_150kN_LC.csv", "Interpolated_DIC_multistep_150kN_RC.csv"]
 coord_str = ["x_proj","y_proj","z_proj"]
-disp_str = ["w_rot"]
+# Need to account for multiple, if not already
+disp_str = ["u","w"]
+disp_label = "rot"
 # data_file = "training_data_mean_LHSDesign40x4"
 # data_files = ["eta_mu_LHSDesign40x4.csv","eta_sigma_LHSDesign40x4.csv","eta_sam_LHSDesign40x4.csv","eta_mu_mu_LHSDesign40x4.csv","eta_sigma_mu_LHSDesign40x4.csv"]
 # data_files = ["eta_mu_mu_LHSDesign40x4.csv","eta_sigma_mu_LHSDesign40x4.csv"]
@@ -23,15 +29,41 @@ data_files = ["eta_sam_y",
 
 res_label = ["eta_sam_y","eta_sam_y_mu"] # label of files for which residual calculations are required, if any
 
-cloud_data = pd.read_csv(cloud_file)
+cloud_data = [pd.read_csv(os.path.join(cloud_dir, cloud_file)) for cloud_file in cloud_files]
 
 # initialise output frame using cloud coordinates
-data = cloud_data[coord_str]
-displacement = cloud_data[disp_str].to_numpy()
+data = pd.DataFrame(columns=cloud_data[0].columns.values)
+n_y = []
+for frame in cloud_data:
+    data = pd.concat((data,frame),axis=0)
+    n_y.append(frame.shape[0])
+
+print(n_y)
+
+#displacement = cloud_data[disp_str].to_numpy()
+displacement = data[[disp+"_"+disp_label for disp in disp_str]].to_numpy()
 
 for file in data_files:
     file_data = pd.read_csv(file+"_"+file_str+".csv")
-    data = pd.concat((data, file_data), axis=1)
+    #print(data.shape)
+    print(file_data.shape)
+    print(file_data)
+    #print(file_data)
+    file_data_cols = file_data.columns.values
+    # new_cols = pd.DataFrame(np.empty((data.shape[0],len(disp_str)*file_data.shape[1])),columns=['_'.join((col_name,comp)) for comp in disp_str for col_name in file_data_cols])
+    new_cols = np.empty((data.shape[0],len(disp_str)*file_data.shape[1]))
+    for i in range(len(cloud_files)):
+        for j, comp in enumerate(disp_str):
+            file_data_ij = file_data.iloc[(j*n_y[i]+2*i*sum([n_y[i] for i in range(i)])):(j+1)*n_y[i]+2*i*sum([n_y[i] for i in range(i)])]
+            file_data_ij.columns = ['_'.join((col_name, comp)) for col_name in file_data_cols]
+            new_cols[i*sum([n_y[i] for i in range(i)]):sum(n_y[i] for i in range(i+1)),j*file_data.shape[1]:(j+1)*file_data.shape[1]] = file_data_ij
+            
+    new_cols = pd.DataFrame(new_cols,columns= ['_'.join((col_name,comp)) for comp in disp_str for col_name in file_data_cols])
+    data = pd.concat((data, new_cols.set_index(data.index)), axis=1)
+    print(data)
+    # GOOD UP TO HERE!!!
+    vhghghj
+
     if file in res_label:
         print(file)
         res = file_data.to_numpy() - displacement # Residual
