@@ -1,4 +1,5 @@
 import numpy as np
+import json
 
 def extract_const_frame(in_dict, disp_str):
     # Assume number of frames is the same for each sample, and the number of nodes 
@@ -31,3 +32,22 @@ def extract_const_frame(in_dict, disp_str):
         out_mat[:,i] = disp_i
   
     return(out_mat,n_nodes,n_frames)
+
+# converts the basis and mean functions to a json with structure:
+# out_scruct["Frame"][i]["Bases"]
+#                       ["Training_Data_Mean"]
+# where "Bases" contains an n_nodes list of n_bases basis values
+def basis_mean_to_json(n_frames, n_nodes, K, mu_dt, disp_str):
+    out_dict = {"Frame" : []} # Initialise dictionary
+    for i in range(n_frames):
+        frame_dict = {"Bases"              : {},
+                      "Training_Data_Mean" : {}}
+        for j, comp in enumerate(disp_str):
+            K_ij = K[i*n_nodes+j*n_frames*n_nodes:((i+1)*n_nodes+j*n_frames*n_nodes),:]
+            # Also output model mean to the same json
+            mu_ij = mu_dt[i*n_nodes+j*n_frames*n_nodes:(i+1)*n_nodes+j*n_frames*n_nodes]
+            frame_dict["Training_Data_Mean"][comp] = mu_ij.tolist()
+            frame_dict["Bases"][comp] = K_ij.tolist()
+
+    out_json = json.dumps(out_dict)
+    return out_json
