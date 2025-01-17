@@ -1,10 +1,12 @@
 import sys
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 #import matplotlib.pyplot as plt
 import os.path
 
-header_dir = "C:\\Users\\cs2361\\Documents\\Bayesian_Model_Calibration\\source" # directory of sampling headers
+#header_dir = "C:\\Users\\cs2361\\Documents\\Bayesian_Model_Calibration\\source" # directory of sampling headers
+header_dir = "..\\source" # directory of sampling headers
 sys.path.append(header_dir) # add header directory to path
 from LHS_Design import transformed_LHS  # Import Latin Hypercube module
 
@@ -152,22 +154,31 @@ inputs = [
 ]
 # Fullest example I can think of
 inputs = [
-    ['E11', 'Gaussian', 150.0, 6.0, False], # NIAR data, E11c, RTD
-    ['E22', 'Gaussian', 8.96, 6.0, False],  # NIAR data, E22t, RTD
-    ['G12', 'Gaussian', 4.69, 6.0, False],    # NIAR data, G12,s RTD.
-    ['t_ply','Gaussian', 0.125, 3.0, False],   # Mean taken from past data of material used in Bath, mean chosen from Engineering judgement of a conservative but reasonable spread in values (+/- 1mm uncertainty)
-    ['x_spring_error', 'Gaussian', 0.0, 2/3, False],
-    ['LFlange_theta', 'Gaussian', 0.0, 1.0, False], 
-    ['RFlange_theta', 'Gaussian', 0.0, 1.0, False], 
-    ['K_rig', 'Loguniform', np.exp(6.0), np.exp(12.0), True],
-    ['K', 'Loguniform', np.exp(4.0), np.exp(11.5), True],
-    ['rad_thin', 'Uniform',	-0.1,	2.5, True]
+    ['E11', 'Gaussian', 150.0, 6.0, True], # NIAR data, E11c, RTD
+    ['E22', 'Gaussian', 8.96, 6.0, True],  # NIAR data, E22t, RTD
+    ['G12', 'Gaussian', 4.69, 6.0, True],    # NIAR data, G12,s RTD.
+    ['t_ply','Gaussian', 0.125,5.0 , True],   # Mean taken from past data of material used in Bath, mean chosen from Engineering judgement of a conservative but reasonable spread in values (+/- 1mm uncertainty)
+    ['x_spring_error', 'Gaussian', 0.0, 2/3, True],
+    ['log_K_rig', 'Uniform', 5.9, 12.0, True],
+    ['log_K', 'Halfnormal', 4.0, 2.5, True],
+    ['rad_thin', 'Halfnormal', 0,	0.51, True]
     ]
+
+
+# Change x_spring error sampling to uniform  to widen DoE
 
 # What about misalignment in y direction?
 
 N = 250 # Number of samples to be generated
-xLHS = transformed_LHS(inputs, N, sampler_package="scikit-optimize", sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":10000})
+#xLHS = transformed_LHS(inputs, N, sampler_package="scikit-optimize", sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":1000})
+xLHS = transformed_LHS(inputs, N, sampler_package="scipy") #, sampler_kwargs={"lhs_type":"classic","criterion":"maximin", "iterations":1000})
+print(xLHS)
+col_names = [input[0] for input in inputs]
+x_print = pd.DataFrame(xLHS,columns=col_names)
+print(x_print)
+x_print.hist(bins = 25)
+plt.show()
+dasdasd
 d = len(inputs) # Number of inputs
 
 # If a log distribution, output the natural log as this is a more natural scale for the Gaussian process

@@ -48,7 +48,7 @@ chains = 3 # Number of chains for simulation
 # Set up simulation data
 
 # Load in emulator training data input values from Design of Experiments. 
-in_file = "LHSDesign100x8_5" # File identifier string for input and output files
+in_file = "LHSDesign100x8" # File identifier string for input and output files
 XT_sim = fread(paste("inputs/",in_file,".csv", sep = ""))
 
 # Determine useful quantities from model inputs and outputs. Variable names 
@@ -104,7 +104,6 @@ pairs(t_pred,col = "blue", pch=4,
       cex.axis=1.5,
       cex.lab=1.5)
 
-#-------------------------------------------------------------------------------
 
 # Outputs at the training data points are standardised to have zero mean vector
 # (i.e. zero mean at each node), and overall standard deviation of 1, then 

@@ -4,31 +4,25 @@ import os
 
 split_frames = True # Is output comprised of multiple frames (e.g. load steps)
 split_cam_pairs = True # Separate output for different camera pairs
-file_str = "LHSDesign100x8_6"
+#file_str = "LHSDesign100x8"
+file_str = "nominal_inputs_translator"
 # Combines output with point cloud coordinates for visualising in paraview
 # Modify for multiple input point clouds
 cloud_dir = "..\\inputs\\"
 #cloud_file = "..\\inputs\\Interpolated_DIC_downsam_12.csv"
 # Need to keep in same order as calibration code
-cloud_files = ["Interpolated_DIC_multistep_150kN_LC.csv", "Interpolated_DIC_multistep_150kN_RC.csv"]
+cloud_files = ["E:Calibration_outputs_for_paper\\Interpolated_DIC_multistep_150kN_LC.csv", "E:Calibration_outputs_for_paper\\Interpolated_DIC_multistep_150kN_RC.csv"]
 coord_str = ["x_proj","y_proj","z_proj"]
 # Need to account for multiple, if not already
 disp_str = ["u","w"]
 disp_label = "rot"
-# data_file = "training_data_mean_LHSDesign40x4"
-# data_files = ["eta_mu_LHSDesign40x4.csv","eta_sigma_LHSDesign40x4.csv","eta_sam_LHSDesign40x4.csv","eta_mu_mu_LHSDesign40x4.csv","eta_sigma_mu_LHSDesign40x4.csv"]
-# data_files = ["eta_mu_mu_LHSDesign40x4.csv","eta_sigma_mu_LHSDesign40x4.csv"]
-data_files = ["eta_sam_y", 
-              "eta_sigma_y",
-              "eta_mu_y", 
-              "eta_mu_y_mu", 
-              "eta_mu_y_sigma", 
-              "eta_sam_y_mu",
-              "eta_sam_y_sigma",
-              "eta_sigma_y_mu"]
 
-res_label = ["eta_sam_y","eta_sam_y_mu"] # label of files for which residual calculations are required, if any
+#data_files = ["eta_sam_y_mu"]
+data_files = ["ABAQUS"]
 
+
+#res_label = ["eta_sam_y_mu"] # label of files for which residual calculations are required, if any
+res_label = ["ABAQUS"]
 cloud_data = [pd.read_csv(os.path.join(cloud_dir, cloud_file)) for cloud_file in cloud_files]
 
 # initialise output frame using cloud coordinates
@@ -38,11 +32,15 @@ for frame in cloud_data:
     data = pd.concat((data,frame),axis=0)
     n_y.append(frame.shape[0])
 
+
 #displacement = cloud_data[disp_str].to_numpy()
 displacement = data[[disp+"_"+disp_label for disp in disp_str]].to_numpy()
-
+print("here")
 for file in data_files:
-    file_data = pd.read_csv(file+"_"+file_str+".csv")
+    print(file)
+    file_data = pd.read_csv("E:Calibration_outputs_for_paper\\"+file+"_"+file_str+".csv")
+    print(file_data)
+    print(file_data.columns.values)
     file_data_cols = file_data.columns.values
     new_cols = np.empty((data.shape[0],len(disp_str)*file_data.shape[1]))
     for i in range(len(cloud_files)):
@@ -56,6 +54,8 @@ for file in data_files:
     
     if file in res_label:
         for i, comp in enumerate(disp_str):
+            print(i)
+            print(comp)
             # Calculate residual
             res = new_cols[['_'.join((col_name,comp)) for col_name in file_data_cols]].to_numpy() - displacement[:,i].reshape((-1,1))
             abs_res = np.absolute(res)  # Absolute value of residual
@@ -79,11 +79,12 @@ for i, dataset in enumerate(cloud_data):
             out_dir = "cloud_output"
         else:
             out_dir = "cloud_output_dataset_" + str(i)
-        if out_dir not in os.listdir(os.getcwd()):
-            os.mkdir(out_dir)
+        #if out_dir not in os.listdir(os.getcwd()):
+        if out_dir not in os.listdir("E:Calibration_outputs_for_paper"):
+            os.mkdir("E:Calibration_outputs_for_paper\\"+out_dir)
         for frame_ind in frames:
             frame_data = dataset[inc_ind==frame_ind]
-            frame_data.to_csv(os.path.join(out_dir,"frame_"+str(frame_ind)+".csv"),sep=",",index=False)
+            frame_data.to_csv(os.path.join("E:Calibration_outputs_for_paper\\"+out_dir,"frame_"+str(frame_ind)+".csv"),sep=",",index=False)
     else:
         if len(cloud_data) == 1:
             dataset.to_csv("cloud_output.csv",sep=",",index=False)

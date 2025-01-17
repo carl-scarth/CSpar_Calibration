@@ -10,8 +10,9 @@ from interpolate_data import intp_nodes_to_cloud
 if __name__ == "__main__":
 
     # Set up for output across multiple frames, input via json
-    infile = "LHSDesign100x8_6"
-    output_file = "gp_predictions_nonlinear_" + infile + ".json"
+    infile = "LHSDesign100x8"
+    # output_file = "gp_predictions_nonlinear_" + infile + ".json"
+    output_file = "E:Calibration_outputs_for_paper\\gp_predictions_nonlinear_" + infile + "obs_err5e-2.json"
     # conn_file = "nominal_shell_mesh_outer_surface_elements" # Connectivity
     # Load inputs from file
     conn_file = "new_spar_mesh_outer_surface_elements"
@@ -45,8 +46,10 @@ if __name__ == "__main__":
     d_y = len(out_str) # Number of y components
     
     # Loop over the entries of in_dict and interpolate the data to a point cloud
-    if "interp_gp_output" not in os.listdir(os.getcwd()):
-        os.mkdir("interp_gp_output")
+    #if "interp_gp_output" not in os.listdir(os.getcwd()):
+    #    os.mkdir("interp_gp_output")
+    if "interp_gp_output" not in os.listdir("E:Calibration_outputs_for_paper"):
+        os.mkdir("E:Calibration_outputs_for_paper\\interp_gp_output")
 
     for i, frame in enumerate(in_dict["Frame"]):
         print(i)
@@ -86,6 +89,7 @@ if __name__ == "__main__":
             out_frame = pd.concat((out_frame,interp_output), axis=1)
 
         # Write to csv
-        out_frame.to_csv("interp_gp_output\\Frame_"+str(i)+".csv",sep=",",index=False)
+        #out_frame.to_csv("interp_gp_output\\Frame_"+str(i)+".csv",sep=",",index=False)
+        out_frame.to_csv("E:Calibration_outputs_for_paper\\interp_gp_output\\Frame_"+str(i)+".csv",sep=",",index=False)
         # Add residuals if need be, though leave till next time - doesn't matter for this first run and
         # may not downsample in same way in future

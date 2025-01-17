@@ -9,7 +9,7 @@ from matplotlib import rcParams
 import os
 
 shell_mesh = True # Is the mesh comprised of continuum shells?
-infile = "LHSDesign100x8_6"
+infile = "LHSDesign100x8"
 new_spar = True # Are we considering the new spar geometry?
 flex_support = True # Are we using the model with flexible supports?
 flex_ground = False # Are we using the model with flexible ground?
@@ -26,7 +26,7 @@ else:
     node_file = "CSpar_sam_mesh_nodes.csv" # Nodes of nominal input (ignores geometric uncertainty)
     element_file = "CSpar_sam_mesh_elements.csv" # Element connectivity
 
-basis_file = "basis_nonlinear_" + infile + "_uw150z.json"
+basis_file = "basis_nonlinear_" + infile + ".json"
 
 # Read in the element and node definitions
 elements = np.loadtxt(element_file, dtype = int, delimiter = ',')
@@ -35,8 +35,11 @@ nodes = np.loadtxt(node_file, delimiter = ',')
 with open(basis_file, "r") as f:
     # Load in string from file
     in_dict = json.loads(f.readline())
-  
+
 # Convert Basis and mean data to numpy
+print(isinstance(in_dict,dict))
+print(in_dict.keys())
+print(len(in_dict["Frame"]))
 for frame in in_dict["Frame"]:
     frame["Bases"] = {label : np.array(value, dtype="float") for label, value in frame["Bases"].items()}
     frame["Training_Data_Mean"] = {label : np.array(value, dtype="float") for label, value in frame["Training_Data_Mean"].items()}
@@ -45,7 +48,8 @@ for frame in in_dict["Frame"]:
 
 
 max_ind = {label : np.argmax(np.abs(value)) for label, value in in_dict["Frame"][-1]["Training_Data_Mean"].items()}
-max_ind = {'u': 4164, 'v': 182, 'w': 19} # New spars (simply supported) (comes out as same value as above)
+# max_ind = {'u': 4164, 'v': 182, 'w': 684} # New spars (simply supported) (comes out as same value as above)
+max_ind = {'u': 6404, 'v': 182, 'w': 684} # New spars (simply supported) (comes out as same value as above) (changed to midpoint on outer surface, maximum displacement is on inner surface)
 if flex_support or flex_ground:
     max_ind = {key : value - 2 for key, value in max_ind.items()} # (don't have the reference points in the new model)
 
@@ -56,11 +60,13 @@ n_bases = in_dict["Frame"][0]["Bases"][out_str[0]].shape[1]
 n_out = len(out_str)
 
 # Remove the first column of nodes and elements which is just an index
+node_ind = nodes[2:,0]
 nodes = nodes[:,1:]
 elements = elements[:,1:]
 # Discard the first two points which are reference points defined on the assembly, and aren't
 # referenced in the connectivity file
 nodes = nodes[2:,:]
+[print(nodes[value]) for value in max_ind.values()]
 
 # If longittudinal displacement w is in the output, extract the second row from
 # each basis, which gives corresponds to displacement at the reference point. 
@@ -132,6 +138,8 @@ rcParams.update({'figure.figsize' : (8,6),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
+#rcParams['axes.prop_cycle'] = plt.cycler(color=plt.cm.tab10.colors)
+
 if "w" in out_str:
     fig, ax = plt.subplots()
     for base in basis_RP.T:
@@ -148,14 +156,24 @@ if "w" in out_str:
 
 # Plot output at location of maximum absolute mean displacement (across training data)
 # in final frame (useful for vertical displacement)
-fig3, axes3 = plt.subplots(1,n_out)#, sharey=True)
+print([str(value) for value in range(0,150,25)])
+fig3, axes3 = plt.subplots(n_out,1)#, sharey=True)
 if n_out == 1:
     axes3 = [axes3]
 for i, ax3 in enumerate(axes3):
     for j, base in enumerate(basis_max[out_str[i]].T):
-        ax3.plot(range(n_frames),base, label="K_"+str(j+1))
+        ax3.plot([10*value for value in range(n_frames)],base, label="K_"+str(j+1))
         ax3.set_title(out_str[i])
-        ax3.set_xlabel("Increment")
+        ax3.set_xlabel("Force (kN)")
+        ax3.set_xlim(0,150)
+        #ax3.set_xticklabels([str(value) for value in range(0,151,25)])
+        xticks = np.arange(0, 150.01, 25)
+        xlabels = [str(value) for value in xticks]
+        ax3.set_xticks(xticks, labels=xlabels)
+        if i == 0:
+            ax3.set_ylim(-1,4)
+        else:
+            ax3.set_ylim(-0.425,4)
         if i == 0:
             ax3.set_ylabel("K_i")
         ax3.legend()

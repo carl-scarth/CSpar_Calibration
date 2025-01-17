@@ -43,7 +43,7 @@ b_y = 0.05 # Rate parameter for the lambda_y prior
 # b_eta = 0.0001  # Rate parameter for the lambda_eta prior 
 iter = 5000 # Number of samples per chain
 chains = 3 # Number of chains for simulation
-in_file = "LHSDesign100x8_1" # File identifier string for input and output csvs
+in_file = "LHSDesign100x8" # File identifier string for input and output csvs
 exp_data_file_1 = "Interpolated_DIC_multistep_150kN_LC" # Identifier of file containing DIC data
 exp_data_file_2 = "Interpolated_DIC_multistep_150kN_RC" # Identifier of file containing DIC data
 # surface_elements = "nominal_shell_mesh_outer_surface_elements" # File identifier string for surface mesh connectivity
@@ -413,6 +413,12 @@ lambda_hist(lambda_y, prior_shape = a_y, prior_rate = b_y, label = "lambda_y") #
 # Transform calibrated inputs onto their original scale for plotting and output
 tf_trans = rescale_inputs(tf, t_min, t_max)
 # Plot prior and posterior distribution of the calibration parameters.
+#tf_trans[,6] = exp(tf_trans[,6])
+tf_trans[,7] = exp(tf_trans[,7])
+tf_param$param_1[7] = exp(tf_param$param_1[7])
+tf_param$param_2[7] = exp(tf_param$param_2[7])
+#tf_param$param_1[6] = exp(tf_param$param_1[6])
+#tf_param$param_2[6] = exp(tf_param$param_2[6])
 calibration_inp_hist(tf_trans, tf_param = tf_param, inp_labels = labels, nrows=2, new_window = T)
 
 # estimate means and modes of the posterior distribution and print to the screen

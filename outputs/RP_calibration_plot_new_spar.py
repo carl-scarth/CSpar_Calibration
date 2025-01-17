@@ -80,17 +80,18 @@ rcParams.update({'figure.figsize' : (12,9),
                 'ytick.labelsize': 14,
                 'legend.fontsize': 14})
 
-file_str = "LHSDesign100x8_6"
+file_str = "LHSDesign100x8"
 
 # GP_file = "LHSDesign40x4_RP_pred.csv"
 # DIC_file = "Interpolated_DIC.csv"
 # For if I want to load in actual data
 # Folder Containing DIC data
-DIC_folders = {"LC": "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Left_Camera_Pair\\Interpolated_Data_150kN", 
-              "RC": "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Right_Camera_Pair\\Interpolated_Data_150kN"}
-
+#DIC_folders = {"LC": "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Left_Camera_Pair\\Interpolated_Data_150kN", 
+#              "RC": "..\\..\\Geir_Olafsson\\CS02P\\DIC\\Right_Camera_Pair\\Interpolated_Data_150kN"}
+DIC_folders = {"LC": "E:Calibration_outputs_for_paper\\DIC\\Left_Camera_Pair\\Interpolated_Data_150kN", 
+              "RC": "E:Calibration_outputs_for_paper\\DIC\\Right_Camera_Pair\\Interpolated_Data_150kN"}
 # Folder Containg GP predictions, interpolated to DIC coordinates
-GP_DIC_folder = "interp_gp_output" # folder containng interpolated DIC
+GP_DIC_folder = "E:Calibration_outputs_for_paper\\interp_gp_output" # folder containng interpolated DIC
 n_incs = 16 # number of increments
 # DIC_force_disp_file = "..\\inputs\\CS02P_mean_disp_412.5mm.csv"
 DIC_force_disp_file = "..\\inputs\\CS02P_mean_w_tip_LC.csv"
@@ -100,13 +101,13 @@ DIC_force_disp_file_u = "..\\inputs\\CS02P_mean_u_mid_LC.csv"
 DIC_force_disp_file_u2 = "..\\inputs\\CS02P_mean_u_mid_RC.csv"
 
 # Load gp mean and standard deviation (used a different name for training gp - fix later)
-gp_mean = np.loadtxt(file_str+ "_max_eta_sam_mu_w.csv", delimiter=",", skiprows=0)
-gp_sd = np.loadtxt(file_str + "_max_eta_sam_sigma_w.csv", delimiter=",", skiprows=0)
-gp_sam = np.loadtxt(file_str + "_max_eta_sam_w.csv", delimiter=",", skiprows=0)
+gp_mean = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str+ "_max_eta_sam_mu_w.csv", delimiter=",", skiprows=0)
+gp_sd = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str + "_max_eta_sam_sigma_w.csv", delimiter=",", skiprows=0)
+gp_sam = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str + "_max_eta_sam_w.csv", delimiter=",", skiprows=0)
 
-gp_mean_u = np.loadtxt(file_str+ "_max_eta_sam_mu_u.csv", delimiter=",", skiprows=0)
-gp_sd_u = np.loadtxt(file_str + "_max_eta_sam_sigma_u.csv", delimiter=",", skiprows=0)
-gp_sam_u = np.loadtxt(file_str + "_max_eta_sam_u.csv", delimiter=",", skiprows=0)
+gp_mean_u = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str+ "_max_eta_sam_mu_u.csv", delimiter=",", skiprows=0)
+gp_sd_u = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str + "_max_eta_sam_sigma_u.csv", delimiter=",", skiprows=0)
+gp_sam_u = np.loadtxt("E:Calibration_outputs_for_paper\\Predictions_obserr5e-2\\"+file_str + "_max_eta_sam_u.csv", delimiter=",", skiprows=0)
 
 # Load in experimental force displacement from loaded end of web
 DIC_force_disp = pd.read_csv(DIC_force_disp_file)
@@ -184,6 +185,9 @@ axes[1].set_xlabel("Displacement (mm)")
 # Also plot force (longitudinal) displacement for selected DIC data points
 point_subset_w = {"LC" : [26805, 34982, 32996], "RC" : [12734 ,33496, 18927]}
 point_subset_u = {"LC" : [22841, 23197, 23275, 23294, 23717], "RC" : [8513, 8529, 8566, 15030, 28731]}
+
+# THIS IS GOING TO BE TOO MUCH OF A PAIN ALSO. LOOK AT FINDING THE CLOSEST NODE TO WHERE THE FD IS, EVEN PICK ALL FOUR AND TAKE AN AVERAGE
+# extract data tomorrow before leaving. Plot using calibration_res code. Then produce figure, plus observation error figure next week
 
 # print(GP_DIC.columns.values)
 for key, points in point_subset_w.items():

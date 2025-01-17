@@ -48,6 +48,6 @@ def basis_mean_to_json(n_frames, n_nodes, K, mu_dt, disp_str):
             mu_ij = mu_dt[i*n_nodes+j*n_frames*n_nodes:(i+1)*n_nodes+j*n_frames*n_nodes]
             frame_dict["Training_Data_Mean"][comp] = mu_ij.tolist()
             frame_dict["Bases"][comp] = K_ij.tolist()
+        out_dict["Frame"].append(frame_dict)
 
-    out_json = json.dumps(out_dict)
-    return out_json
+    return out_dict
