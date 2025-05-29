@@ -17,12 +17,12 @@ library(matrixStats)
 setwd("C:/Users/cs2361/Documents/CSpar_Calibration/")
 
 # include functions which are called in this code
-source("source/utils.R")
-source("source/dimension_reduction.R")
-source("source/prior_posterior_plots.R")
-source("source/abaqus_json.R")
-source("source/gp_predictions.R")
-source("source/transform_input_output.R")
+source("src/utils.R")
+source("src/dimension_reduction.R")
+source("src/prior_posterior_plots.R")
+source("src/abaqus_json.R")
+source("src/gp_predictions.R")
+source("src/transform_input_output.R")
 
 #-------------------------------------------------------------------------------
 

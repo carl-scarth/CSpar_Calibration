@@ -2,8 +2,8 @@
 # calibrated models
 
 library(MASS) # Needed for mvrnorm
-source("source/covariance_matrices.R")
-source("source/dimension_reduction.R")
+source("src/covariance_matrices.R")
+source("src/dimension_reduction.R")
 
 zero_mean_gp_pred <- function(y, K_x, k_x_xstar, k_xstar, sam_gp = F, N_sam = 1, inv_K = F, nugget = F){
   # Make predictions of a zero-mean Gaussian process, where y is the training
