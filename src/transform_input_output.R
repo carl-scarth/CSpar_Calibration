@@ -58,7 +58,7 @@ standardise_vector_output <- function(y, mu_y = NULL, sigma_y = NULL, std = FALS
     # affects the standard deviation (given the mean vector is used, rather than
     # the overall mean)
     if (q_y > 1 & scale_by_component) {
-      simga_y = c()
+      sigma_y = c()
       n_y = nrow(y)/q_y
       for (i in 1:q_y) {
         y_i = y[((i-1)*n_y+1):(i*n_y),]
